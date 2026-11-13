@@ -1,0 +1,429 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState } from 'react';
+import {
+  Plus,
+  Sun,
+  Moon,
+  ArrowDownRight,
+  ArrowUpRight,
+  Calendar,
+  Filter,
+  Menu,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  Lock,
+  Cloud,
+  CloudOff,
+  RefreshCw
+} from 'lucide-react';
+import { useFinance } from '../../context/FinanceContext';
+import { useAuth } from '../../context/AuthContext';
+import { TimeFilterPeriod } from '../../types/finance';
+import { MONTH_NAMES_PT, MONTH_NAMES_SHORT_PT } from '../../utils/formatters';
+
+interface HeaderProps {
+  currentTab: string;
+  onOpenMobileMenu?: () => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ currentTab, onOpenMobileMenu }) => {
+  const {
+    filter,
+    setFilter,
+    theme,
+    toggleTheme,
+    openQuickEntry,
+    selectedYear,
+    selectedMonth,
+    isFutureView,
+    goToNextMonth,
+    goToPrevMonth,
+    goToCurrentMonth,
+    cloudSyncStatus,
+    cloudSyncMessage,
+    syncNowWithCloud
+  } = useFinance();
+
+  const { logout } = useAuth();
+
+  const [isMobilePeriodOpen, setIsMobilePeriodOpen] = useState(false);
+
+  const handlePeriodChange = (period: TimeFilterPeriod) => {
+    setFilter(prev => ({ ...prev, period }));
+    setIsMobilePeriodOpen(false);
+  };
+
+  const getTabLabel = (id: string) => {
+    switch (id) {
+      case 'dashboard': return 'Dashboard Principal';
+      case 'transactions': return 'Extrato & Movimentações';
+      case 'incomes': return 'Entradas Financeiras';
+      case 'expenses': return 'Despesas Fixas & Variáveis';
+      case 'debts': return 'Central de Dívidas & Pendências';
+      case 'cards': return 'Cartões de Crédito & Faturas';
+      case 'power-of-purchase': return 'Meu Poder de Compra';
+      case 'analytics': return 'Gráficos & Análises';
+      case 'goals': return 'Planejamento & Objetivos';
+      case 'calendar': return 'Calendário Financeiro';
+      case 'reports': return 'Relatórios & Exportações';
+      case 'settings': return 'Configurações';
+      default: return 'Controle Financeiro';
+    }
+  };
+
+  const getPeriodLabel = () => {
+    if (filter.period === 'specific_month' || filter.period === 'current_month' || filter.period === 'next_month' || filter.period === 'previous_month') {
+      const mName = MONTH_NAMES_SHORT_PT[selectedMonth] || '';
+      return `${mName}/${String(selectedYear).slice(2)}${isFutureView ? ' (Futuro)' : ''}`;
+    }
+    switch (filter.period) {
+      case 'next_3_months': return 'Próximos 3M';
+      case 'next_6_months': return 'Próximos 6M';
+      case 'last_3_months': return 'Últimos 3M';
+      case 'last_6_months': return 'Últimos 6M';
+      case 'all': return 'Histórico';
+      default: return 'Período';
+    }
+  };
+
+  return (
+    <header className="sticky top-0 z-30 flex items-center justify-between gap-2.5 px-3 sm:px-6 lg:px-8 py-2.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800">
+      {/* Zone 1: Mobile Hamburger + Contextual Title & Breadcrumb */}
+      <div className="flex items-center gap-2 min-w-0">
+        {/* Mobile Hamburger Menu Button */}
+        <button
+          type="button"
+          onClick={onOpenMobileMenu}
+          className="lg:hidden p-2 -ml-1 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors shrink-0"
+          aria-label="Abrir menu de módulos"
+          title="Ver todos os módulos"
+        >
+          <Menu className="w-5 h-5 text-slate-800 dark:text-slate-100" />
+        </button>
+
+        {/* Mobile Title with interactive trigger */}
+        <button
+          type="button"
+          onClick={onOpenMobileMenu}
+          className="lg:hidden flex items-center gap-1.5 truncate text-left group"
+          title="Toque para escolher o módulo"
+        >
+          <div className="min-w-0">
+            <div className="flex items-center gap-1 text-[10px] text-slate-500 font-medium">
+              <span>Módulos</span>
+              <ChevronDown className="w-3 h-3 text-emerald-600 dark:text-emerald-400 group-hover:translate-y-0.5 transition-transform" />
+            </div>
+            <h1 className="text-base font-bold text-slate-900 dark:text-white truncate">
+              {getTabLabel(currentTab)}
+            </h1>
+          </div>
+        </button>
+
+        {/* Desktop Breadcrumb */}
+        <div className="hidden lg:block truncate">
+          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
+            <span>Finanças</span>
+            <span aria-hidden="true">/</span>
+            <span className="text-slate-700 dark:text-slate-300 truncate">{getTabLabel(currentTab)}</span>
+            {isFutureView && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300/40">
+                <Sparkles className="w-3 h-3" />
+                <span>Projeção Futura</span>
+              </span>
+            )}
+          </div>
+          <h1 className="text-lg lg:text-xl font-bold tracking-tight text-slate-900 dark:text-white truncate">
+            {getTabLabel(currentTab)}
+          </h1>
+        </div>
+      </div>
+
+      {/* Zone 2: Period Filter Selector (Segmented on desktop with Next Months projection + Month Stepper) */}
+      <div className="hidden md:flex items-center gap-2">
+        {/* Month Stepper: ◀ Mês Ano ▶ */}
+        <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 rounded-xl p-0.5 text-xs font-medium border border-slate-200/60 dark:border-slate-700/60">
+          <button
+            onClick={goToPrevMonth}
+            title="Mês Anterior"
+            className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          
+          <button
+            onClick={goToCurrentMonth}
+            title="Voltar para o Mês Atual"
+            className={`px-2.5 py-1 text-xs font-bold font-mono min-w-[110px] text-center rounded-md transition-all ${
+              isFutureView
+                ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40'
+                : 'text-slate-900 dark:text-white'
+            }`}
+          >
+            <span>{MONTH_NAMES_PT[selectedMonth]} {selectedYear}</span>
+            {isFutureView && <span className="block text-[9px] font-sans font-normal opacity-90">✨ Projeção</span>}
+          </button>
+
+          <button
+            onClick={goToNextMonth}
+            title="Próximo Mês (Avançar no futuro)"
+            className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Quick Period Buttons: Mês Atual, Próximo Mês, Próximos 3M, Próximos 6M, Histórico */}
+        <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl text-xs font-medium">
+          <button
+            onClick={() => handlePeriodChange('current_month')}
+            className={`px-2.5 py-1.5 rounded-lg transition-all ${
+              filter.period === 'current_month'
+                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-semibold'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Mês Atual
+          </button>
+
+          <button
+            onClick={() => handlePeriodChange('next_month')}
+            className={`px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 ${
+              filter.period === 'next_month'
+                ? 'bg-emerald-600 text-white shadow-xs font-semibold'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Sparkles className="w-3 h-3" />
+            <span>Próximo Mês</span>
+          </button>
+
+          <button
+            onClick={() => handlePeriodChange('next_3_months')}
+            className={`px-2.5 py-1.5 rounded-lg transition-all ${
+              filter.period === 'next_3_months'
+                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-semibold'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Próximos 3M
+          </button>
+
+          <button
+            onClick={() => handlePeriodChange('next_6_months')}
+            className={`px-2.5 py-1.5 rounded-lg transition-all ${
+              filter.period === 'next_6_months'
+                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-semibold'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Próximos 6M
+          </button>
+
+          <button
+            onClick={() => handlePeriodChange('previous_month')}
+            className={`px-2.5 py-1.5 rounded-lg transition-all ${
+              filter.period === 'previous_month'
+                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-semibold'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Anterior
+          </button>
+
+          <button
+            onClick={() => handlePeriodChange('all')}
+            className={`px-2.5 py-1.5 rounded-lg transition-all ${
+              filter.period === 'all'
+                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-semibold'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Histórico
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Period Stepper + Dropdown */}
+      <div className="flex items-center gap-1 md:hidden">
+        {/* Mobile month arrows */}
+        <button
+          onClick={goToPrevMonth}
+          className="p-1 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+          title="Mês anterior"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+
+        <div className="relative">
+          <button
+            onClick={() => setIsMobilePeriodOpen(!isMobilePeriodOpen)}
+            className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg ${
+              isFutureView
+                ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+            }`}
+          >
+            <Calendar className="w-3 h-3 text-slate-500" />
+            <span className="font-mono text-[11px]">{getPeriodLabel()}</span>
+            <ChevronDown className="w-3 h-3 text-slate-400" />
+          </button>
+
+          {isMobilePeriodOpen && (
+            <>
+              <div 
+                className="fixed inset-0 z-40" 
+                onClick={() => setIsMobilePeriodOpen(false)} 
+                aria-hidden="true"
+              />
+              <div className="absolute right-0 mt-1 w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl p-1 z-50 text-xs">
+                <button
+                  onClick={() => handlePeriodChange('current_month')}
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 font-medium"
+                >
+                  Mês Atual (Hoje)
+                </button>
+                <button
+                  onClick={() => handlePeriodChange('next_month')}
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-emerald-600 dark:text-emerald-400 font-semibold flex items-center justify-between"
+                >
+                  <span>Próximo Mês</span>
+                  <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950 px-1.5 py-0.5 rounded-xs">Projeção</span>
+                </button>
+                <button
+                  onClick={() => handlePeriodChange('next_3_months')}
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 font-medium"
+                >
+                  Próximos 3 Meses
+                </button>
+                <button
+                  onClick={() => handlePeriodChange('next_6_months')}
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 font-medium"
+                >
+                  Próximos 6 Meses
+                </button>
+                <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+                <button
+                  onClick={() => handlePeriodChange('previous_month')}
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500"
+                >
+                  Mês Anterior
+                </button>
+                <button
+                  onClick={() => handlePeriodChange('all')}
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500"
+                >
+                  Todo o Histórico
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        <button
+          onClick={goToNextMonth}
+          className="p-1 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+          title="Próximo mês"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Zone 3: Actions & Quick Launch CTA */}
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {/* Theme Toggle */}
+        <button
+          onClick={toggleTheme}
+          aria-label="Alternar tema"
+          className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+        >
+          {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
+        </button>
+
+        {/* Supabase Cloud Status Indicator */}
+        <button
+          onClick={syncNowWithCloud}
+          title={cloudSyncMessage || 'Sincronização na nuvem com Supabase'}
+          className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-all cursor-pointer ${
+            cloudSyncStatus === 'connected' || cloudSyncStatus === 'synced'
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200/70 dark:border-emerald-800/70'
+              : cloudSyncStatus === 'syncing'
+              ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200/70 dark:border-blue-800/70'
+              : cloudSyncStatus === 'table_missing' || cloudSyncStatus === 'session_expired'
+              ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200/70 dark:border-amber-800/70'
+              : cloudSyncStatus === 'not_configured' || cloudSyncStatus === 'unauthenticated'
+              ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+              : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200/70 dark:border-rose-800/70'
+          }`}
+        >
+          {cloudSyncStatus === 'syncing' ? (
+            <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-600 dark:text-blue-400" />
+          ) : cloudSyncStatus === 'connected' || cloudSyncStatus === 'synced' ? (
+            <Cloud className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+          ) : cloudSyncStatus === 'table_missing' || cloudSyncStatus === 'session_expired' ? (
+            <CloudOff className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+          ) : (
+            <CloudOff className="w-3.5 h-3.5 text-slate-500" />
+          )}
+          <span className="hidden md:inline text-[11px] font-semibold">
+            {cloudSyncStatus === 'syncing'
+              ? 'Sincronizando...'
+              : cloudSyncStatus === 'connected' || cloudSyncStatus === 'synced'
+              ? 'Nuvem Conectada'
+              : cloudSyncStatus === 'table_missing'
+              ? 'Criar Tabela SQL'
+              : cloudSyncStatus === 'session_expired'
+              ? 'Sessão Expirada'
+              : cloudSyncStatus === 'not_configured'
+              ? 'Nuvem Desconectada'
+              : 'Modo Local'}
+          </span>
+        </button>
+
+        {/* User Badge & Lock Screen Button */}
+        <button
+          onClick={logout}
+          title="Bloquear aplicativo (Usuário: Lucas Gomes)"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-800 transition-all cursor-pointer"
+        >
+          <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+          <span className="hidden md:inline font-semibold">Lucas</span>
+          <span className="text-[10px] text-slate-400 hidden xl:inline">• Bloquear</span>
+        </button>
+
+        {/* Quick Income shortcut (desktop) */}
+        <button
+          onClick={() => openQuickEntry('income')}
+          className="hidden xl:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border border-emerald-200/60 dark:border-emerald-800/60 rounded-xl transition-all"
+        >
+          <ArrowUpRight className="w-3.5 h-3.5" />
+          <span>+ Entrada</span>
+        </button>
+
+        {/* Quick Expense shortcut (desktop) */}
+        <button
+          onClick={() => openQuickEntry('expense')}
+          className="hidden xl:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/40 border border-rose-200/60 dark:border-rose-800/60 rounded-xl transition-all"
+        >
+          <ArrowDownRight className="w-3.5 h-3.5" />
+          <span>+ Despesa</span>
+        </button>
+
+        {/* PRIMARY CTA: + NOVO LANÇAMENTO */}
+        <button
+          onClick={() => openQuickEntry('all')}
+          className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 rounded-xl shadow-xs transition-all active:scale-98"
+        >
+          <Plus className="w-4 h-4" />
+          <span className="hidden sm:inline">+ NOVO LANÇAMENTO</span>
+          <span className="sm:hidden font-bold">Novo</span>
+        </button>
+      </div>
+    </header>
+  );
+};

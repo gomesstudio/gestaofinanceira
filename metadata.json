@@ -1,0 +1,6 @@
+{
+  "name": "Gestão Financeira Pro",
+  "description": "Sistema completo de controle financeiro pessoal com gestão de entradas, despesas fixas e variáveis, dívidas, cartões, poder de compra e objetivos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
