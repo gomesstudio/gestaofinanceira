@@ -24,6 +24,7 @@ import {
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency, formatDateBR, getTodayISO } from '../../utils/formatters';
 import { Transaction, TransactionStatus, TransactionType } from '../../types/finance';
+import { ActionFeedback, ActionFeedbackBanner, ConfirmDeleteModal } from '../common/ConfirmDeleteModal';
 
 export const TransactionsView: React.FC = () => {
   const {
@@ -52,6 +53,31 @@ export const TransactionsView: React.FC = () => {
   const [editDate, setEditDate] = useState('');
   const [editDueDate, setEditDueDate] = useState('');
   const [editStatus, setEditStatus] = useState<TransactionStatus>('paid');
+
+  // Delete confirmation & feedback state
+  const [pendingDeleteTx, setPendingDeleteTx] = useState<Transaction | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteFeedback, setDeleteFeedback] = useState<ActionFeedback | null>(null);
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDeleteTx || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      const result = await deleteTransaction(pendingDeleteTx.id);
+      setDeleteFeedback({
+        type: result.success && result.synced ? 'success' : 'error',
+        text: result.message
+      });
+    } catch (err: any) {
+      setDeleteFeedback({
+        type: 'error',
+        text: err?.message || 'Não foi possível excluir o lançamento.'
+      });
+    } finally {
+      setIsDeleting(false);
+      setPendingDeleteTx(null);
+    }
+  };
 
   const todayStr = getTodayISO();
 
@@ -131,6 +157,11 @@ export const TransactionsView: React.FC = () => {
           <span>Novo Lançamento</span>
         </button>
       </div>
+
+      <ActionFeedbackBanner
+        feedback={deleteFeedback}
+        onClose={() => setDeleteFeedback(null)}
+      />
 
       {/* Advanced Filter Bar */}
       <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3">
@@ -324,13 +355,14 @@ export const TransactionsView: React.FC = () => {
                             <Copy className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => {
-                              if (confirm(`Deseja excluir "${tx.description}"? O saldo bancário será recalculado.`)) {
-                                deleteTransaction(tx.id);
-                              }
+                            type="button"
+                            onClick={e => {
+                              e.stopPropagation();
+                              setPendingDeleteTx(tx);
                             }}
                             title="Excluir lançamento"
-                            className="p-1 hover:text-rose-600 transition-colors"
+                            aria-label={`Excluir lançamento ${tx.description}`}
+                            className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 transition-colors cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -444,6 +476,17 @@ export const TransactionsView: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ConfirmDeleteModal
+        isOpen={!!pendingDeleteTx}
+        title="Excluir Lançamento"
+        description="Deseja excluir este lançamento financeiro? O saldo bancário será recalculado automaticamente e nenhum outro lançamento será alterado."
+        itemLabel={pendingDeleteTx?.description}
+        itemValue={pendingDeleteTx ? formatCurrency(pendingDeleteTx.amount) : undefined}
+        isDeleting={isDeleting}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setPendingDeleteTx(null)}
+      />
     </div>
   );
 };

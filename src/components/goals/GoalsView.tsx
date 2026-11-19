@@ -22,6 +22,7 @@ import confetti from 'canvas-confetti';
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency, formatDateBR, getTodayISO } from '../../utils/formatters';
 import { FinancialGoal } from '../../types/finance';
+import { ActionFeedback, ActionFeedbackBanner, ConfirmDeleteModal } from '../common/ConfirmDeleteModal';
 
 export const GoalsView: React.FC = () => {
   const {
@@ -38,6 +39,29 @@ export const GoalsView: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [contributeGoal, setContributeGoal] = useState<FinancialGoal | null>(null);
   const [editingGoal, setEditingGoal] = useState<FinancialGoal | null>(null);
+  const [pendingDeleteGoal, setPendingDeleteGoal] = useState<FinancialGoal | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteFeedback, setDeleteFeedback] = useState<ActionFeedback | null>(null);
+
+  const handleConfirmDeleteGoal = async () => {
+    if (!pendingDeleteGoal || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      const result = await deleteGoal(pendingDeleteGoal.id);
+      setDeleteFeedback({
+        type: result.success && result.synced ? 'success' : 'error',
+        text: result.message
+      });
+    } catch (err: any) {
+      setDeleteFeedback({
+        type: 'error',
+        text: err?.message || 'Não foi possível excluir o objetivo.'
+      });
+    } finally {
+      setIsDeleting(false);
+      setPendingDeleteGoal(null);
+    }
+  };
 
   // Form states for Goal
   const [name, setName] = useState('');
@@ -176,6 +200,11 @@ export const GoalsView: React.FC = () => {
         </button>
       </div>
 
+      <ActionFeedbackBanner
+        feedback={deleteFeedback}
+        onClose={() => setDeleteFeedback(null)}
+      />
+
       {/* Capacity & Savings Callout Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
         <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
@@ -289,13 +318,14 @@ export const GoalsView: React.FC = () => {
                   </button>
 
                   <button
-                    onClick={() => {
-                      if (confirm(`Deseja excluir o objetivo "${goal.name}"?`)) {
-                        deleteGoal(goal.id);
-                      }
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      setPendingDeleteGoal(goal);
                     }}
                     title="Excluir objetivo"
-                    className="text-xs text-slate-400 hover:text-rose-600 transition-colors p-1"
+                    aria-label={`Excluir objetivo ${goal.name}`}
+                    className="text-xs text-slate-400 hover:text-rose-600 transition-colors p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -694,6 +724,17 @@ export const GoalsView: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ConfirmDeleteModal
+        isOpen={!!pendingDeleteGoal}
+        title="Excluir Objetivo Financeiro"
+        description="Deseja excluir este objetivo financeiro? Os demais objetivos e lançamentos permanecerão preservados."
+        itemLabel={pendingDeleteGoal?.name}
+        itemValue={pendingDeleteGoal ? formatCurrency(pendingDeleteGoal.targetAmount) : undefined}
+        isDeleting={isDeleting}
+        onConfirm={handleConfirmDeleteGoal}
+        onCancel={() => setPendingDeleteGoal(null)}
+      />
     </div>
   );
 };

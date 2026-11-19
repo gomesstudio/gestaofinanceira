@@ -9,7 +9,7 @@ import autoTable from 'jspdf-autotable';
 import { BankAccount, CreditCard, Debt, FinancialGoal, Transaction } from '../types/finance';
 import { formatCurrency, formatDateBR } from './formatters';
 
-interface ExportDataParams {
+export interface ExportDataParams {
   periodLabel: string;
   transactions: Transaction[];
   accounts: BankAccount[];
@@ -29,7 +29,73 @@ interface ExportDataParams {
   };
 }
 
-export function exportToExcel({
+// Caracteres de controle ASCII inseguros (exclui \t, \r, \n que são tratados na regra de prefixo)
+const UNSAFE_CONTROL_CHARS_REGEX = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
+const DANGEROUS_FORMULA_START_REGEX = /^[=+\-@\t\r\n]/;
+const LEADING_WHITESPACE_FORMULA_REGEX = /^[\s\u00A0\uFEFF]+[=+\-@]/;
+
+/**
+ * Neutraliza textos potencialmente interpretáveis como fórmulas em planilhas (Excel/LibreOffice/Sheets/CSV),
+ * removendo caracteres de controle inseguros e prefixando com apóstrofo literal (') payloads iniciados
+ * por =, +, -, @, tabulação, quebra de linha ou espaços seguidos de gatilho de fórmula.
+ */
+export function sanitizeExcelTextCell(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const withoutUnsafeControlChars = String(value).replace(UNSAFE_CONTROL_CHARS_REGEX, '');
+  if (!withoutUnsafeControlChars) return '';
+
+  if (
+    DANGEROUS_FORMULA_START_REGEX.test(withoutUnsafeControlChars) ||
+    LEADING_WHITESPACE_FORMULA_REGEX.test(withoutUnsafeControlChars)
+  ) {
+    return `'${withoutUnsafeControlChars}`;
+  }
+
+  return withoutUnsafeControlChars;
+}
+
+/**
+ * Formata datas para planilha preservando o marcador legítimo '-' quando ausente,
+ * mas neutralizando strings inválidas/injetadas que eventualmente venham de dados importados.
+ */
+export function sanitizeDateCellForExcel(dateString: string | undefined | null): string {
+  if (!dateString) return '-';
+  const formatted = formatDateBR(dateString);
+  if (formatted === '-') return '-';
+  return sanitizeExcelTextCell(formatted);
+}
+
+function sanitizePdfText(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  return String(value).replace(/[\u0000-\u001F\u007F]/g, ' ').trim();
+}
+
+function sanitizeFileNameSegment(label: string): string {
+  const cleaned = sanitizePdfText(label)
+    .replace(/[\\/:*?"<>|]/g, '_')
+    .replace(/\s+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return cleaned || 'Periodo';
+}
+
+function buildSafeWorksheetFromAoa(rows: (string | number)[][]): XLSX.WorkSheet {
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  for (const key of Object.keys(ws)) {
+    if (key.startsWith('!')) continue;
+    const cell = ws[key] as XLSX.CellObject | undefined;
+    if (!cell) continue;
+    if ('f' in cell) {
+      delete cell.f;
+    }
+    if (typeof cell.v === 'string') {
+      cell.t = 's';
+      cell.v = cell.v.replace(UNSAFE_CONTROL_CHARS_REGEX, '');
+    }
+  }
+  return ws;
+}
+
+export function buildExcelWorkbook({
   periodLabel,
   transactions,
   accounts,
@@ -37,13 +103,14 @@ export function exportToExcel({
   debts,
   goals,
   kpis
-}: ExportDataParams): void {
+}: ExportDataParams): { workbook: XLSX.WorkBook; fileName: string } {
   const wb = XLSX.utils.book_new();
+  const safePeriodLabel = sanitizeExcelTextCell(periodLabel);
 
   // 1. Dashboard e Resumo
-  const summaryData = [
+  const summaryData: (string | number)[][] = [
     ['RELATÓRIO FINANCEIRO PESSOAL - RESUMO EXECUTIVO'],
-    ['Período:', periodLabel],
+    ['Período:', safePeriodLabel],
     ['Gerado em:', new Date().toLocaleString('pt-BR')],
     [],
     ['INDICADOR', 'VALOR'],
@@ -59,159 +126,185 @@ export function exportToExcel({
     [],
     ['CONTAS BANCÁRIAS E CARTEIRAS'],
     ['Nome da Conta', 'Tipo', 'Saldo Atual'],
-    ...accounts.map(a => [a.name, a.type, a.balance])
+    ...accounts.map(a => [
+      sanitizeExcelTextCell(a.name),
+      sanitizeExcelTextCell(a.type),
+      a.balance
+    ])
   ];
-  const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+  const wsSummary = buildSafeWorksheetFromAoa(summaryData);
   XLSX.utils.book_append_sheet(wb, wsSummary, 'Dashboard e Resumo');
 
   // 2. Entradas
   const incomes = transactions.filter(t => t.type === 'income');
-  const incomesData = [
+  const incomesData: (string | number)[][] = [
     ['ID', 'Data', 'Descrição', 'Categoria', 'Conta de Destino', 'Forma', 'Status', 'Valor (R$)', 'Observações'],
-    ...incomes.map(t => [
-      t.id,
-      formatDateBR(t.date),
-      t.description,
-      t.category,
-      accounts.find(a => a.id === t.accountId)?.name || '-',
-      t.paymentMethod,
-      t.status === 'paid' ? 'Recebido' : 'Pendente',
-      t.amount,
-      t.notes || ''
-    ])
+    ...incomes.map(t => {
+      const accountName = accounts.find(a => a.id === t.accountId)?.name;
+      return [
+        sanitizeExcelTextCell(t.id),
+        sanitizeDateCellForExcel(t.date),
+        sanitizeExcelTextCell(t.description),
+        sanitizeExcelTextCell(t.category),
+        accountName ? sanitizeExcelTextCell(accountName) : '-',
+        sanitizeExcelTextCell(t.paymentMethod),
+        t.status === 'paid' ? 'Recebido' : 'Pendente',
+        t.amount,
+        sanitizeExcelTextCell(t.notes || '')
+      ];
+    })
   ];
-  const wsIncomes = XLSX.utils.aoa_to_sheet(incomesData);
+  const wsIncomes = buildSafeWorksheetFromAoa(incomesData);
   XLSX.utils.book_append_sheet(wb, wsIncomes, 'Entradas');
 
   // 3. Despesas (Todas)
   const allExpenses = transactions.filter(t => t.type === 'expense_fixed' || t.type === 'expense_variable');
-  const expensesData = [
+  const expensesData: (string | number)[][] = [
     ['ID', 'Data', 'Vencimento', 'Descrição', 'Tipo', 'Categoria', 'Forma de Pagamento', 'Conta/Cartão', 'Status', 'Valor (R$)', 'Parcela', 'Observações'],
-    ...allExpenses.map(t => [
-      t.id,
-      formatDateBR(t.date),
-      formatDateBR(t.dueDate),
-      t.description,
-      t.type === 'expense_fixed' ? 'Fixa' : 'Variável',
-      t.category,
-      t.paymentMethod,
-      t.creditCardId ? creditCards.find(c => c.id === t.creditCardId)?.name : accounts.find(a => a.id === t.accountId)?.name || '-',
-      t.status === 'paid' ? 'Pago' : t.status === 'overdue' ? 'Atrasado' : 'Pendente',
-      t.amount,
-      t.installmentInfo ? `${t.installmentInfo.current}/${t.installmentInfo.total}` : 'À vista',
-      t.notes || ''
-    ])
+    ...allExpenses.map(t => {
+      const sourceName = t.creditCardId
+        ? creditCards.find(c => c.id === t.creditCardId)?.name
+        : accounts.find(a => a.id === t.accountId)?.name;
+      return [
+        sanitizeExcelTextCell(t.id),
+        sanitizeDateCellForExcel(t.date),
+        sanitizeDateCellForExcel(t.dueDate),
+        sanitizeExcelTextCell(t.description),
+        t.type === 'expense_fixed' ? 'Fixa' : 'Variável',
+        sanitizeExcelTextCell(t.category),
+        sanitizeExcelTextCell(t.paymentMethod),
+        sourceName ? sanitizeExcelTextCell(sourceName) : '-',
+        t.status === 'paid' ? 'Pago' : t.status === 'overdue' ? 'Atrasado' : 'Pendente',
+        t.amount,
+        t.installmentInfo ? `${t.installmentInfo.current}/${t.installmentInfo.total}` : 'À vista',
+        sanitizeExcelTextCell(t.notes || '')
+      ];
+    })
   ];
-  const wsExpenses = XLSX.utils.aoa_to_sheet(expensesData);
+  const wsExpenses = buildSafeWorksheetFromAoa(expensesData);
   XLSX.utils.book_append_sheet(wb, wsExpenses, 'Despesas');
 
   // 4. Despesas Fixas
   const fixedExpenses = transactions.filter(t => t.type === 'expense_fixed');
-  const wsFixed = XLSX.utils.aoa_to_sheet([
+  const wsFixed = buildSafeWorksheetFromAoa([
     ['ID', 'Data', 'Vencimento', 'Descrição', 'Categoria', 'Forma', 'Status', 'Valor (R$)', 'Observações'],
     ...fixedExpenses.map(t => [
-      t.id,
-      formatDateBR(t.date),
-      formatDateBR(t.dueDate),
-      t.description,
-      t.category,
-      t.paymentMethod,
+      sanitizeExcelTextCell(t.id),
+      sanitizeDateCellForExcel(t.date),
+      sanitizeDateCellForExcel(t.dueDate),
+      sanitizeExcelTextCell(t.description),
+      sanitizeExcelTextCell(t.category),
+      sanitizeExcelTextCell(t.paymentMethod),
       t.status === 'paid' ? 'Pago' : 'Pendente',
       t.amount,
-      t.notes || ''
+      sanitizeExcelTextCell(t.notes || '')
     ])
   ]);
   XLSX.utils.book_append_sheet(wb, wsFixed, 'Despesas Fixas');
 
   // 5. Despesas Variáveis
   const varExpenses = transactions.filter(t => t.type === 'expense_variable');
-  const wsVar = XLSX.utils.aoa_to_sheet([
+  const wsVar = buildSafeWorksheetFromAoa([
     ['ID', 'Data', 'Descrição', 'Categoria', 'Forma', 'Status', 'Valor (R$)', 'Observações'],
     ...varExpenses.map(t => [
-      t.id,
-      formatDateBR(t.date),
-      t.description,
-      t.category,
-      t.paymentMethod,
+      sanitizeExcelTextCell(t.id),
+      sanitizeDateCellForExcel(t.date),
+      sanitizeExcelTextCell(t.description),
+      sanitizeExcelTextCell(t.category),
+      sanitizeExcelTextCell(t.paymentMethod),
       t.status === 'paid' ? 'Pago' : 'Pendente',
       t.amount,
-      t.notes || ''
+      sanitizeExcelTextCell(t.notes || '')
     ])
   ]);
   XLSX.utils.book_append_sheet(wb, wsVar, 'Despesas Variáveis');
 
   // 6. Dívidas
-  const debtsData = [
+  const debtsData: (string | number)[][] = [
     ['Credor / Nome', 'Valor Original (R$)', 'Saldo Devedor Atual (R$)', 'Total Pago (R$)', 'Juros Mensal (%)', 'Parcela Mínima (R$)', 'Prioridade', 'Status', 'Vencimento', 'Observações'],
     ...debts.map(d => [
-      `${d.creditor} - ${d.name}`,
+      sanitizeExcelTextCell(`${d.creditor} - ${d.name}`),
       d.originalAmount,
       d.currentBalance,
       d.totalPaid,
       d.interestRateMonthly || 0,
       d.minimumPayment || 0,
-      d.priority,
-      d.status,
-      formatDateBR(d.dueDate),
-      d.notes || ''
+      sanitizeExcelTextCell(d.priority),
+      sanitizeExcelTextCell(d.status),
+      sanitizeDateCellForExcel(d.dueDate),
+      sanitizeExcelTextCell(d.notes || '')
     ])
   ];
-  const wsDebts = XLSX.utils.aoa_to_sheet(debtsData);
+  const wsDebts = buildSafeWorksheetFromAoa(debtsData);
   XLSX.utils.book_append_sheet(wb, wsDebts, 'Dívidas');
 
   // 7. Cartões e Faturas
-  const cardsData = [
+  const cardsData: (string | number)[][] = [
     ['Nome do Cartão', 'Limite Total (R$)', 'Dia Fechamento', 'Dia Vencimento', 'Conta de Débito Vinculada'],
-    ...creditCards.map(c => [
-      c.name,
-      c.limitTotal,
-      c.closingDay,
-      c.dueDay,
-      accounts.find(a => a.id === c.linkedAccountId)?.name || 'Manual'
-    ])
+    ...creditCards.map(c => {
+      const linkedName = accounts.find(a => a.id === c.linkedAccountId)?.name;
+      return [
+        sanitizeExcelTextCell(c.name),
+        c.limitTotal,
+        c.closingDay,
+        c.dueDay,
+        linkedName ? sanitizeExcelTextCell(linkedName) : 'Manual'
+      ];
+    })
   ];
-  const wsCards = XLSX.utils.aoa_to_sheet(cardsData);
+  const wsCards = buildSafeWorksheetFromAoa(cardsData);
   XLSX.utils.book_append_sheet(wb, wsCards, 'Cartões e Faturas');
 
   // 8. Objetivos Financeiros
-  const goalsData = [
+  const goalsData: (string | number)[][] = [
     ['Objetivo', 'Categoria', 'Valor Desejado (R$)', 'Valor Acumulado (R$)', 'Progresso (%)', 'Aporte Mensal Planejado (R$)', 'Prazo Final'],
     ...goals.map(g => [
-      g.name,
-      g.category,
+      sanitizeExcelTextCell(g.name),
+      sanitizeExcelTextCell(g.category),
       g.targetAmount,
       g.currentAmount,
-      `${((g.currentAmount / g.targetAmount) * 100).toFixed(1)}%`,
+      g.targetAmount > 0 ? `${((g.currentAmount / g.targetAmount) * 100).toFixed(1)}%` : '0.0%',
       g.monthlyPlannedContribution,
-      formatDateBR(g.deadlineDate)
+      sanitizeDateCellForExcel(g.deadlineDate)
     ])
   ];
-  const wsGoals = XLSX.utils.aoa_to_sheet(goalsData);
+  const wsGoals = buildSafeWorksheetFromAoa(goalsData);
   XLSX.utils.book_append_sheet(wb, wsGoals, 'Objetivos Financeiros');
 
   // 9. Histórico Completo
-  const allHistoryData = [
+  const allHistoryData: (string | number)[][] = [
     ['ID', 'Data', 'Tipo', 'Descrição', 'Categoria', 'Valor (R$)', 'Forma Pagamento', 'Status', 'Conta', 'Cartão', 'Observações'],
-    ...transactions.map(t => [
-      t.id,
-      formatDateBR(t.date),
-      t.type,
-      t.description,
-      t.category,
-      t.amount,
-      t.paymentMethod,
-      t.status,
-      accounts.find(a => a.id === t.accountId)?.name || '',
-      creditCards.find(c => c.id === t.creditCardId)?.name || '',
-      t.notes || ''
-    ])
+    ...transactions.map(t => {
+      const accountName = accounts.find(a => a.id === t.accountId)?.name || '';
+      const cardName = creditCards.find(c => c.id === t.creditCardId)?.name || '';
+      return [
+        sanitizeExcelTextCell(t.id),
+        sanitizeDateCellForExcel(t.date),
+        sanitizeExcelTextCell(t.type),
+        sanitizeExcelTextCell(t.description),
+        sanitizeExcelTextCell(t.category),
+        t.amount,
+        sanitizeExcelTextCell(t.paymentMethod),
+        sanitizeExcelTextCell(t.status),
+        sanitizeExcelTextCell(accountName),
+        sanitizeExcelTextCell(cardName),
+        sanitizeExcelTextCell(t.notes || '')
+      ];
+    })
   ];
-  const wsHistory = XLSX.utils.aoa_to_sheet(allHistoryData);
+  const wsHistory = buildSafeWorksheetFromAoa(allHistoryData);
   XLSX.utils.book_append_sheet(wb, wsHistory, 'Histórico Completo');
 
-  // Download trigger
-  const fileName = `Controle_Financeiro_${periodLabel.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
-  XLSX.writeFile(wb, fileName);
+  const fileName = `Controle_Financeiro_${sanitizeFileNameSegment(periodLabel)}_${new Date().toISOString().split('T')[0]}.xlsx`;
+  return { workbook: wb, fileName };
+}
+
+export function exportToExcel(
+  params: ExportDataParams,
+  writeWorkbook: (wb: XLSX.WorkBook, fileName: string) => void = XLSX.writeFile
+): void {
+  const { workbook, fileName } = buildExcelWorkbook(params);
+  writeWorkbook(workbook, fileName);
 }
 
 export function exportToPDF({
@@ -231,7 +324,7 @@ export function exportToPDF({
 
   doc.setFontSize(10);
   doc.setTextColor(100, 116, 139); // slate-500
-  doc.text(`Período de Referência: ${periodLabel} | Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 28);
+  doc.text(`Período de Referência: ${sanitizePdfText(periodLabel)} | Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 28);
 
   // Line divider
   doc.setDrawColor(226, 232, 240);
@@ -280,7 +373,7 @@ export function exportToPDF({
   doc.text('Maiores Gastos por Categoria', 14, nextY);
 
   const categoryRows = sortedCategories.map(([cat, amount]) => [
-    cat,
+    sanitizePdfText(cat),
     formatCurrency(amount),
     kpis.totalExpense > 0 ? `${((amount / kpis.totalExpense) * 100).toFixed(1)}%` : '0%'
   ]);
@@ -303,10 +396,10 @@ export function exportToPDF({
     doc.text('Dívidas e Pendências em Aberto', 14, debtsY);
 
     const debtRows = debts.map(d => [
-      `${d.creditor} - ${d.name}`,
+      sanitizePdfText(`${d.creditor} - ${d.name}`),
       formatCurrency(d.currentBalance),
-      d.status,
-      formatDateBR(d.dueDate)
+      sanitizePdfText(d.status),
+      sanitizeDateCellForExcel(d.dueDate) === '-' ? '-' : formatDateBR(d.dueDate)
     ]);
 
     autoTable(doc, {
@@ -327,6 +420,6 @@ export function exportToPDF({
   doc.setTextColor(148, 163, 184);
   doc.text('Gestão Financeira Pro - Sistema de Controle Financeiro Pessoal', 14, Math.min(finalY, 285));
 
-  const fileName = `Relatorio_Financeiro_${periodLabel.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+  const fileName = `Relatorio_Financeiro_${sanitizeFileNameSegment(periodLabel)}_${new Date().toISOString().split('T')[0]}.pdf`;
   doc.save(fileName);
 }

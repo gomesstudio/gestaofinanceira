@@ -3,271 +3,315 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck,
   Lock,
-  Unlock,
   User,
   KeyRound,
   Eye,
   EyeOff,
   AlertCircle,
-  Sparkles,
   ArrowRight,
-  Cloud,
   Mail,
   CheckCircle2,
-  X,
   RefreshCw,
-  LogOut,
-  Upload,
-  Download,
   ExternalLink,
   Send,
-  Key
+  Key,
+  UserPlus,
+  ArrowLeft,
+  Phone,
+  MessageCircle,
+  Clock,
+  CalendarRange
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useFinance } from '../../context/FinanceContext';
+import { useLegalNavigation } from '../../context/LegalNavigationContext';
+import { LEGAL_DOCUMENTS_REGISTRY } from '../../legal/legalConfig';
+import { SUPABASE_PROJECT_URL } from '../../utils/supabase';
+import {
+  buildPostSignupWhatsAppUrl,
+  COMMERCIAL_WHATSAPP_NUMBER,
+  isValidWhatsAppWithDDD,
+  PendingRegistrationIntent,
+  PublicPlanType,
+  savePendingRegistrationIntent,
+  submitCustomerAccessRequest
+} from '../../services/subscriptionService';
+
+type AuthViewMode = 'login' | 'signup' | 'forgot' | 'otp' | 'signup_confirmed';
 
 export const AuthLockScreen: React.FC = () => {
   const {
-    login,
-    username: defaultUser,
-    isSupabaseAuthenticated,
+    isPasswordRecoveryMode,
+    authUrlError,
+    clearAuthUrlError,
     supabaseConnectionStatus,
-    supabaseUserId,
-    supabaseUserEmail,
     loginWithSupabase,
+    signUpWithSupabase,
     loginWithGitHub,
     signInWithOtp,
     verifyOtp,
     sendPasswordResetEmail,
-    signUpWithSupabase,
-    logoutFromSupabase,
+    updatePassword,
+    cancelPasswordRecovery,
     checkSessionStatus
   } = useAuth();
 
-  const {
-    forceUploadLocalToCloud,
-    forceDownloadFromCloud,
-    cloudSyncStatus,
-    cloudSyncMessage
-  } = useFinance();
+  const { openLegalDocument } = useLegalNavigation();
+  const [mode, setMode] = useState<AuthViewMode>('login');
 
-  // Local PIN State (Único método visível por padrão na tela principal)
-  const [inputUser, setInputUser] = useState(defaultUser || 'lucasgomes');
-  const [inputPass, setInputPass] = useState('');
-  const [showPass, setShowPass] = useState(false);
-  const [remember, setRemember] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  // Campos de autenticação comercial
+  const [fullName, setFullName] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
+  const [requestedPlan, setRequestedPlan] = useState<PublicPlanType>('monthly');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
-  // Modal secundário de Configuração da Nuvem (Supabase)
-  const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
-  const [cloudEmail, setCloudEmail] = useState(supabaseUserEmail || 'gomes.studio.ai@gmail.com');
-  const [cloudPass, setCloudPass] = useState('');
-  const [showCloudPass, setShowCloudPass] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [cloudError, setCloudError] = useState<string | null>(null);
-  const [cloudSuccess, setCloudSuccess] = useState<string | null>(null);
-  const [cloudLoading, setCloudLoading] = useState(false);
-  const [githubLoading, setGithubLoading] = useState(false);
+  // Confirmação pós-cadastro e consentimento LGPD para WhatsApp
+  const [confirmedRegistration, setConfirmedRegistration] =
+    useState<PendingRegistrationIntent | null>(null);
+  const [whatsappConsent, setWhatsappConsent] = useState(false);
 
-  // Estados dedicados para o fluxo OAuth GitHub em nova aba/janela (anti-bloqueio iframe)
+  // Campos de redefinição de senha (PASSWORD_RECOVERY)
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+
+  // Estados de OTP / Magic Link
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+
+  // Estados de GitHub OAuth em popup/aba externa
   const [githubAuthUrl, setGithubAuthUrl] = useState<string | null>(null);
   const [isWaitingGithub, setIsWaitingGithub] = useState(false);
 
-  // Estados para login sem senha por OTP (Link Mágico / Código por E-mail)
-  const [isOtpMode, setIsOtpMode] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-  const [otpLoading, setOtpLoading] = useState(false);
+  // Feedback e carregamento
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Polling automático da sessão enquanto aguarda confirmação no GitHub
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isWaitingGithub && !githubAuthUrl) return;
-
     const interval = setInterval(async () => {
       await checkSessionStatus();
     }, 2000);
-
     return () => clearInterval(interval);
   }, [isWaitingGithub, githubAuthUrl, checkSessionStatus]);
 
-  // Se detectar que a sessão do Supabase conectou com sucesso (seja por Link de E-mail, OTP ou GitHub)
-  React.useEffect(() => {
-    if (isSupabaseAuthenticated) {
-      setGithubAuthUrl(null);
-      setIsWaitingGithub(false);
-      setOtpSent(false);
-      if (isCloudModalOpen) {
-        setCloudSuccess('Nuvem Supabase conectada com sucesso!');
-        const timer = setTimeout(() => {
-          setIsCloudModalOpen(false);
-        }, 1200);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [isSupabaseAuthenticated, isCloudModalOpen]);
+  const switchMode = (nextMode: AuthViewMode) => {
+    setMode(nextMode);
+    setErrorMessage(null);
+    clearAuthUrlError?.();
+    setSuccessMessage(null);
+    setOtpSent(false);
+    setOtpCode('');
+  };
 
-  const handleLocalSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+    setSuccessMessage(null);
     setIsLoading(true);
-
-    setTimeout(() => {
-      const res = login(inputUser, inputPass, remember);
+    try {
+      const res = await loginWithSupabase(email, password);
       if (!res.success) {
-        setErrorMessage(res.message || 'Usuário ou senha incorretos.');
-        setIsLoading(false);
+        setErrorMessage(res.message || 'Não foi possível entrar. Verifique seus dados.');
       }
-    }, 200);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleCloudSubmit = async (e: React.FormEvent) => {
+  const handleSignUpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setCloudError(null);
-    setCloudSuccess(null);
-    setCloudLoading(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
 
-    try {
-      if (isSignUp) {
-        const res = await signUpWithSupabase(cloudEmail, cloudPass);
-        if (!res.success) {
-          setCloudError(res.message || 'Erro ao cadastrar conta no Supabase.');
-        } else {
-          setCloudSuccess(res.message || 'Cadastro realizado com sucesso!');
-          if (!res.userId) {
-            // Confirmação de e-mail obrigatória
-            setIsSignUp(false);
-          } else {
-            // Sessão iniciada imediatamente
-            setTimeout(() => setIsCloudModalOpen(false), 1200);
-          }
-        }
-      } else {
-        const res = await loginWithSupabase(cloudEmail, cloudPass);
-        if (!res.success) {
-          setCloudError(res.message || 'Erro ao conectar com Supabase.');
-        } else {
-          setCloudSuccess('Nuvem Supabase conectada com sucesso!');
-          setTimeout(() => setIsCloudModalOpen(false), 1200);
-        }
-      }
-    } finally {
-      setCloudLoading(false);
+    const cleanName = fullName.trim();
+    const cleanWhatsapp = whatsapp.trim();
+    const cleanEmail = email.trim();
+
+    if (cleanName.length < 2) {
+      setErrorMessage('Informe seu nome completo para realizar o cadastro.');
+      return;
     }
-  };
-
-  const handleDisconnectCloud = async () => {
-    setCloudLoading(true);
-    try {
-      await logoutFromSupabase();
-      setCloudSuccess('Nuvem desconectada. O app funcionará apenas no modo local.');
-    } finally {
-      setCloudLoading(false);
+    if (!isValidWhatsAppWithDDD(cleanWhatsapp)) {
+      setErrorMessage('Informe um número de WhatsApp válido com DDD (ex.: (33) 99999-9999).');
+      return;
     }
-  };
+    if (password.length < 6) {
+      setErrorMessage('A senha deve conter no mínimo 6 caracteres.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setErrorMessage('As senhas digitadas não coincidem.');
+      return;
+    }
 
-  const handleGitHubLogin = async () => {
-    setCloudError(null);
-    setCloudSuccess(null);
-    setGithubLoading(true);
-
+    setIsLoading(true);
     try {
-      const res = await loginWithGitHub();
+      const res = await signUpWithSupabase(cleanEmail, password, cleanName, {
+        whatsapp: cleanWhatsapp,
+        requestedPlan
+      });
+
       if (!res.success) {
-        setCloudError(res.message || 'Erro ao conectar com GitHub.');
-        setGithubLoading(false);
+        setErrorMessage(res.message || 'Erro ao criar conta.');
         return;
       }
 
-      if (res.url) {
-        setGithubAuthUrl(res.url);
-        setIsWaitingGithub(true);
-
-        // Tenta abrir em nova aba para contornar restrições de iframe e X-Frame-Options do GitHub
-        try {
-          const popup = window.open(res.url, '_blank', 'width=700,height=800,scrollbars=yes,status=yes');
-          if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-            console.info('Aba externa aguardando confirmação do usuário.');
-          }
-        } catch (e) {
-          console.warn('Popup bloqueado pelo navegador:', e);
-        }
+      let syncedToSupabase = false;
+      if (!res.requiresEmailConfirmation && res.userId) {
+        const reqRes = await submitCustomerAccessRequest({
+          fullName: cleanName,
+          whatsapp: cleanWhatsapp,
+          requestedPlan,
+          whatsappConsent: false
+        });
+        syncedToSupabase = reqRes.success;
       }
-    } catch (err: any) {
-      setCloudError(err.message || 'Erro inesperado ao conectar com GitHub.');
+
+      const intent: PendingRegistrationIntent = {
+        email: cleanEmail,
+        fullName: cleanName,
+        whatsapp: cleanWhatsapp,
+        requestedPlan,
+        whatsappConsent: false,
+        requiresEmailConfirmation: Boolean(res.requiresEmailConfirmation),
+        syncedToSupabase,
+        createdAt: new Date().toISOString()
+      };
+
+      savePendingRegistrationIntent(intent);
+      setConfirmedRegistration(intent);
+      setWhatsappConsent(false);
+      setPassword('');
+      setConfirmPassword('');
+      setMode('signup_confirmed');
     } finally {
-      setGithubLoading(false);
+      setIsLoading(false);
+    }
+  };
+
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsLoading(true);
+    try {
+      const res = await sendPasswordResetEmail(email);
+      if (!res.success) {
+        setErrorMessage(res.message || 'Erro ao solicitar redefinição de senha.');
+      } else {
+        setSuccessMessage(
+          res.message || 'Se o e-mail estiver cadastrado, enviaremos um link para você redefinir sua senha.'
+        );
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePasswordRecoverySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    if (newPassword.length < 6) {
+      setErrorMessage('A nova senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setErrorMessage('A confirmação da nova senha não coincide.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await updatePassword(newPassword);
+      if (!res.success) {
+        setErrorMessage(res.message || 'Não foi possível atualizar sua senha.');
+      } else {
+        setSuccessMessage('Senha redefinida com sucesso! Carregando sua conta...');
+        setNewPassword('');
+        setConfirmNewPassword('');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!cloudEmail.trim()) {
-      setCloudError('Informe seu e-mail do Supabase.');
-      return;
-    }
-    setCloudError(null);
-    setCloudSuccess(null);
-    setOtpLoading(true);
-
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsLoading(true);
     try {
-      const res = await signInWithOtp(cloudEmail);
+      const res = await signInWithOtp(email);
       if (!res.success) {
-        setCloudError(res.message || 'Erro ao enviar link de acesso.');
+        setErrorMessage(res.message || 'Erro ao enviar código/link de acesso.');
       } else {
         setOtpSent(true);
-        setCloudSuccess('Link de acesso enviado! Abra seu e-mail e clique em "Log In".');
+        setSuccessMessage(res.message || 'Link/código enviado! Verifique seu e-mail.');
       }
     } finally {
-      setOtpLoading(false);
+      setIsLoading(false);
     }
   };
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otpCode.trim()) {
-      setCloudError('Informe o código de 6 dígitos recebido por e-mail.');
-      return;
-    }
-    setCloudError(null);
-    setCloudSuccess(null);
-    setOtpLoading(true);
-
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsLoading(true);
     try {
-      const res = await verifyOtp(cloudEmail, otpCode);
+      const res = await verifyOtp(email, otpCode);
       if (!res.success) {
-        setCloudError(res.message || 'Código inválido ou expirado.');
-      } else {
-        setCloudSuccess('Autenticado com sucesso! Sincronização em nuvem ativada.');
-        setTimeout(() => setIsCloudModalOpen(false), 1200);
+        setErrorMessage(res.message || 'Código inválido ou expirado.');
       }
     } finally {
-      setOtpLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const handleResetPasswordRequest = async () => {
-    if (!cloudEmail.trim()) {
-      setCloudError('Informe seu e-mail para receber o link de criação de senha.');
-      return;
-    }
-    setCloudLoading(true);
-    setCloudError(null);
+  const handleGitHubLogin = async () => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsLoading(true);
     try {
-      const res = await sendPasswordResetEmail(cloudEmail);
+      const res = await loginWithGitHub();
       if (!res.success) {
-        setCloudError(res.message || 'Erro ao solicitar link de redefinição.');
-      } else {
-        setCloudSuccess(res.message || 'Link para definir senha enviado para seu e-mail!');
+        setErrorMessage(res.message || 'Erro ao conectar com GitHub.');
+        return;
+      }
+      if (res.url) {
+        setGithubAuthUrl(res.url);
+        setIsWaitingGithub(true);
+        try {
+          window.open(res.url, '_blank', 'width=700,height=800,scrollbars=yes,status=yes');
+        } catch {
+          // Link manual fica visível na tela
+        }
       }
     } finally {
-      setCloudLoading(false);
+      setIsLoading(false);
     }
   };
+
+  const githubCallbackUrl = `${SUPABASE_PROJECT_URL.replace(/\/$/, '')}/auth/v1/callback`;
+
+  const postSignupWhatsAppUrl = confirmedRegistration
+    ? buildPostSignupWhatsAppUrl({
+        fullName: confirmedRegistration.fullName,
+        whatsapp: confirmedRegistration.whatsapp,
+        email: confirmedRegistration.email,
+        requestedPlan: confirmedRegistration.requestedPlan
+      })
+    : '';
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-3 sm:p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100 font-sans selection:bg-emerald-500/20 selection:text-emerald-300 relative overflow-hidden max-w-full">
@@ -275,478 +319,342 @@ export const AuthLockScreen: React.FC = () => {
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[280px] sm:w-[500px] sm:h-[500px] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none max-w-full" />
       <div className="absolute bottom-10 right-10 w-48 h-48 sm:w-80 sm:h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none max-w-full" />
 
-      {/* Security Card */}
       <div className="w-full max-w-md mx-auto relative z-10 animate-in fade-in zoom-in-95 duration-200">
         <div className="p-5 sm:p-8 bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl shadow-2xl shadow-black/60 relative overflow-hidden">
-          {/* Subtle top indicator bar */}
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-500" />
 
           {/* Header & Logo */}
-          <div className="text-center space-y-2.5 mb-5 sm:mb-6">
+          <div className="text-center space-y-2 mb-5 sm:mb-6">
             <div className="inline-flex items-center justify-center p-3 sm:p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 shadow-inner">
               <ShieldCheck className="w-7 h-7 sm:w-8 sm:h-8" />
             </div>
 
             <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 mb-2">
-                <Lock className="w-3 h-3" />
-                <span>Acesso Seguro & Restrito</span>
-              </div>
-              <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+              <div className="text-[11px] font-semibold text-emerald-400 tracking-wide mb-1">
                 Controle Financeiro Pessoal
+              </div>
+              <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight text-balance">
+                Gestão Financeira Pro
               </h1>
-              <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-                Seus dados financeiros estão totalmente protegidos. Identifique-se para acessar o sistema.
+              <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto leading-relaxed">
+                {isPasswordRecoveryMode
+                  ? 'Defina uma nova senha segura para concluir a recuperação da sua conta.'
+                  : mode === 'signup_confirmed'
+                  ? 'Sua solicitação de acesso foi registrada.'
+                  : mode === 'signup'
+                  ? 'Preencha seus dados e escolha seu plano de interesse para solicitar liberação.'
+                  : mode === 'forgot'
+                  ? 'Informe seu e-mail cadastrado para receber o link de redefinição de senha.'
+                  : mode === 'otp'
+                  ? 'Acesse sua conta com um link mágico ou código enviado ao seu e-mail.'
+                  : 'Entre com sua conta individual para acessar seus dados financeiros.'}
               </p>
             </div>
           </div>
 
-          {/* Error Banner */}
-          {errorMessage && (
-            <div className="mb-5 p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-200 text-xs flex items-start gap-2.5 animate-in shake">
+          {/* Banner de sessão expirada */}
+          {!isPasswordRecoveryMode && supabaseConnectionStatus === 'session_expired' && !errorMessage && !authUrlError && mode !== 'signup_confirmed' && (
+            <div className="mb-4 p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-200 text-xs flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <div className="leading-relaxed">
+                Sua sessão expirou por segurança. Faça login novamente para continuar.
+              </div>
+            </div>
+          )}
+
+          {/* Feedback de erro */}
+          {(errorMessage || authUrlError) && (
+            <div className="mb-4 p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-200 text-xs flex items-start gap-2.5 animate-in fade-in">
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-              <div className="leading-relaxed">{errorMessage}</div>
+              <div className="leading-relaxed">{errorMessage || authUrlError}</div>
             </div>
           )}
 
-          {/* Banner de Nuvem Supabase Conectada */}
-          {isSupabaseAuthenticated && (
-            <div className="mb-5 p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-200 text-xs space-y-2 shadow-lg shadow-emerald-950/40 animate-in fade-in duration-300">
-              <div className="flex items-center gap-2 font-bold text-emerald-400 text-sm">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                <span>Nuvem Supabase Conectada!</span>
-              </div>
-              <p className="text-slate-300 leading-relaxed text-[11px]">
-                Sua conta <strong>{supabaseUserEmail}</strong> está autenticada na nuvem e pronta para sincronizar.
-              </p>
-              <div className="p-2.5 rounded-xl bg-slate-950/70 border border-emerald-500/30 text-emerald-300 font-semibold text-xs flex items-center gap-2">
-                <span>👉 Digite a senha local (<strong>6145</strong>) abaixo para acessar o sistema.</span>
-              </div>
+          {/* Feedback de sucesso */}
+          {successMessage && (
+            <div className="mb-4 p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-200 text-xs flex items-start gap-2.5 animate-in fade-in">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <div className="leading-relaxed">{successMessage}</div>
             </div>
           )}
 
-          {/* Form de Senha Local (Único formulário principal) */}
-          <form onSubmit={handleLocalSubmit} className="space-y-4">
-            {/* Username Input */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Usuário Autorizado
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                  <User className="w-4 h-4" />
-                </div>
-                <input
-                  type="text"
-                  required
-                  value={inputUser}
-                  onChange={e => setInputUser(e.target.value)}
-                  placeholder="lucasgomes"
-                  autoComplete="username"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white text-base sm:text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all font-mono"
-                />
-              </div>
-            </div>
-
-            {/* Password Input */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-semibold text-slate-300">
-                  Senha de Acesso
+          {/* FLUXO 0: Redefinição de Senha (PASSWORD_RECOVERY) */}
+          {isPasswordRecoveryMode ? (
+            <form onSubmit={handlePasswordRecoverySubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Nova Senha *
                 </label>
-                <span className="text-[11px] text-slate-500">
-                  4 dígitos
-                </span>
-              </div>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                  <KeyRound className="w-4 h-4" />
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                    <KeyRound className="w-4 h-4" />
+                  </div>
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                    autoComplete="new-password"
+                    className="w-full pl-10 pr-10 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white text-base sm:text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                    aria-label={showNewPassword ? 'Ocultar senha' : 'Ver senha'}
+                  >
+                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
-                <input
-                  type={showPass ? 'text' : 'password'}
-                  required
-                  value={inputPass}
-                  onChange={e => setInputPass(e.target.value)}
-                  placeholder="••••"
-                  autoComplete="current-password"
-                  className="w-full pl-10 pr-10 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white text-base sm:text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all font-mono tracking-widest"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPass(!showPass)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
-                  aria-label={showPass ? 'Ocultar senha' : 'Ver senha'}
-                >
-                  {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
               </div>
-            </div>
 
-            {/* Remember Me Option */}
-            <div className="flex items-center justify-between text-xs pt-1">
-              <label className="flex items-center gap-2 text-slate-400 hover:text-slate-200 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={e => setRemember(e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-700 text-emerald-600 focus:ring-emerald-500 bg-slate-800 cursor-pointer"
-                />
-                <span>Lembrar neste navegador</span>
-              </label>
-
-              <span className="text-[11px] text-slate-500">
-                Uso individual
-              </span>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full mt-2 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-60 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-950/50 transition-all flex items-center justify-center gap-2 group cursor-pointer"
-            >
-              {isLoading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <Unlock className="w-4 h-4 transition-transform group-hover:scale-110" />
-                  <span>Desbloquear Sistema</span>
-                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Footer discreto */}
-          <div className="mt-6 pt-5 border-t border-slate-800/80 flex flex-col items-center gap-2 text-center text-[11px] text-slate-500">
-            <div className="flex items-center justify-center gap-1.5 text-slate-400 font-medium">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Ambiente Protegido para Lucas Gomes</span>
-            </div>
-
-            {/* Link discreto de status da nuvem */}
-            <div className="pt-0.5">
-              {supabaseConnectionStatus === 'connected' ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCloudError(null);
-                    setCloudSuccess(null);
-                    setIsCloudModalOpen(true);
-                  }}
-                  className="text-emerald-400 hover:text-emerald-300 transition-colors inline-flex items-center gap-1.5 cursor-pointer font-medium"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>☁ Nuvem conectada</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCloudError(null);
-                    setCloudSuccess(null);
-                    setIsCloudModalOpen(true);
-                  }}
-                  className="text-slate-500 hover:text-emerald-400 transition-colors inline-flex items-center gap-1.5 underline underline-offset-2 cursor-pointer"
-                >
-                  <Cloud className="w-3.5 h-3.5 text-slate-500" />
-                  <span>☁ Configurar nuvem</span>
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Modal Secundário: Configuração da Nuvem Supabase */}
-      {isCloudModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl shadow-black/80 max-w-md w-full p-6 sm:p-7 space-y-4 relative overflow-hidden animate-in zoom-in-95 duration-150">
-            {/* Top decorative line */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-teal-400" />
-
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-blue-500/15 text-blue-400 border border-blue-500/30">
-                  <Cloud className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-white text-base">
-                    Configuração da Nuvem
-                  </h3>
-                  <p className="text-[11px] text-slate-400">
-                    Sincronização com Supabase (RLS seguro)
-                  </p>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Confirmar Nova Senha *
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                    <KeyRound className="w-4 h-4" />
+                  </div>
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={confirmNewPassword}
+                    onChange={e => setConfirmNewPassword(e.target.value)}
+                    placeholder="Repita a nova senha"
+                    autoComplete="new-password"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white text-base sm:text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all"
+                  />
                 </div>
               </div>
 
               <button
-                type="button"
-                onClick={() => setIsCloudModalOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-950/50 transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                {isLoading ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Salvar Nova Senha e Entrar</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={cancelPasswordRecovery}
+                className="w-full py-2 text-xs text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+              >
+                Cancelar e voltar ao login
+              </button>
+            </form>
+          ) : isWaitingGithub || githubAuthUrl ? (
+            /* FLUXO OAuth GitHub em aba externa */
+            <div className="p-4 rounded-2xl bg-slate-950/80 border border-emerald-500/30 text-xs space-y-3.5 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-emerald-400 font-semibold">
+                  <RefreshCw className="w-4 h-4 animate-spin text-emerald-400" />
+                  <span>Autorização GitHub em andamento</span>
+                </div>
+              </div>
+
+              <p className="text-slate-300 text-[11px] leading-relaxed">
+                Complete a autenticação com o GitHub na aba aberta. Caso o navegador tenha bloqueado a janela, utilize o botão abaixo:
+              </p>
+
+              {githubAuthUrl && (
+                <a
+                  href={githubAuthUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl border border-slate-600 flex items-center justify-center gap-2 transition-all text-xs"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Abrir Autorização no GitHub</span>
+                </a>
+              )}
+
+              {import.meta.env?.DEV && (
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-[11px] space-y-1.5">
+                  <div className="font-semibold text-amber-300">Callback OAuth esperado:</div>
+                  <div className="bg-slate-950 p-2 rounded-lg border border-slate-800 font-mono text-[10px] text-emerald-400 break-all select-all">
+                    {githubCallbackUrl}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-1 border-t border-slate-800 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGithubAuthUrl(null);
+                    setIsWaitingGithub(false);
+                  }}
+                  className="text-slate-400 hover:text-slate-200 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={checkSessionStatus}
+                  className="text-emerald-400 hover:text-emerald-300 font-semibold underline cursor-pointer"
+                >
+                  Já autorizei — Verificar sessão
+                </button>
+              </div>
+            </div>
+          ) : mode === 'signup_confirmed' && confirmedRegistration ? (
+            /* TELA DE CONFIRMAÇÃO DO CADASTRO + WHATSAPP COM CONSENTIMENTO */
+            <div data-testid="signup-confirmation-screen" className="space-y-4 animate-in fade-in">
+              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-2.5">
+                <div className="flex items-start gap-2.5">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1.5 text-xs text-slate-200 leading-relaxed">
+                    <p className="font-bold text-white text-sm">
+                      Cadastro realizado com sucesso!
+                    </p>
+                    <p>
+                      Sua solicitação foi registrada e está aguardando liberação.
+                    </p>
+                    <p>
+                      Para concluir sua contratação, entre em contato com nossa equipe pelo WhatsApp.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {confirmedRegistration.requiresEmailConfirmation && (
+                <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-200 text-xs flex items-start gap-2.5">
+                  <Mail className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                  <div className="leading-relaxed">
+                    Enviamos um link de confirmação para <strong>{confirmedRegistration.email}</strong>. Confirme seu e-mail antes do primeiro login; sua solicitação permanecerá preservada com segurança.
+                  </div>
+                </div>
+              )}
+
+              <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1 text-xs text-slate-300">
+                <div>
+                  <span className="text-slate-500">Nome:</span>{' '}
+                  <strong className="text-white">{confirmedRegistration.fullName}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500">WhatsApp:</span>{' '}
+                  <strong className="text-white">{confirmedRegistration.whatsapp}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500">E-mail:</span>{' '}
+                  <strong className="text-white">{confirmedRegistration.email}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500">Plano solicitado:</span>{' '}
+                  <strong className="text-emerald-400">
+                    {confirmedRegistration.requestedPlan === 'annual' ? 'ANUAL (12 meses)' : 'MENSAL (30 dias)'}
+                  </strong>
+                </div>
+              </div>
+
+              <label className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-950/60 border border-slate-800 cursor-pointer text-xs text-slate-300 leading-relaxed">
+                <input
+                  type="checkbox"
+                  checked={whatsappConsent}
+                  onChange={e => {
+                    const checked = e.target.checked;
+                    setWhatsappConsent(checked);
+                    const updated = { ...confirmedRegistration, whatsappConsent: checked };
+                    setConfirmedRegistration(updated);
+                    savePendingRegistrationIntent(updated);
+                  }}
+                  className="mt-0.5 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500"
+                />
+                <span>
+                  Autorizo compartilhar meu nome, WhatsApp, e-mail e plano solicitado com o atendimento oficial ({COMMERCIAL_WHATSAPP_NUMBER}) pelo WhatsApp para conclusão da contratação.
+                </span>
+              </label>
+
+              {whatsappConsent ? (
+                <a
+                  href={postSignupWhatsAppUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold rounded-xl shadow-lg shadow-emerald-950/50 transition-all flex items-center justify-center gap-2 text-center"
+                >
+                  <MessageCircle className="w-4 h-4 shrink-0" />
+                  <span>CONCLUIR CONTRATAÇÃO PELO WHATSAPP</span>
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setErrorMessage(
+                      'Marque a autorização de compartilhamento de dados cadastrais acima para abrir o WhatsApp.'
+                    )
+                  }
+                  className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs sm:text-sm font-bold rounded-xl border border-slate-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <MessageCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>CONCLUIR CONTRATAÇÃO PELO WHATSAPP</span>
+                </button>
+              )}
+
+              <p className="text-[11px] text-slate-400 text-center leading-relaxed">
+                A mensagem não é enviada automaticamente: ao abrir o WhatsApp, toque em <strong>Enviar</strong> na conversa. Sua solicitação já está salva mesmo que você envie depois.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => switchMode('login')}
+                className="w-full py-2.5 px-4 bg-slate-800/80 hover:bg-slate-800 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Ir para Entrar</span>
               </button>
             </div>
-
-            {/* Banner de status / sessão expirada */}
-            {supabaseConnectionStatus === 'session_expired' && !isSupabaseAuthenticated && (
-              <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-200 text-xs flex items-start gap-2.5">
-                <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <div className="leading-relaxed">
-                  Sua sessão na nuvem expirou. Faça login novamente para restabelecer a sincronização.
-                </div>
-              </div>
-            )}
-
-            {cloudError && (
-              <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-200 text-xs flex items-start gap-2.5 animate-in shake">
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                <div className="leading-relaxed">{cloudError}</div>
-              </div>
-            )}
-
-            {cloudSuccess && (
-              <div className="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-200 text-xs flex items-start gap-2.5 animate-in fade-in">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <div className="leading-relaxed">{cloudSuccess}</div>
-              </div>
-            )}
-
-            {isSupabaseAuthenticated ? (
-              /* Estado: Já conectado */
-              <div className="space-y-4 pt-1">
-                <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 text-xs space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-emerald-400 font-semibold">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Nuvem Ativa e Sincronizada</span>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                      auth.uid()
-                    </span>
-                  </div>
-
-                  <p className="text-slate-400 text-[11px] leading-relaxed">
-                    Sua sessão foi autenticada no Supabase. Os dados financeiros são protegidos por Row Level Security exclusivo.
-                  </p>
-
-                  <div className="space-y-1 pt-1 border-t border-slate-800/80 text-[11px]">
-                    {supabaseUserEmail && (
-                      <div className="text-slate-300">
-                        <span className="text-slate-500">Conta:</span> <strong>{supabaseUserEmail}</strong>
-                      </div>
-                    )}
-                    {supabaseUserId && (
-                      <div className="text-slate-300 font-mono">
-                        <span className="text-slate-500">UUID Oficial:</span>{' '}
-                        <strong>{supabaseUserId.slice(0, 8)}...</strong>
-                      </div>
-                    )}
-                    {cloudSyncMessage && (
-                      <div className="text-slate-400 text-[10px] pt-1">
-                        Status sync: {cloudSyncMessage}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Ações de sincronização */}
-                <div className="space-y-2">
+          ) : (
+            <>
+              {/* Navegação principal entre Entrar / Criar Conta */}
+              {(mode === 'login' || mode === 'signup') && (
+                <div className="flex rounded-xl bg-slate-950/80 border border-slate-800 p-1 mb-5 text-xs">
                   <button
                     type="button"
-                    disabled={cloudLoading || cloudSyncStatus === 'syncing'}
-                    onClick={async () => {
-                      setCloudLoading(true);
-                      setCloudError(null);
-                      try {
-                        await forceUploadLocalToCloud();
-                        setCloudSuccess('Dados locais enviados com sucesso para a nuvem!');
-                      } catch (err: any) {
-                        setCloudError(err.message || 'Erro ao enviar dados.');
-                      } finally {
-                        setCloudLoading(false);
-                      }
-                    }}
-                    className="w-full py-2.5 px-3 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                    onClick={() => switchMode('login')}
+                    className={`flex-1 py-2 font-semibold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      mode === 'login'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
                   >
-                    {cloudLoading ? (
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Upload className="w-3.5 h-3.5" />
-                    )}
-                    <span>Enviar dados locais agora</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={cloudLoading || cloudSyncStatus === 'syncing'}
-                    onClick={async () => {
-                      setCloudLoading(true);
-                      setCloudError(null);
-                      try {
-                        await forceDownloadFromCloud();
-                        setCloudSuccess('Dados baixados da nuvem e aplicados localmente!');
-                      } catch (err: any) {
-                        setCloudError(err.message || 'Erro ao baixar dados.');
-                      } finally {
-                        setCloudLoading(false);
-                      }
-                    }}
-                    className="w-full py-2.5 px-3 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-300 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
-                  >
-                    {cloudLoading ? (
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Download className="w-3.5 h-3.5" />
-                    )}
-                    <span>Baixar dados da nuvem</span>
-                  </button>
-
-                  <div className="flex gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setIsCloudModalOpen(false)}
-                      className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
-                    >
-                      Fechar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleDisconnectCloud}
-                      disabled={cloudLoading}
-                      className="py-2.5 px-3.5 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                      <span>Desconectar nuvem</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : isWaitingGithub || githubAuthUrl ? (
-              /* Estado: Aguardando autorização externa do GitHub */
-              <div className="p-4 rounded-2xl bg-slate-950/80 border border-emerald-500/30 text-xs space-y-3.5 animate-in fade-in">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-emerald-400 font-semibold">
-                    <RefreshCw className="w-4 h-4 animate-spin text-emerald-400" />
-                    <span>Autorização do GitHub em Andamento</span>
-                  </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                    Aguardando Login
-                  </span>
-                </div>
-
-                <p className="text-slate-300 text-[11px] leading-relaxed">
-                  Por medidas de segurança do navegador, a autenticação com o GitHub precisa ocorrer em uma aba externa.
-                </p>
-
-                {githubAuthUrl && (
-                  <a
-                    href={githubAuthUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-750 active:bg-slate-700 text-white font-semibold rounded-xl border border-slate-600 hover:border-slate-500 flex items-center justify-center gap-2 transition-all cursor-pointer text-xs shadow-md"
-                  >
-                    <svg className="w-4 h-4 fill-current text-white shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-                      <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-                    </svg>
-                    <span>Abrir Autorização no GitHub ↗</span>
-                    <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
-                  </a>
-                )}
-
-                {/* Card explicativo sobre o erro "redirect_uri não associado" do GitHub */}
-                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-[11px] space-y-2">
-                  <div className="font-semibold flex items-center gap-1.5 text-amber-300">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                    <span>Apareceu o aviso "redirect_uri não associado" no GitHub?</span>
-                  </div>
-                  <p className="text-slate-300 leading-relaxed text-[11px]">
-                    No seu painel do GitHub Developer Settings (OAuth App), o campo <strong>Authorization callback URL</strong> precisa ser exatamente:
-                  </p>
-                  <div className="bg-slate-950 p-2 rounded-lg border border-slate-800 font-mono text-[10px] text-emerald-400 break-all select-all">
-                    https://lwkecyfhpkyuakbbxksl.supabase.co/auth/v1/callback
-                  </div>
-                  <div className="pt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setGithubAuthUrl(null);
-                        setIsWaitingGithub(false);
-                        setIsOtpMode(true);
-                        setOtpSent(false);
-                      }}
-                      className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
-                    >
-                      <Mail className="w-3.5 h-3.5" />
-                      <span>Ou entrar via Código no E-mail (Sem precisar do GitHub)</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-1 border-t border-slate-800 text-[11px]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setGithubAuthUrl(null);
-                      setIsWaitingGithub(false);
-                    }}
-                    className="text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
-                  >
-                    Voltar / Cancelar
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Entrar</span>
                   </button>
                   <button
                     type="button"
-                    disabled={cloudLoading}
-                    onClick={async () => {
-                      setCloudLoading(true);
-                      await checkSessionStatus();
-                      setCloudLoading(false);
-                    }}
-                    className="text-emerald-400 hover:text-emerald-300 font-semibold underline underline-offset-2 flex items-center gap-1 cursor-pointer"
+                    onClick={() => switchMode('signup')}
+                    className={`flex-1 py-2 font-semibold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      mode === 'signup'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Já autorizei no GitHub</span>
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>Criar Conta</span>
                   </button>
                 </div>
-              </div>
-            ) : isOtpMode ? (
-              /* Estado: Login sem senha por Link de Acesso / Código no E-mail (OTP / Magic Link) */
-              <div className="space-y-3.5 animate-in fade-in">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-blue-400 font-semibold text-xs">
-                    <Mail className="w-4 h-4" />
-                    <span>Acesso sem Senha via E-mail</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsOtpMode(false);
-                      setOtpSent(false);
-                      setCloudError(null);
-                    }}
-                    className="text-[11px] text-slate-400 hover:text-slate-200 underline cursor-pointer"
-                  >
-                    Voltar para Senha
-                  </button>
-                </div>
+              )}
 
-                <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/25 text-blue-200 text-xs space-y-1.5">
-                  <div className="font-semibold text-blue-300 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Como funciona o link no e-mail:</span>
-                  </div>
-                  <p className="text-slate-300 leading-relaxed text-[11px]">
-                    O Supabase envia um e-mail com um botão de acesso direto (<strong>Magic Link</strong>).
-                    Basta clicar nele no seu e-mail para conectar este aplicativo à nuvem instantaneamente!
-                  </p>
-                </div>
-
-                {!otpSent ? (
-                  <form onSubmit={handleSendOtp} className="space-y-3">
+              {/* MODO 1: ENTRAR */}
+              {mode === 'login' && (
+                <div className="space-y-4">
+                  <form onSubmit={handleLoginSubmit} className="space-y-4">
                     <div>
                       <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                        Seu E-mail do Supabase
+                        E-mail *
                       </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -755,171 +663,147 @@ export const AuthLockScreen: React.FC = () => {
                         <input
                           type="email"
                           required
-                          value={cloudEmail}
-                          onChange={e => setCloudEmail(e.target.value)}
-                          placeholder="gomes.studio.ai@gmail.com"
-                          className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all font-mono"
+                          value={email}
+                          onChange={e => setEmail(e.target.value)}
+                          placeholder="seu@email.com"
+                          autoComplete="email"
+                          className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white text-base sm:text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all"
                         />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-semibold text-slate-300">
+                          Senha *
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => switchMode('forgot')}
+                          className="text-[11px] text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
+                        >
+                          Recuperar senha
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                          <KeyRound className="w-4 h-4" />
+                        </div>
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          value={password}
+                          onChange={e => setPassword(e.target.value)}
+                          placeholder="Sua senha"
+                          autoComplete="current-password"
+                          className="w-full pl-10 pr-10 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white text-base sm:text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                          aria-label={showPassword ? 'Ocultar senha' : 'Ver senha'}
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
                       </div>
                     </div>
 
                     <button
                       type="submit"
-                      disabled={otpLoading}
-                      className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-60 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-950/50 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      disabled={isLoading}
+                      className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-60 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-950/50 transition-all flex items-center justify-center gap-2 group cursor-pointer"
                     >
-                      {otpLoading ? (
+                      {isLoading ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />
                       ) : (
-                        <Send className="w-4 h-4" />
+                        <>
+                          <span>Entrar</span>
+                          <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                        </>
                       )}
-                      <span>Enviar Link de Acesso por E-mail</span>
                     </button>
                   </form>
-                ) : (
-                  <div className="space-y-3.5">
-                    {/* Instruções do Link Mágico */}
-                    <div className="p-3.5 rounded-2xl bg-slate-950/90 border border-emerald-500/30 text-xs space-y-2.5">
-                      <div className="flex items-center gap-2 font-semibold text-emerald-400">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <span>Link enviado para {cloudEmail}!</span>
-                      </div>
-                      <p className="text-slate-300 leading-relaxed text-[11px]">
-                        <strong>Passo principal:</strong> Abra seu e-mail e clique no botão ou link <strong>"Log In"</strong>.
-                        O Supabase autentica a conta e redireciona você de volta ao app automaticamente.
-                      </p>
-                      <div className="pt-1">
-                        <button
-                          type="button"
-                          disabled={cloudLoading}
-                          onClick={async () => {
-                            setCloudLoading(true);
-                            setCloudError(null);
-                            await checkSessionStatus();
-                            setCloudLoading(false);
-                          }}
-                          className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
-                        >
-                          {cloudLoading ? (
-                            <RefreshCw className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <CheckCircle2 className="w-4 h-4" />
-                          )}
-                          <span>Já cliquei no link do e-mail (Verificar)</span>
-                        </button>
-                      </div>
-                    </div>
 
-                    {/* Opção secundária: código numérico */}
-                    <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800 text-xs space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-semibold text-slate-400">
-                          (Opcional) Recebeu um código de 6 dígitos?
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setOtpSent(false)}
-                          className="text-[11px] text-slate-400 hover:text-slate-200 underline cursor-pointer"
-                        >
-                          Trocar e-mail
-                        </button>
-                      </div>
-                      <form onSubmit={handleVerifyOtp} className="space-y-2">
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                            <Key className="w-4 h-4" />
-                          </div>
-                          <input
-                            type="text"
-                            value={otpCode}
-                            onChange={e => setOtpCode(e.target.value.trim())}
-                            placeholder="Digite os 6 dígitos (se houver)"
-                            maxLength={8}
-                            className="w-full pl-10 pr-4 py-2 bg-slate-950/70 border border-slate-700 rounded-xl text-white text-xs placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all font-mono tracking-widest text-center"
-                          />
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={handleSendOtp}
-                            disabled={otpLoading}
-                            className="w-1/3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
-                          >
-                            Reenviar
-                          </button>
-                          <button
-                            type="submit"
-                            disabled={otpLoading || !otpCode.trim()}
-                            className="w-2/3 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                          >
-                            <span>Validar Código</span>
-                          </button>
-                        </div>
-                      </form>
-                    </div>
+                  <div className="relative flex items-center justify-center">
+                    <div className="border-t border-slate-800 w-full" />
+                    <span className="bg-slate-900 px-3 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
+                      ou acesse com
+                    </span>
                   </div>
-                )}
-              </div>
-            ) : (
-              /* Estado: Não configurado ainda ou Sessão Expirada (Visual Padrão) */
-              <div className="space-y-3.5">
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Conecte sua conta do Supabase uma única vez para ativar a sincronização na nuvem. A sessão será mantida no seu navegador.
-                </p>
 
-                {/* Opção Rápida 1: Link sem senha no E-mail (Recomendado) */}
-                <button
-                  type="button"
-                  disabled={cloudLoading || githubLoading}
-                  onClick={() => {
-                    setIsOtpMode(true);
-                    setOtpSent(false);
-                    setCloudError(null);
-                    setCloudSuccess(null);
-                  }}
-                  className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-60 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-950/50 transition-all flex items-center justify-center gap-2 cursor-pointer border border-blue-400/30"
-                >
-                  <Mail className="w-4 h-4 shrink-0" />
-                  <span>Entrar com Link de Acesso por E-mail</span>
-                  <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-blue-400/20 text-blue-200 border border-blue-300/30 font-medium">
-                    Sem Senha
-                  </span>
-                </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      disabled={isLoading}
+                      onClick={() => switchMode('otp')}
+                      className="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-60 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Mail className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                      <span>Link / Código E-mail</span>
+                    </button>
 
-                {/* Opção 2: Login OAuth com GitHub */}
-                <button
-                  type="button"
-                  disabled={cloudLoading || githubLoading}
-                  onClick={handleGitHubLogin}
-                  className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-750 active:bg-slate-700 disabled:opacity-60 text-white text-xs font-semibold rounded-xl border border-slate-700 hover:border-slate-600 transition-all flex items-center justify-center gap-2.5 shadow-sm cursor-pointer"
-                >
-                  {githubLoading ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin text-slate-300" />
-                      <span>Conectando ao GitHub...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4 fill-current text-white shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                    <button
+                      type="button"
+                      disabled={isLoading}
+                      onClick={handleGitHubLogin}
+                      className="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-60 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <svg className="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24" aria-hidden="true">
                         <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
                       </svg>
-                      <span>Entrar com GitHub</span>
-                    </>
-                  )}
-                </button>
-
-                {/* Divisor visual com texto 'ou' */}
-                <div className="relative flex items-center justify-center my-0.5">
-                  <div className="border-t border-slate-800 w-full" />
-                  <span className="bg-slate-900 px-3 text-[11px] uppercase tracking-wider text-slate-500 font-medium">
-                    ou com senha cadastrada
-                  </span>
+                      <span>GitHub</span>
+                    </button>
+                  </div>
                 </div>
+              )}
 
-                <form onSubmit={handleCloudSubmit} className="space-y-3.5">
+              {/* MODO 2: CRIAR CONTA */}
+              {mode === 'signup' && (
+                <form onSubmit={handleSignUpSubmit} className="space-y-3.5">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                      E-mail do Supabase
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Nome completo *
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                        <User className="w-4 h-4" />
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        value={fullName}
+                        onChange={e => setFullName(e.target.value)}
+                        placeholder="Seu nome completo"
+                        autoComplete="name"
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white text-base sm:text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      WhatsApp com DDD *
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                        <Phone className="w-4 h-4" />
+                      </div>
+                      <input
+                        type="tel"
+                        required
+                        value={whatsapp}
+                        onChange={e => setWhatsapp(e.target.value)}
+                        placeholder="(33) 99999-9999"
+                        autoComplete="tel"
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white text-base sm:text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      E-mail *
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -928,107 +812,315 @@ export const AuthLockScreen: React.FC = () => {
                       <input
                         type="email"
                         required
-                        value={cloudEmail}
-                        onChange={e => setCloudEmail(e.target.value)}
-                        placeholder="gomes.studio.ai@gmail.com"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        placeholder="seu@email.com"
                         autoComplete="email"
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all font-mono"
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white text-base sm:text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all"
                       />
                     </div>
                   </div>
 
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-semibold text-slate-300">
-                        Senha da Conta Supabase
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Criar senha *
                       </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                          <KeyRound className="w-4 h-4" />
+                        </div>
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          minLength={6}
+                          value={password}
+                          onChange={e => setPassword(e.target.value)}
+                          placeholder="Mín. 6 chars"
+                          autoComplete="new-password"
+                          className="w-full pl-9 pr-9 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white text-base sm:text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-200 cursor-pointer"
+                          aria-label={showPassword ? 'Ocultar senha' : 'Ver senha'}
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Confirmar senha *
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                          <KeyRound className="w-4 h-4" />
+                        </div>
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          minLength={6}
+                          value={confirmPassword}
+                          onChange={e => setConfirmPassword(e.target.value)}
+                          placeholder="Repita a senha"
+                          autoComplete="new-password"
+                          className="w-full pl-9 pr-3 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white text-base sm:text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Seleção pública de plano desejado (somente Mensal e Anual, sem preços) */}
+                  <div>
+                    <span className="block text-xs font-semibold text-slate-300 mb-1.5">
+                      Selecionar plano desejado *
+                    </span>
+                    <div className="grid grid-cols-2 gap-2.5">
                       <button
                         type="button"
-                        onClick={handleResetPasswordRequest}
-                        className="text-[11px] text-slate-400 hover:text-blue-400 transition-colors cursor-pointer"
+                        onClick={() => setRequestedPlan('monthly')}
+                        aria-pressed={requestedPlan === 'monthly'}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          requestedPlan === 'monthly'
+                            ? 'bg-blue-500/15 border-blue-400 text-white'
+                            : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700'
+                        }`}
                       >
-                        Esqueci / Criar senha
+                        <div className="flex items-center justify-between gap-1.5">
+                          <span className="text-xs font-bold">Mensal</span>
+                          <Clock className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">30 dias</div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setRequestedPlan('annual')}
+                        aria-pressed={requestedPlan === 'annual'}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          requestedPlan === 'annual'
+                            ? 'bg-emerald-500/15 border-emerald-400 text-white'
+                            : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1.5">
+                          <span className="text-xs font-bold">Anual</span>
+                          <CalendarRange className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">12 meses</div>
                       </button>
                     </div>
+                    <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
+                      A seleção indica seu interesse inicial. A liberação ocorre após contato comercial e aprovação administrativa.
+                    </p>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full mt-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-60 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-950/50 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {isLoading ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <UserPlus className="w-4 h-4" />
+                        <span>Criar Conta e Solicitar Acesso</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+
+              {/* MODO 3: RECUPERAR SENHA */}
+              {mode === 'forgot' && (
+                <form onSubmit={handleForgotSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                      E-mail da Conta *
+                    </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                        <KeyRound className="w-4 h-4" />
+                        <Mail className="w-4 h-4" />
                       </div>
                       <input
-                        type={showCloudPass ? 'text' : 'password'}
+                        type="email"
                         required
-                        value={cloudPass}
-                        onChange={e => setCloudPass(e.target.value)}
-                        placeholder="Sua senha no Supabase"
-                        autoComplete="current-password"
-                        className="w-full pl-10 pr-10 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        placeholder="seu@email.com"
+                        autoComplete="email"
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white text-base sm:text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all"
                       />
-                      <button
-                        type="button"
-                        onClick={() => setShowCloudPass(!showCloudPass)}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
-                      >
-                        {showCloudPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-xs pt-0.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsOtpMode(true);
-                        setCloudError(null);
-                        setCloudSuccess(null);
-                      }}
-                      className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors cursor-pointer inline-flex items-center gap-1"
-                    >
-                      <Mail className="w-3.5 h-3.5" />
-                      <span>Entrar sem senha via código</span>
-                    </button>
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {isLoading ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        <span>Enviar Link de Recuperação</span>
+                      </>
+                    )}
+                  </button>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsSignUp(!isSignUp);
-                        setCloudError(null);
-                        setCloudSuccess(null);
-                      }}
-                      className="text-blue-400 hover:text-blue-300 transition-colors cursor-pointer"
-                    >
-                      {isSignUp ? 'Já tem conta? Entrar' : 'Criar conta nova'}
-                    </button>
-                  </div>
-
-                  <div className="pt-2 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsCloudModalOpen(false)}
-                      className="w-1/3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={cloudLoading}
-                      className="w-2/3 py-2.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-60 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-950/50 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      {cloudLoading ? (
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <>
-                          <Cloud className="w-4 h-4" />
-                          <span>{isSignUp ? 'Criar Conta no Supabase' : 'Entrar no Supabase'}</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => switchMode('login')}
+                    className="w-full py-2 text-xs text-slate-400 hover:text-white flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Voltar para o login</span>
+                  </button>
                 </form>
-              </div>
-            )}
+              )}
+
+              {/* MODO 4: OTP / LINK MÁGICO POR E-MAIL */}
+              {mode === 'otp' && (
+                <div className="space-y-4">
+                  {!otpSent ? (
+                    <form onSubmit={handleSendOtp} className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                          Seu E-mail *
+                        </label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                            <Mail className="w-4 h-4" />
+                          </div>
+                          <input
+                            type="email"
+                            required
+                            value={email}
+                            onChange={e => setEmail(e.target.value)}
+                            placeholder="seu@email.com"
+                            autoComplete="email"
+                            className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white text-base sm:text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        {isLoading ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4" />
+                            <span>Enviar Link / Código</span>
+                          </>
+                        )}
+                      </button>
+                    </form>
+                  ) : (
+                    <div className="space-y-3">
+                      <form onSubmit={handleVerifyOtp} className="space-y-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                            Código de verificação (se enviado no e-mail)
+                          </label>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                              <Key className="w-4 h-4" />
+                            </div>
+                            <input
+                              type="text"
+                              value={otpCode}
+                              onChange={e => setOtpCode(e.target.value.trim())}
+                              placeholder="Código de 6 dígitos"
+                              maxLength={8}
+                              className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700 rounded-xl text-white text-base sm:text-sm text-center font-mono tracking-widest"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={handleSendOtp}
+                            disabled={isLoading}
+                            className="w-1/3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl cursor-pointer"
+                          >
+                            Reenviar
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={isLoading || !otpCode.trim()}
+                            className="w-2/3 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl cursor-pointer"
+                          >
+                            Confirmar Código
+                          </button>
+                        </div>
+                      </form>
+
+                      <button
+                        type="button"
+                        onClick={checkSessionStatus}
+                        className="w-full py-2 bg-slate-800/80 hover:bg-slate-800 text-emerald-400 text-xs font-semibold rounded-xl border border-slate-700 cursor-pointer"
+                      >
+                        Já cliquei no link do e-mail — Verificar sessão
+                      </button>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => switchMode('login')}
+                    className="w-full py-2 text-xs text-slate-400 hover:text-white flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Voltar para entrada com senha</span>
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Footer comercial neutro + Documentos Legais */}
+          <div className="mt-6 pt-4 border-t border-slate-800/80 text-center text-[11px] text-slate-500 space-y-2">
+            <div>Sessão isolada por usuário com autenticação oficial Supabase Auth.</div>
+            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+              <a
+                href={LEGAL_DOCUMENTS_REGISTRY.terms_of_use.routePath}
+                onClick={e => {
+                  e.preventDefault();
+                  openLegalDocument('terms_of_use');
+                }}
+                data-testid="auth-terms-link"
+                className="text-slate-300 hover:text-emerald-400 underline underline-offset-2 transition-colors"
+              >
+                Termos de Uso
+              </a>
+              <span aria-hidden="true" className="text-slate-700">
+                ·
+              </span>
+              <a
+                href={LEGAL_DOCUMENTS_REGISTRY.privacy_policy.routePath}
+                onClick={e => {
+                  e.preventDefault();
+                  openLegalDocument('privacy_policy');
+                }}
+                data-testid="auth-privacy-link"
+                className="text-slate-300 hover:text-emerald-400 underline underline-offset-2 transition-colors"
+              >
+                Política de Privacidade
+              </a>
+            </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

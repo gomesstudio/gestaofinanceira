@@ -18,21 +18,37 @@ import {
   ChevronRight,
   Sparkles,
   Lock,
+  LogOut,
   Cloud,
   CloudOff,
-  RefreshCw
+  RefreshCw,
+  AlertTriangle,
+  CheckCircle2,
+  X,
+  LayoutDashboard
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { useAuth } from '../../context/AuthContext';
 import { TimeFilterPeriod } from '../../types/finance';
 import { MONTH_NAMES_PT, MONTH_NAMES_SHORT_PT } from '../../utils/formatters';
+import {
+  resolveTechnicalAccessPermissions,
+  sanitizeCloudSyncMessageForUser
+} from '../../utils/technicalAccess';
 
 interface HeaderProps {
   currentTab: string;
   onOpenMobileMenu?: () => void;
+  isMasterAdmin?: boolean;
+  onOpenMasterPortal?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ currentTab, onOpenMobileMenu }) => {
+export const Header: React.FC<HeaderProps> = ({
+  currentTab,
+  onOpenMobileMenu,
+  isMasterAdmin = false,
+  onOpenMasterPortal
+}) => {
   const {
     filter,
     setFilter,
@@ -47,12 +63,41 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onOpenMobileMenu }) 
     goToCurrentMonth,
     cloudSyncStatus,
     cloudSyncMessage,
-    syncNowWithCloud
+    forceUploadLocalToCloud,
+    requestSafeLogout
   } = useFinance();
 
-  const { logout } = useAuth();
+  const { logout, supabaseUserDisplayName, supabaseUserEmail } = useAuth();
 
   const [isMobilePeriodOpen, setIsMobilePeriodOpen] = useState(false);
+  const [isSyncTriggering, setIsSyncTriggering] = useState(false);
+  const [headerSyncFeedback, setHeaderSyncFeedback] = useState<{
+    type: 'conflict' | 'error' | 'success';
+    text: string;
+  } | null>(null);
+
+  const handleHeaderCloudSync = async () => {
+    if (isSyncTriggering || cloudSyncStatus === 'syncing') return;
+    setIsSyncTriggering(true);
+    setHeaderSyncFeedback(null);
+    try {
+      const outcome = await forceUploadLocalToCloud();
+      if (outcome.conflict) {
+        setHeaderSyncFeedback({ type: 'conflict', text: outcome.message });
+      } else if (!outcome.success) {
+        setHeaderSyncFeedback({ type: 'error', text: outcome.message });
+      } else {
+        setHeaderSyncFeedback({ type: 'success', text: outcome.message });
+      }
+    } catch (err: any) {
+      setHeaderSyncFeedback({
+        type: 'error',
+        text: err?.message || 'Não foi possível verificar ou sincronizar os dados na nuvem.'
+      });
+    } finally {
+      setIsSyncTriggering(false);
+    }
+  };
 
   const handlePeriodChange = (period: TimeFilterPeriod) => {
     setFilter(prev => ({ ...prev, period }));
@@ -93,7 +138,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onOpenMobileMenu }) 
   };
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between gap-2.5 px-3 sm:px-6 lg:px-8 py-2.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800">
+    <div className="sticky top-0 z-30">
+      <header className="flex items-center justify-between gap-2.5 px-3 sm:px-6 lg:px-8 py-2.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800">
       {/* Zone 1: Mobile Hamburger + Contextual Title & Breadcrumb */}
       <div className="flex items-center gap-2 min-w-0">
         {/* Mobile Hamburger Menu Button */}
@@ -336,6 +382,18 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onOpenMobileMenu }) 
 
       {/* Zone 3: Actions & Quick Launch CTA */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {isMasterAdmin && onOpenMasterPortal && (
+          <button
+            type="button"
+            onClick={onOpenMasterPortal}
+            title="Alternar para o ambiente exclusivo Gestão Comercial (Painel Master)"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <LayoutDashboard className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden sm:inline">Gestão Comercial</span>
+          </button>
+        )}
+
         {/* Theme Toggle */}
         <button
           onClick={toggleTheme}
@@ -347,9 +405,16 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onOpenMobileMenu }) 
 
         {/* Supabase Cloud Status Indicator */}
         <button
-          onClick={syncNowWithCloud}
-          title={cloudSyncMessage || 'Sincronização na nuvem com Supabase'}
-          className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-all cursor-pointer ${
+          type="button"
+          onClick={handleHeaderCloudSync}
+          disabled={isSyncTriggering || cloudSyncStatus === 'syncing'}
+          title={
+            sanitizeCloudSyncMessageForUser(
+              cloudSyncMessage,
+              resolveTechnicalAccessPermissions({}).canViewDevDiagnostics
+            ) || 'Verificar nuvem e sincronizar dados'
+          }
+          className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-all cursor-pointer disabled:opacity-70 ${
             cloudSyncStatus === 'connected' || cloudSyncStatus === 'synced'
               ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200/70 dark:border-emerald-800/70'
               : cloudSyncStatus === 'syncing'
@@ -376,7 +441,7 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onOpenMobileMenu }) 
               : cloudSyncStatus === 'connected' || cloudSyncStatus === 'synced'
               ? 'Nuvem Conectada'
               : cloudSyncStatus === 'table_missing'
-              ? 'Criar Tabela SQL'
+              ? 'Nuvem Indisponível'
               : cloudSyncStatus === 'session_expired'
               ? 'Sessão Expirada'
               : cloudSyncStatus === 'not_configured'
@@ -385,15 +450,15 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onOpenMobileMenu }) 
           </span>
         </button>
 
-        {/* User Badge & Lock Screen Button */}
+        {/* Authenticated User Badge & Logout Button */}
         <button
-          onClick={logout}
-          title="Bloquear aplicativo (Usuário: Lucas Gomes)"
-          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-800 transition-all cursor-pointer"
+          onClick={() => (requestSafeLogout ? requestSafeLogout() : logout())}
+          title={`Encerrar sessão (${supabaseUserEmail || supabaseUserDisplayName})`}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-800 transition-all cursor-pointer max-w-[160px]"
         >
-          <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-          <span className="hidden md:inline font-semibold">Lucas</span>
-          <span className="text-[10px] text-slate-400 hidden xl:inline">• Bloquear</span>
+          <LogOut className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <span className="hidden md:inline font-semibold truncate">{supabaseUserDisplayName}</span>
+          <span className="text-[10px] text-slate-400 hidden xl:inline shrink-0">• Sair</span>
         </button>
 
         {/* Quick Income shortcut (desktop) */}
@@ -424,6 +489,36 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, onOpenMobileMenu }) 
           <span className="sm:hidden font-bold">Novo</span>
         </button>
       </div>
-    </header>
+      </header>
+      {headerSyncFeedback && (
+        <div
+          role={headerSyncFeedback.type === 'success' ? 'status' : 'alert'}
+          className={`px-3 sm:px-6 lg:px-8 py-2 border-b text-xs flex items-center justify-between gap-3 ${
+            headerSyncFeedback.type === 'conflict'
+              ? 'bg-amber-50 dark:bg-amber-950/90 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+              : headerSyncFeedback.type === 'error'
+              ? 'bg-rose-50 dark:bg-rose-950/90 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200'
+              : 'bg-emerald-50 dark:bg-emerald-950/90 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+          }`}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            {headerSyncFeedback.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+            )}
+            <span className="font-medium leading-snug">{headerSyncFeedback.text}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setHeaderSyncFeedback(null)}
+            aria-label="Fechar aviso de sincronização"
+            className="p-1 rounded-lg opacity-70 hover:opacity-100 cursor-pointer shrink-0"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+    </div>
   );
 };

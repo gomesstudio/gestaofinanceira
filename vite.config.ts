@@ -2,11 +2,12 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
+import {previewHomologationPlugin} from './homologation/vitePreviewHomologPlugin';
 
 const DEFAULT_SUPABASE_URL = 'https://lwkecyfhpkyuakbbxksl.supabase.co';
 const DEFAULT_SUPABASE_KEY = 'sb_publishable_WJFITYIkMpYJAiPErF4iWA_lzK9QdMI';
 
-export default defineConfig(() => {
+export default defineConfig(({command}) => {
   const envKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   const safeKey =
     envKey && envKey.length > 20 && (envKey.startsWith('sb_publishable_') || envKey.startsWith('eyJ'))
@@ -17,7 +18,11 @@ export default defineConfig(() => {
   const safeUrl = envUrl && envUrl.startsWith('http') ? envUrl : DEFAULT_SUPABASE_URL;
 
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      ...(command === 'serve' ? [previewHomologationPlugin()] : []),
+    ],
     define: {
       'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(safeUrl),
       'import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY': JSON.stringify(safeKey),

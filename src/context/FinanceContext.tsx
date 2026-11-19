@@ -17,10 +17,20 @@ import {
   Transaction
 } from '../types/finance';
 import {
-  getInitialState,
-  resetToCleanState,
-  resetToSampleState,
-  saveStateToStorage
+  AppState,
+  LegacyStorageSummary,
+  createCleanUserState,
+  createNeutralLoadingState,
+  dismissLegacyRecoveryPromptForUser,
+  exportLegacyStorageJson,
+  getRecoverySnapshotForUser,
+  getUserStateFromStorage,
+  inspectLegacyStorageState,
+  isLegacyRecoveryDismissedForUser,
+  isValidStorageUserId,
+  resetToCleanStateForUser,
+  resetToSampleStateForUser,
+  saveStateToStorageForUser
 } from '../utils/storage';
 import { getTodayISO, MONTH_NAMES_PT, MONTH_NAMES_SHORT_PT } from '../utils/formatters';
 import {
@@ -30,8 +40,23 @@ import {
   migrateAndVerifyFinanceData,
   resolveMultiDeviceConflict,
   runFullSupabaseDiagnostic,
-  DiagnosticResult
+  hasConfirmedStateOwnership,
+  verifyCloudPreservationForUser,
+  DiagnosticResult,
+  SyncResult
 } from '../services/supabaseSyncService';
+import {
+  evaluateBackupRestorationSafety,
+  evaluateManualCloudUploadSafety,
+  hasRealFinancialData,
+  ManualCloudUploadDecision,
+  PreparedBackupRestore,
+  validateBackupJsonStructure
+} from '../utils/backupSecurity';
+import {
+  ExperimentalRecoveryAdapterOptions,
+  saveRecoverySnapshotWithExperimentalHistory
+} from '../utils/recoverySnapshotAdapter';
 import { useAuth } from './AuthContext';
 
 export interface SmartAlert {
@@ -40,6 +65,58 @@ export interface SmartAlert {
   title: string;
   message: string;
   metric?: string;
+}
+
+export interface DeleteResult {
+  success: boolean;
+  synced: boolean;
+  message: string;
+}
+
+export interface BackupInspectionOutcome {
+  valid: boolean;
+  canRestore: boolean;
+  message: string;
+  prepared?: PreparedBackupRestore;
+}
+
+export interface BackupRestoreOutcome {
+  success: boolean;
+  synced: boolean;
+  snapshotStatus?: 'saved' | 'not_needed' | 'failed';
+  message: string;
+}
+
+export interface ManualUploadOutcome {
+  success: boolean;
+  conflict?: boolean;
+  alreadySynced?: boolean;
+  message: string;
+  decision?: ManualCloudUploadDecision;
+}
+
+export interface DestructiveActionOutcome {
+  success: boolean;
+  synced: boolean;
+  blockedByRealData?: boolean;
+  snapshotStatus?: 'saved' | 'not_needed' | 'failed';
+  message: string;
+}
+
+export interface PendingLogoutPrompt {
+  reasonCode:
+    | 'unsynced_changes'
+    | 'missing_on_cloud'
+    | 'table_missing'
+    | 'cloud_unreachable'
+    | 'sync_in_progress'
+    | 'owner_mismatch'
+    | 'state_changed';
+  message: string;
+  hasLocalRecoveryBackup: boolean;
+  canRetrySync: boolean;
+  actionError?: string | null;
+  isProcessing?: boolean;
 }
 
 export interface FinanceContextType {
@@ -65,34 +142,35 @@ export interface FinanceContextType {
   setFilter: React.Dispatch<React.SetStateAction<DateFilter>>;
   setSafetyReserveDesired: (val: number) => void;
   toggleTheme: () => void;
-  loadSampleData: () => void;
-  resetAllData: () => void;
-  importBackupJson: (jsonString: string) => boolean;
+  loadSampleData: () => Promise<DestructiveActionOutcome>;
+  resetAllData: () => Promise<DestructiveActionOutcome>;
+  inspectBackupJsonForRestore: (jsonString: string) => Promise<BackupInspectionOutcome>;
+  applyConfirmedBackupRestore: (prepared: PreparedBackupRestore) => Promise<BackupRestoreOutcome>;
   exportBackupJson: () => string;
 
   // CRUD Transactions
   addTransaction: (tx: Omit<Transaction, 'id'>, installmentsCount?: number) => void;
   updateTransaction: (id: string, tx: Partial<Transaction>) => void;
-  deleteTransaction: (id: string) => void;
+  deleteTransaction: (id: string) => Promise<DeleteResult>;
   duplicateTransaction: (id: string) => void;
 
   // Debts
   addDebt: (debt: Omit<Debt, 'id' | 'totalPaid' | 'paymentsHistory'>) => void;
   updateDebt: (id: string, debt: Partial<Debt>) => void;
-  deleteDebt: (id: string) => void;
+  deleteDebt: (id: string) => Promise<DeleteResult>;
   amortizeDebt: (debtId: string, accountId: string, amount: number, date?: string, notes?: string) => void;
 
   // Credit Cards
   addCreditCard: (card: Omit<CreditCard, 'id'>) => void;
   updateCreditCard: (id: string, card: Partial<CreditCard>) => void;
-  deleteCreditCard: (id: string) => void;
+  deleteCreditCard: (id: string) => Promise<DeleteResult>;
   payCreditCardInvoice: (cardId: string, accountId: string, amount: number, invoiceMonth: string) => void;
   getCardInvoiceAmount: (cardId: string, monthYear?: string) => number;
 
   // Accounts
   addAccount: (acc: Omit<BankAccount, 'id'>) => void;
   updateAccount: (id: string, acc: Partial<BankAccount>) => void;
-  deleteAccount: (id: string) => void;
+  deleteAccount: (id: string) => Promise<DeleteResult>;
   transferBetweenAccounts: (sourceAccountId: string, targetAccountId: string, amount: number, date?: string, notes?: string) => void;
 
   // Categories
@@ -103,7 +181,7 @@ export interface FinanceContextType {
   // Goals
   addGoal: (goal: Omit<FinancialGoal, 'id' | 'currentAmount' | 'completed'>) => void;
   updateGoal: (id: string, goal: Partial<FinancialGoal>) => void;
-  deleteGoal: (id: string) => void;
+  deleteGoal: (id: string) => Promise<DeleteResult>;
   contributeToGoal: (goalId: string, accountId: string, amount: number) => void;
 
   // Computed Values & KPIs
@@ -138,23 +216,458 @@ export interface FinanceContextType {
   // Purchase Simulation
   simulatePurchase: (amount: number) => PurchaseSimulationResult;
 
+  // Hydration & Isolation State
+  isFinanceHydrating: boolean;
+  isFinanceHydrated: boolean;
+  hydratedUserId: string | null;
+  hydrationError: string | null;
+  retryCloudHydration: () => Promise<void>;
+  legacyBackupPrompt: LegacyStorageSummary | null;
+  exportLegacyBackupFile: () => string | null;
+  importLegacyBackupToCurrentAccount: (confirmedOwnership: boolean) => Promise<{ success: boolean; message: string }>;
+  dismissLegacyBackupPrompt: () => void;
+
   // Supabase Cloud Synchronization
   cloudSyncStatus: 'connected' | 'not_configured' | 'session_expired' | 'unauthenticated' | 'syncing' | 'synced' | 'table_missing' | 'error' | 'idle';
   cloudSyncMessage: string | null;
   lastCloudSyncDate: Date | null;
   syncNowWithCloud: () => Promise<void>;
-  forceUploadLocalToCloud: () => Promise<void>;
+  forceUploadLocalToCloud: () => Promise<ManualUploadOutcome>;
   forceDownloadFromCloud: () => Promise<void>;
   runCloudDiagnostic: () => Promise<DiagnosticResult>;
   isCloudConnected: boolean;
+
+  // Safe Logout Protection (Fase 2.1)
+  pendingLogoutPrompt: PendingLogoutPrompt | null;
+  isCheckingLogoutSafety: boolean;
+  requestSafeLogout: () => Promise<void>;
+  cancelPendingLogout: () => void;
+  syncAndConfirmLogout: () => Promise<void>;
+  confirmSafeLogout: (options?: { alsoDeleteRecoveryBackups?: boolean }) => Promise<void>;
+  exportBackupForPendingLogout: () => { success: boolean; filename: string; jsonContent: string };
+}
+
+export type CloudSyncStatusType =
+  | 'connected'
+  | 'not_configured'
+  | 'session_expired'
+  | 'unauthenticated'
+  | 'syncing'
+  | 'synced'
+  | 'table_missing'
+  | 'error'
+  | 'idle';
+
+/**
+ * Centraliza atualização de version, lastModified e verificação de proprietário em todas as mutações CRUD.
+ * Bloqueia alterações caso o contexto ainda não esteja hidratado ou haja divergência de usuário.
+ */
+export function applyAuthenticatedMutation(
+  prev: AppState,
+  userId: string | null | undefined,
+  isHydrated: boolean,
+  updater: (current: AppState) => AppState
+): AppState {
+  if (!isHydrated || !userId || !isValidStorageUserId(userId)) {
+    return prev;
+  }
+  if (prev.ownerUserId && prev.ownerUserId !== userId) {
+    return prev;
+  }
+  const next = updater(prev);
+  if (next === prev) {
+    return prev;
+  }
+  return {
+    ...next,
+    ownerUserId: userId,
+    version: Math.max(1, (prev.version || 0) + 1),
+    lastModified: Date.now()
+  };
+}
+
+/**
+ * Funções puras de remoção isolada de um único registro por ID (preservando os demais registros).
+ */
+export function removeTransactionFromState(
+  prev: AppState,
+  id: string
+): { nextState: AppState; removed: Transaction | null } {
+  const oldTx = prev.transactions.find(t => t.id === id);
+  if (!oldTx) {
+    return { nextState: prev, removed: null };
+  }
+
+  const newAccounts = prev.accounts.map(a => ({ ...a }));
+
+  if (oldTx.status === 'paid' && oldTx.accountId) {
+    const acc = newAccounts.find(a => a.id === oldTx.accountId);
+    if (acc) {
+      if (oldTx.type === 'income') acc.balance -= oldTx.amount;
+      else if (
+        (oldTx.type === 'expense_fixed' || oldTx.type === 'expense_variable') &&
+        oldTx.paymentMethod !== 'credit_card'
+      ) {
+        acc.balance += oldTx.amount;
+      }
+    }
+  }
+
+  return {
+    nextState: {
+      ...prev,
+      transactions: prev.transactions.filter(t => t.id !== id),
+      accounts: newAccounts
+    },
+    removed: oldTx
+  };
+}
+
+export function removeDebtFromState(
+  prev: AppState,
+  id: string
+): { nextState: AppState; removed: Debt | null } {
+  const oldDebt = prev.debts.find(d => d.id === id);
+  if (!oldDebt) return { nextState: prev, removed: null };
+  return {
+    nextState: {
+      ...prev,
+      debts: prev.debts.filter(d => d.id !== id)
+    },
+    removed: oldDebt
+  };
+}
+
+export function removeCreditCardFromState(
+  prev: AppState,
+  id: string
+): { nextState: AppState; removed: CreditCard | null } {
+  const oldCard = prev.creditCards.find(c => c.id === id);
+  if (!oldCard) return { nextState: prev, removed: null };
+  return {
+    nextState: {
+      ...prev,
+      creditCards: prev.creditCards.filter(c => c.id !== id)
+    },
+    removed: oldCard
+  };
+}
+
+export function removeAccountFromState(
+  prev: AppState,
+  id: string
+): { nextState: AppState; removed: BankAccount | null } {
+  const oldAccount = prev.accounts.find(a => a.id === id);
+  if (!oldAccount) return { nextState: prev, removed: null };
+  return {
+    nextState: {
+      ...prev,
+      accounts: prev.accounts.filter(a => a.id !== id)
+    },
+    removed: oldAccount
+  };
+}
+
+export function removeGoalFromState(
+  prev: AppState,
+  id: string
+): { nextState: AppState; removed: FinancialGoal | null } {
+  const oldGoal = prev.goals.find(g => g.id === id);
+  if (!oldGoal) return { nextState: prev, removed: null };
+  return {
+    nextState: {
+      ...prev,
+      goals: prev.goals.filter(g => g.id !== id)
+    },
+    removed: oldGoal
+  };
+}
+
+export interface HydrationSessionResult {
+  aborted: boolean;
+  hydrated: boolean;
+  state: AppState;
+  skipNextAutoSync: boolean;
+  status: CloudSyncStatusType;
+  message: string;
+  error?: string;
+}
+
+/**
+ * Orquestrador puro de hidratação inicial por usuário autenticado.
+ * - Verifica propriedade estrita do cache local (nunca usa chave legada global).
+ * - Invalida imediatamente resultados caso a sessão/usuário mude durante chamadas assíncronas.
+ * - Faz prevalecer dados remotos sobre caches sem propriedade ou demonstrativos.
+ * - Nunca faz upload automático quando há falha de conexão com Supabase.
+ */
+export async function hydrateUserFinanceSession(params: {
+  userId: string | null | undefined;
+  isSessionMatch: () => boolean;
+  localUserCache: AppState | null;
+  fetchRemote: () => Promise<SyncResult>;
+  uploadLocal?: (state: AppState) => Promise<SyncResult>;
+  experimentalHistoryOptions?: ExperimentalRecoveryAdapterOptions;
+}): Promise<HydrationSessionResult> {
+  const { userId, isSessionMatch, localUserCache, fetchRemote, uploadLocal, experimentalHistoryOptions } = params;
+
+  if (!userId || !isValidStorageUserId(userId) || !isSessionMatch()) {
+    return {
+      aborted: true,
+      hydrated: false,
+      state: createNeutralLoadingState(),
+      skipNextAutoSync: true,
+      status: 'unauthenticated',
+      message: 'Sessão inválida ou encerrada antes da hidratação.'
+    };
+  }
+
+  // Aceita apenas cache local estritamente vinculado ao mesmo userId e já inicializado
+  const validLocalCache =
+    localUserCache &&
+    localUserCache.ownerUserId === userId &&
+    (localUserCache.version ?? 0) > 0
+      ? localUserCache
+      : null;
+
+  const remote = await fetchRemote();
+
+  // Se o usuário trocou de conta ou fez logout enquanto a resposta vinha da rede, descarta tudo!
+  if (!isSessionMatch()) {
+    return {
+      aborted: true,
+      hydrated: false,
+      state: createNeutralLoadingState(),
+      skipNextAutoSync: true,
+      status: 'unauthenticated',
+      message: 'Operação assíncrona descartada por troca de usuário ou logout.'
+    };
+  }
+
+  if (remote.success && remote.data) {
+    const normalizedRemote: AppState = {
+      ...remote.data,
+      ownerUserId: userId,
+      version: Math.max(1, remote.version || remote.data.version || 1),
+      lastModified: remote.clientTimestamp || remote.data.lastModified || 0
+    };
+
+    if (!validLocalCache) {
+      saveStateToStorageForUser(userId, normalizedRemote);
+      return {
+        aborted: false,
+        hydrated: true,
+        state: normalizedRemote,
+        skipNextAutoSync: true,
+        status: 'connected',
+        message: 'Dados da conta carregados automaticamente da nuvem.'
+      };
+    }
+
+    const conflict = resolveMultiDeviceConflict(
+      validLocalCache,
+      normalizedRemote,
+      normalizedRemote.lastModified || 0,
+      userId
+    );
+
+    if (conflict.strategy === 'use_local' && uploadLocal) {
+      const prePushSnap = await saveRecoverySnapshotWithExperimentalHistory(
+        userId,
+        normalizedRemote,
+        'pre_local_push',
+        {
+          ...experimentalHistoryOptions,
+          isSessionStillValid: isSessionMatch
+        }
+      );
+      if (prePushSnap.abortedBySessionChange || !isSessionMatch()) {
+        return {
+          aborted: true,
+          hydrated: false,
+          state: createNeutralLoadingState(),
+          skipNextAutoSync: true,
+          status: 'unauthenticated',
+          message: 'Sessão alterada durante gravação preventiva de recuperação.'
+        };
+      }
+      const pushedState: AppState = {
+        ...validLocalCache,
+        ownerUserId: userId
+      };
+      const uploadRes = await uploadLocal(pushedState);
+      if (!isSessionMatch()) {
+        return {
+          aborted: true,
+          hydrated: false,
+          state: createNeutralLoadingState(),
+          skipNextAutoSync: true,
+          status: 'unauthenticated',
+          message: 'Sessão alterada durante sincronização.'
+        };
+      }
+      saveStateToStorageForUser(userId, pushedState);
+      return {
+        aborted: false,
+        hydrated: true,
+        state: pushedState,
+        skipNextAutoSync: true,
+        status: uploadRes.success ? 'connected' : 'error',
+        message: uploadRes.success ? conflict.reason : (uploadRes.message || 'Falha ao enviar alterações locais.')
+      };
+    }
+
+    if (conflict.strategy === 'conflict') {
+      const conflictSnap = await saveRecoverySnapshotWithExperimentalHistory(
+        userId,
+        validLocalCache,
+        'timestamp_tie_content_conflict',
+        {
+          ...experimentalHistoryOptions,
+          isSessionStillValid: isSessionMatch
+        }
+      );
+      if (conflictSnap.abortedBySessionChange || !isSessionMatch()) {
+        return {
+          aborted: true,
+          hydrated: false,
+          state: createNeutralLoadingState(),
+          skipNextAutoSync: true,
+          status: 'unauthenticated',
+          message: 'Sessão alterada durante gravação preventiva de conflito.'
+        };
+      }
+    }
+
+    saveStateToStorageForUser(userId, normalizedRemote);
+    return {
+      aborted: false,
+      hydrated: true,
+      state: normalizedRemote,
+      skipNextAutoSync: true,
+      status: 'connected',
+      message: conflict.reason
+    };
+  }
+
+  if (remote.success && !remote.data) {
+    // Conta sem registro prévio na nuvem: só envia se existir cache próprio DESTA conta com edições reais
+    if (
+      validLocalCache &&
+      !validLocalCache.isSampleLoaded &&
+      (validLocalCache.lastModified || 0) > 0 &&
+      uploadLocal
+    ) {
+      const uploadRes = await uploadLocal(validLocalCache);
+      if (!isSessionMatch()) {
+        return {
+          aborted: true,
+          hydrated: false,
+          state: createNeutralLoadingState(),
+          skipNextAutoSync: true,
+          status: 'unauthenticated',
+          message: 'Sessão encerrada durante migração.'
+        };
+      }
+      saveStateToStorageForUser(userId, validLocalCache);
+      return {
+        aborted: false,
+        hydrated: true,
+        state: validLocalCache,
+        skipNextAutoSync: true,
+        status: uploadRes.success ? 'connected' : 'error',
+        message: uploadRes.success
+          ? 'Dados locais desta conta sincronizados na nuvem.'
+          : (uploadRes.message || 'Erro ao sincronizar dados iniciais.')
+      };
+    }
+
+    const cleanState = createCleanUserState(userId);
+    saveStateToStorageForUser(userId, cleanState);
+    return {
+      aborted: false,
+      hydrated: true,
+      state: cleanState,
+      skipNextAutoSync: true,
+      status: 'connected',
+      message: 'Ambiente limpo e isolado pronto para uso.'
+    };
+  }
+
+  // Falha de conexão ou erro na tabela: NUNCA envia cache local nem carrega dados sem proprietário!
+  const isTableMissing = remote.code === '42P01';
+  if (validLocalCache) {
+    return {
+      aborted: false,
+      hydrated: true,
+      state: validLocalCache,
+      skipNextAutoSync: true,
+      status: isTableMissing ? 'table_missing' : 'error',
+      message: remote.message || 'Modo offline local desta conta (nuvem indisponível no momento).'
+    };
+  }
+
+  return {
+    aborted: false,
+    hydrated: false,
+    state: createNeutralLoadingState(userId),
+    skipNextAutoSync: true,
+    status: isTableMissing ? 'table_missing' : 'error',
+    message: remote.message || 'Não foi possível carregar os dados financeiros desta conta.',
+    error: remote.message || 'Falha de conexão ao carregar os dados seguros da sua conta.'
+  };
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 
-export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, setState] = useState(getInitialState);
-  
-  // Theme state
+export const FinanceProvider: React.FC<{
+  children: React.ReactNode;
+  experimentalHistoryOptions?: ExperimentalRecoveryAdapterOptions;
+}> = ({ children, experimentalHistoryOptions }) => {
+  const {
+    supabaseUserId,
+    supabaseUserEmail,
+    isSupabaseAuthenticated,
+    cloudAuthStatus,
+    logout
+  } = useAuth();
+
+  // Estado inicial SEMPRE neutro enquanto aguarda validação e hidratação exclusiva do userId atual
+  const [state, setState] = useState<AppState>(() => createNeutralLoadingState(supabaseUserId ?? undefined));
+  const [isFinanceHydrating, setIsFinanceHydrating] = useState<boolean>(true);
+  const [isFinanceHydrated, setIsFinanceHydrated] = useState<boolean>(false);
+  const [hydratedUserId, setHydratedUserId] = useState<string | null>(null);
+  const [hydrationError, setHydrationError] = useState<string | null>(null);
+  const [legacyBackupPrompt, setLegacyBackupPrompt] = useState<LegacyStorageSummary | null>(null);
+  const [hydrationNonce, setHydrationNonce] = useState<number>(0);
+  const [pendingLogoutPrompt, setPendingLogoutPrompt] = useState<PendingLogoutPrompt | null>(null);
+  const [isCheckingLogoutSafety, setIsCheckingLogoutSafety] = useState<boolean>(false);
+  const logoutCheckInFlightRef = useRef<boolean>(false);
+
+  // Refs de controle contra race conditions, trocas de usuário e uploads indevidos
+  const isMountedRef = useRef<boolean>(true);
+  const sessionEpochRef = useRef<number>(0);
+  const activeUserIdRef = useRef<string | null>(supabaseUserId);
+  const isHydratedRef = useRef<boolean>(false);
+  const skipNextAutoSyncRef = useRef<boolean>(true);
+  const operationLockRef = useRef<boolean>(false);
+  const autoSyncInFlightRef = useRef<boolean>(false);
+  const lastSyncedSignatureRef = useRef<string | null>(null);
+  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestStateRef = useRef<AppState>(state);
+  latestStateRef.current = state;
+  const latestAuthSessionRef = useRef<{ userId: string | null; authenticated: boolean }>({
+    userId: supabaseUserId,
+    authenticated: isSupabaseAuthenticated
+  });
+  latestAuthSessionRef.current = {
+    userId: supabaseUserId,
+    authenticated: isSupabaseAuthenticated
+  };
+
+  const getStateSyncSignature = (targetState: AppState, userId: string): string =>
+    `${userId}:${targetState.version || 0}:${targetState.lastModified || 0}`;
+
+  // Theme state (preferência visual não sensível)
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     try {
       const savedTheme = localStorage.getItem('finance_theme');
@@ -175,6 +688,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [quickEntryType, setQuickEntryType] = useState<'income' | 'expense' | 'all'>('all');
 
   const openQuickEntry = (type: 'income' | 'expense' | 'all' = 'all') => {
+    if (!isHydratedRef.current) return;
     setQuickEntryType(type);
     setIsQuickEntryOpen(true);
   };
@@ -202,14 +716,36 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
   };
 
-  // Save changes to storage
+  // Cleanup geral ao desmontar (logout ou troca de usuário)
   useEffect(() => {
-    saveStateToStorage(state);
-  }, [state]);
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      sessionEpochRef.current += 1;
+      isHydratedRef.current = false;
+      activeUserIdRef.current = null;
+      autoSyncInFlightRef.current = false;
+      lastSyncedSignatureRef.current = null;
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+        syncTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  // Persiste apenas quando já hidratado, com usuário válido e propriedade confirmada
+  useEffect(() => {
+    if (!isHydratedRef.current || !supabaseUserId || hydratedUserId !== supabaseUserId) {
+      return;
+    }
+    if (state.ownerUserId !== supabaseUserId) {
+      return;
+    }
+    saveStateToStorageForUser(supabaseUserId, state);
+  }, [state, supabaseUserId, hydratedUserId]);
 
   // Supabase Cloud Sync State
-  const { supabaseUserId, isSupabaseAuthenticated, cloudAuthStatus } = useAuth();
-  const [cloudSyncStatus, setCloudSyncStatus] = useState<'connected' | 'not_configured' | 'session_expired' | 'unauthenticated' | 'syncing' | 'synced' | 'table_missing' | 'error' | 'idle'>(() => {
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatusType>(() => {
     if (isSupabaseAuthenticated) return 'connected';
     if (cloudAuthStatus === 'session_expired') return 'session_expired';
     if (cloudAuthStatus === 'not_configured') return 'not_configured';
@@ -217,133 +753,247 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   });
   const [cloudSyncMessage, setCloudSyncMessage] = useState<string | null>(null);
   const [lastCloudSyncDate, setLastCloudSyncDate] = useState<Date | null>(null);
-  const isInitialMount = useRef(true);
-  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cloudSyncStatusRef = useRef<CloudSyncStatusType>(cloudSyncStatus);
+  cloudSyncStatusRef.current = cloudSyncStatus;
 
-  // Manual trigger to sync now
-  const syncNowWithCloud = async () => {
-    if (!supabaseUserId || !isSupabaseAuthenticated) {
-      if (cloudAuthStatus === 'session_expired') {
-        setCloudSyncStatus('session_expired');
-      } else {
-        setCloudSyncStatus('unauthenticated');
-      }
-      setCloudSyncMessage('Conecte sua conta Supabase em Configurações > Nuvem para sincronizar.');
-      return;
-    }
-
-    setCloudSyncStatus('syncing');
-    setCloudSyncMessage('Sincronizando com Supabase via UUID autenticado...');
-
-    const res = await saveFinanceDataToSupabase(state, supabaseUserId);
-    if (res.success) {
-      setCloudSyncStatus('connected');
-      setCloudSyncMessage('Sincronizado com sucesso na nuvem!');
-      setLastCloudSyncDate(new Date());
-    } else {
-      if (res.code === '42P01') {
-        setCloudSyncStatus('table_missing');
-        setCloudSyncMessage('A tabela "user_finance_data" precisa ser criada no Supabase com RLS.');
-      } else {
-        setCloudSyncStatus('error');
-        setCloudSyncMessage(res.message || 'Erro ao sincronizar.');
-      }
-    }
+  const isSessionOperationValid = (epoch: number, expectedUserId: string | null): expectedUserId is string => {
+    return (
+      isMountedRef.current &&
+      !!expectedUserId &&
+      sessionEpochRef.current === epoch &&
+      activeUserIdRef.current === expectedUserId &&
+      latestAuthSessionRef.current.authenticated &&
+      latestAuthSessionRef.current.userId === expectedUserId
+    );
   };
 
-  // Força o envio dos dados locais para a nuvem
-  const forceUploadLocalToCloud = async () => {
-    if (!supabaseUserId || !isSupabaseAuthenticated) {
-      if (cloudAuthStatus === 'session_expired') {
-        setCloudSyncStatus('session_expired');
-      } else {
-        setCloudSyncStatus('unauthenticated');
-      }
-      setCloudSyncMessage('Conecte sua conta Supabase em Configurações > Nuvem para sincronizar.');
-      return;
+  // Envio manual protegido: consulta o estado remoto antes e bloqueia sobrescrita em caso de conflito ou nuvem mais recente
+  const forceUploadLocalToCloud = async (): Promise<ManualUploadOutcome> => {
+    const reqUserId = supabaseUserId;
+    const reqEpoch = sessionEpochRef.current;
+
+    if (!reqUserId || !isSupabaseAuthenticated || !isHydratedRef.current) {
+      setCloudSyncStatus(cloudAuthStatus === 'session_expired' ? 'session_expired' : 'unauthenticated');
+      const msg = 'Sessão não autenticada ou ainda em carregamento.';
+      setCloudSyncMessage(msg);
+      return { success: false, message: msg };
     }
 
+    const currentState = latestStateRef.current;
+    if (!hasConfirmedStateOwnership(currentState, reqUserId)) {
+      setCloudSyncStatus('error');
+      const msg = 'Envio cancelado: dados locais não pertencem ao usuário autenticado.';
+      setCloudSyncMessage(msg);
+      return { success: false, message: msg };
+    }
+
+    if (operationLockRef.current || autoSyncInFlightRef.current) {
+      const msg = 'Outra sincronização ou operação crítica está em andamento. Aguarde a conclusão.';
+      setCloudSyncMessage(msg);
+      return { success: false, message: msg };
+    }
+
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+      syncTimeoutRef.current = null;
+    }
+
+    operationLockRef.current = true;
     setCloudSyncStatus('syncing');
-    setCloudSyncMessage('Enviando dados locais para a nuvem...');
+    setCloudSyncMessage('Verificando alterações na nuvem antes de enviar...');
 
-    const res = await saveFinanceDataToSupabase(state, supabaseUserId);
-    if (res.success) {
-      setCloudSyncStatus('connected');
-      setCloudSyncMessage('Dados locais enviados e salvos na nuvem com sucesso!');
-      setLastCloudSyncDate(new Date());
-    } else {
-      if (res.code === '42P01') {
+    try {
+      const remoteResult = await fetchFinanceDataFromSupabase(reqUserId);
+      if (!isSessionOperationValid(reqEpoch, reqUserId)) {
+        return { success: false, message: 'Sessão encerrada ou alterada durante a verificação.' };
+      }
+
+      if (!remoteResult.success && remoteResult.code === '42P01') {
         setCloudSyncStatus('table_missing');
-        setCloudSyncMessage('A tabela "user_finance_data" precisa ser criada no Supabase com RLS.');
-      } else {
-        setCloudSyncStatus('error');
-        setCloudSyncMessage(res.message || 'Erro ao enviar dados locais para o Supabase.');
+        const msg = 'A tabela "user_finance_data" precisa ser criada no Supabase com RLS.';
+        setCloudSyncMessage(msg);
+        return { success: false, message: msg };
       }
-    }
-  };
 
-  // Força o download dos dados da nuvem para o dispositivo local
-  const forceDownloadFromCloud = async () => {
-    if (!supabaseUserId || !isSupabaseAuthenticated) {
-      if (cloudAuthStatus === 'session_expired') {
-        setCloudSyncStatus('session_expired');
-      } else {
-        setCloudSyncStatus('unauthenticated');
+      const decision = evaluateManualCloudUploadSafety({
+        localState: currentState,
+        remoteResult,
+        expectedUserId: reqUserId
+      });
+
+      if (!decision.allowed) {
+        if (decision.alreadySynced) {
+          lastSyncedSignatureRef.current = getStateSyncSignature(currentState, reqUserId);
+          setCloudSyncStatus('connected');
+          setCloudSyncMessage(decision.message);
+          return {
+            success: true,
+            alreadySynced: true,
+            message: decision.message,
+            decision
+          };
+        }
+
+        setCloudSyncStatus(decision.conflict ? 'connected' : 'error');
+        setCloudSyncMessage(decision.message);
+        return {
+          success: false,
+          conflict: decision.conflict,
+          message: decision.message,
+          decision
+        };
       }
-      setCloudSyncMessage('Conecte sua conta Supabase em Configurações > Nuvem para sincronizar.');
-      return;
-    }
 
-    setCloudSyncStatus('syncing');
-    setCloudSyncMessage('Buscando dados na nuvem...');
+      setCloudSyncMessage('Enviando dados locais verificados para a nuvem...');
+      const bumpedState: AppState = {
+        ...currentState,
+        ownerUserId: reqUserId,
+        version: Math.max(1, (currentState.version || 0) + 1),
+        lastModified: Date.now()
+      };
 
-    const remote = await fetchFinanceDataFromSupabase(supabaseUserId);
-    if (!remote.success) {
-      if (remote.code === '42P01') {
-        setCloudSyncStatus('table_missing');
-        setCloudSyncMessage('A tabela "user_finance_data" precisa ser criada no Supabase com RLS.');
-      } else {
-        setCloudSyncStatus('error');
-        setCloudSyncMessage(remote.message || 'Erro ao buscar dados na nuvem.');
+      const res = await saveFinanceDataToSupabase(bumpedState, reqUserId);
+      if (!isSessionOperationValid(reqEpoch, reqUserId)) {
+        return { success: false, message: 'Sessão encerrada durante o envio.' };
       }
-      return;
-    }
 
-    if (!remote.data) {
-      setCloudSyncStatus('connected');
-      setCloudSyncMessage('Nenhum dado financeiro encontrado na nuvem para esta conta.');
-      return;
-    }
-
-    const remoteTimestamp = remote.clientTimestamp || (remote.updatedAt ? new Date(remote.updatedAt).getTime() : 0);
-    const localTimestamp = state.lastModified || 0;
-
-    if (localTimestamp > remoteTimestamp && (state.transactions.length > 0 || state.debts.length > 0)) {
-      const confirmOverwrite = typeof window !== 'undefined'
-        ? window.confirm('Seus dados locais são mais recentes que os da nuvem. Deseja sobrescrever os dados locais pelos dados da nuvem?')
-        : true;
-      if (!confirmOverwrite) {
+      if (res.success) {
+        skipNextAutoSyncRef.current = true;
+        lastSyncedSignatureRef.current = getStateSyncSignature(bumpedState, reqUserId);
+        latestStateRef.current = bumpedState;
+        setState(bumpedState);
+        saveStateToStorageForUser(reqUserId, bumpedState);
         setCloudSyncStatus('connected');
-        setCloudSyncMessage('Download cancelado para manter os dados locais mais recentes.');
+        const msg = 'Dados locais enviados e salvos na nuvem com sucesso!';
+        setCloudSyncMessage(msg);
+        setLastCloudSyncDate(new Date());
+        return { success: true, conflict: false, message: msg, decision };
+      }
+
+      if (res.code === '42P01') {
+        setCloudSyncStatus('table_missing');
+        const msg = 'A tabela "user_finance_data" precisa ser criada no Supabase com RLS.';
+        setCloudSyncMessage(msg);
+        return { success: false, message: msg };
+      }
+
+      setCloudSyncStatus('error');
+      const msg = res.message || 'Erro ao enviar dados locais para o Supabase.';
+      setCloudSyncMessage(msg);
+      return { success: false, message: msg };
+    } finally {
+      operationLockRef.current = false;
+    }
+  };
+
+  // Gatilho manual protegido: sempre verifica o estado remoto antes de enviar
+  const syncNowWithCloud = async () => {
+    await forceUploadLocalToCloud();
+  };
+
+  // Força o download dos dados da nuvem para o dispositivo local (com snapshot local prévio)
+  const forceDownloadFromCloud = async () => {
+    const reqUserId = supabaseUserId;
+    const reqEpoch = sessionEpochRef.current;
+
+    if (!reqUserId || !isSupabaseAuthenticated) {
+      setCloudSyncStatus(cloudAuthStatus === 'session_expired' ? 'session_expired' : 'unauthenticated');
+      setCloudSyncMessage('Conecte sua conta Supabase para baixar dados da nuvem.');
+      return;
+    }
+
+    if (operationLockRef.current) {
+      setCloudSyncMessage('Outra operação crítica em andamento. Aguarde a conclusão.');
+      return;
+    }
+
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+      syncTimeoutRef.current = null;
+    }
+
+    operationLockRef.current = true;
+    setCloudSyncStatus('syncing');
+    setCloudSyncMessage('Buscando dados exclusivos desta conta na nuvem...');
+
+    try {
+      const remote = await fetchFinanceDataFromSupabase(reqUserId);
+      if (!isSessionOperationValid(reqEpoch, reqUserId)) return;
+
+      if (!remote.success) {
+        if (remote.code === '42P01') {
+          setCloudSyncStatus('table_missing');
+          setCloudSyncMessage('A tabela "user_finance_data" precisa ser criada no Supabase com RLS.');
+        } else {
+          setCloudSyncStatus('error');
+          setCloudSyncMessage(remote.message || 'Erro ao buscar dados na nuvem.');
+        }
         return;
       }
-    }
 
-    setState(remote.data);
-    saveStateToStorage(remote.data);
-    setCloudSyncStatus('connected');
-    setCloudSyncMessage('Dados da nuvem baixados e aplicados com sucesso!');
-    setLastCloudSyncDate(new Date());
+      if (!remote.data) {
+        setCloudSyncStatus('connected');
+        setCloudSyncMessage('Nenhum dado financeiro encontrado na nuvem para esta conta.');
+        return;
+      }
+
+      const currentStateBeforeDownload = latestStateRef.current;
+      // Preserva cópia local escopada por usuário antes de aplicar o estado da nuvem
+      if (isHydratedRef.current && hasConfirmedStateOwnership(currentStateBeforeDownload, reqUserId)) {
+        const downloadSnap = await saveRecoverySnapshotWithExperimentalHistory(
+          reqUserId,
+          currentStateBeforeDownload,
+          'pre_force_download',
+          {
+            ...experimentalHistoryOptions,
+            isSessionStillValid: () => isSessionOperationValid(reqEpoch, reqUserId)
+          }
+        );
+        if (downloadSnap.abortedBySessionChange || !isSessionOperationValid(reqEpoch, reqUserId)) {
+          return;
+        }
+      }
+
+      const hydratedRemote: AppState = {
+        ...remote.data,
+        ownerUserId: reqUserId,
+        version: Math.max(1, remote.version || remote.data.version || 1),
+        lastModified: remote.clientTimestamp || remote.data.lastModified || Date.now()
+      };
+
+      skipNextAutoSyncRef.current = true;
+      lastSyncedSignatureRef.current = getStateSyncSignature(hydratedRemote, reqUserId);
+      isHydratedRef.current = true;
+      latestStateRef.current = hydratedRemote;
+      setHydratedUserId(reqUserId);
+      setIsFinanceHydrated(true);
+      setIsFinanceHydrating(false);
+      setHydrationError(null);
+      setState(hydratedRemote);
+      saveStateToStorageForUser(reqUserId, hydratedRemote);
+      setCloudSyncStatus('connected');
+      setCloudSyncMessage('Dados da nuvem baixados e aplicados com sucesso!');
+      setLastCloudSyncDate(new Date());
+    } finally {
+      operationLockRef.current = false;
+    }
   };
 
-  // Executa diagnóstico completo de conexão, autenticação, leitura e gravação no Supabase
+  // Executa diagnóstico completo de conexão, autenticação, leitura e gravação segura no Supabase
   const runCloudDiagnostic = async (): Promise<DiagnosticResult> => {
+    const reqUserId = supabaseUserId;
+    const reqEpoch = sessionEpochRef.current;
+
     setCloudSyncStatus('syncing');
     setCloudSyncMessage('Executando diagnóstico de conexão e integridade no Supabase...');
-    const result = await runFullSupabaseDiagnostic(state, supabaseUserId);
+    const result = await runFullSupabaseDiagnostic(state, reqUserId);
+    if (!isSessionOperationValid(reqEpoch, reqUserId)) {
+      return result;
+    }
+
     if (result.allPassed) {
       setCloudSyncStatus('connected');
-      setCloudSyncMessage('Diagnóstico aprovado: Conexão, autenticação e gravação operacionais!');
+      setCloudSyncMessage('Diagnóstico aprovado: Conexão, autenticação e isolamento RLS operacionais!');
       setLastCloudSyncDate(new Date());
     } else {
       const hasTableMissing = result.steps.some(s => s.name.includes('Tabela') && s.status === 'error');
@@ -364,138 +1014,366 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return result;
   };
 
-  // Initial cloud fetch, conflict detection, and verified auto-migration
-  useEffect(() => {
-    let isCancelled = false;
+  const retryCloudHydration = async () => {
+    setHydrationNonce(prev => prev + 1);
+  };
 
-    async function initCloudSync() {
-      if (!supabaseUserId || !isSupabaseAuthenticated) {
-        if (cloudAuthStatus === 'session_expired') {
-          setCloudSyncStatus('session_expired');
-          setCloudSyncMessage('Sessão Supabase expirada. Reconecte nas configurações para retomar a sincronização.');
-        } else {
-          setCloudSyncStatus('not_configured');
-          setCloudSyncMessage('Modo local ativo. Configure a nuvem nas configurações quando desejar sincronizar.');
+  const exportLegacyBackupFile = (): string | null => {
+    return exportLegacyStorageJson(supabaseUserId);
+  };
+
+  const dismissLegacyBackupPrompt = () => {
+    if (supabaseUserId && isValidStorageUserId(supabaseUserId)) {
+      dismissLegacyRecoveryPromptForUser(supabaseUserId);
+    }
+    setLegacyBackupPrompt(null);
+  };
+
+  const importLegacyBackupToCurrentAccount = async (
+    confirmedOwnership: boolean
+  ): Promise<{ success: boolean; message: string }> => {
+    if (!confirmedOwnership) {
+      return {
+        success: false,
+        message: 'Confirme explicitamente que os dados legados pertencem a esta conta antes de importar.'
+      };
+    }
+
+    const reqUserId = supabaseUserId;
+    const reqEpoch = sessionEpochRef.current;
+    if (
+      !isHydratedRef.current ||
+      !reqUserId ||
+      !isValidStorageUserId(reqUserId) ||
+      hydratedUserId !== reqUserId ||
+      !isSessionOperationValid(reqEpoch, reqUserId)
+    ) {
+      return {
+        success: false,
+        message: 'A conta autenticada precisa concluir a hidratação antes de importar dados legados.'
+      };
+    }
+
+    if (operationLockRef.current) {
+      return {
+        success: false,
+        message: 'Outra operação crítica em andamento. Aguarde a conclusão antes de importar dados legados.'
+      };
+    }
+
+    const { summary, state: legacyState } = inspectLegacyStorageState(reqUserId);
+    if (!summary.exists || !summary.ownershipVerified || !legacyState) {
+      return {
+        success: false,
+        message: summary.accessBlocked
+          ? 'Importação bloqueada: não foi possível comprovar que os dados legados pertencem a esta conta. Solicite recuperação administrativa segura.'
+          : 'Nenhum dado legado válido encontrado para importação.'
+      };
+    }
+
+    const currentState = latestStateRef.current;
+    if (currentState.ownerUserId && currentState.ownerUserId !== reqUserId) {
+      return {
+        success: false,
+        message: 'Importação bloqueada: divergência de proprietário nos dados locais ativos.'
+      };
+    }
+
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+      syncTimeoutRef.current = null;
+    }
+
+    operationLockRef.current = true;
+    try {
+      const legacySnap = await saveRecoverySnapshotWithExperimentalHistory(
+        reqUserId,
+        currentState,
+        'pre_legacy_import',
+        {
+          ...experimentalHistoryOptions,
+          isSessionStillValid: () => isSessionOperationValid(reqEpoch, reqUserId)
         }
-        return;
+      );
+
+      if (legacySnap.abortedBySessionChange || !isSessionOperationValid(reqEpoch, reqUserId)) {
+        return {
+          success: false,
+          message: 'Sessão encerrada ou alterada durante a gravação preventiva. Importação cancelada.'
+        };
       }
 
-      setCloudSyncStatus('syncing');
-      setCloudSyncMessage('Verificando conexão segura com Supabase...');
+      const nextState: AppState = {
+        ...legacyState,
+        ownerUserId: reqUserId,
+        version: Math.max(1, (currentState.version || 0) + 1),
+        lastModified: Date.now(),
+        isSampleLoaded: Boolean(legacyState.isSampleLoaded)
+      };
 
+      latestStateRef.current = nextState;
+      setState(nextState);
+      saveStateToStorageForUser(reqUserId, nextState);
+      dismissLegacyRecoveryPromptForUser(reqUserId);
+      setLegacyBackupPrompt(null);
+
+      return {
+        success: true,
+        message: `Dados legados (${summary.transactionsCount} lançamentos) importados com segurança para esta conta.`
+      };
+    } finally {
+      operationLockRef.current = false;
+    }
+  };
+
+  // Hidratação segura e estritamente isolada por usuário a cada login / troca de conta
+  useEffect(() => {
+    sessionEpochRef.current += 1;
+    const currentEpoch = sessionEpochRef.current;
+    activeUserIdRef.current = supabaseUserId;
+    isHydratedRef.current = false;
+    skipNextAutoSyncRef.current = true;
+    autoSyncInFlightRef.current = false;
+    lastSyncedSignatureRef.current = null;
+
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+      syncTimeoutRef.current = null;
+    }
+
+    // Limpa estado financeiro em memória imediatamente ao trocar de usuário ou deslogar
+    const neutralState = createNeutralLoadingState(supabaseUserId ?? undefined);
+    latestStateRef.current = neutralState;
+    setState(neutralState);
+    setIsFinanceHydrated(false);
+    setHydratedUserId(null);
+    setHydrationError(null);
+    setLegacyBackupPrompt(null);
+    setPendingLogoutPrompt(null);
+    setIsCheckingLogoutSafety(false);
+    logoutCheckInFlightRef.current = false;
+
+    if (!supabaseUserId || !isSupabaseAuthenticated || !isValidStorageUserId(supabaseUserId)) {
+      setIsFinanceHydrating(false);
+      setCloudSyncStatus(cloudAuthStatus === 'session_expired' ? 'session_expired' : 'unauthenticated');
+      setCloudSyncMessage('Sessão não autenticada. Faça login para acessar seus dados.');
+      return;
+    }
+
+    const reqUserId = supabaseUserId;
+    setIsFinanceHydrating(true);
+    setCloudSyncStatus('syncing');
+    setCloudSyncMessage('Carregando dados exclusivos da conta autenticada...');
+
+    async function initCloudSync() {
       const conn = await testSupabaseConnection();
-      if (isCancelled) return;
+      if (!isSessionOperationValid(currentEpoch, reqUserId)) return;
 
       if (!conn.connected) {
-        setCloudSyncStatus('error');
-        setCloudSyncMessage(conn.message);
+        // Sem conexão na primeira checagem: ainda consulta o orquestrador que bloqueia uploads e só aceita cache próprio do usuário
+        const offlineOutcome = await hydrateUserFinanceSession({
+          userId: reqUserId,
+          isSessionMatch: () => isSessionOperationValid(currentEpoch, reqUserId),
+          localUserCache: getUserStateFromStorage(reqUserId),
+          fetchRemote: async () => ({ success: false, message: conn.message }),
+          experimentalHistoryOptions
+        });
+        if (offlineOutcome.aborted || !isSessionOperationValid(currentEpoch, reqUserId)) return;
+
+        skipNextAutoSyncRef.current = true;
+        isHydratedRef.current = offlineOutcome.hydrated;
+        latestStateRef.current = offlineOutcome.state;
+        setState(offlineOutcome.state);
+        setIsFinanceHydrated(offlineOutcome.hydrated);
+        setHydratedUserId(offlineOutcome.hydrated ? reqUserId : null);
+        setHydrationError(offlineOutcome.error || null);
+        setIsFinanceHydrating(false);
+        setCloudSyncStatus(offlineOutcome.status);
+        setCloudSyncMessage(offlineOutcome.message);
         return;
       }
 
       if (!conn.tableExists) {
+        const missingOutcome = await hydrateUserFinanceSession({
+          userId: reqUserId,
+          isSessionMatch: () => isSessionOperationValid(currentEpoch, reqUserId),
+          localUserCache: getUserStateFromStorage(reqUserId),
+          fetchRemote: async () => ({
+            success: false,
+            code: '42P01',
+            message: 'Tabela "user_finance_data" não encontrada no Supabase.'
+          }),
+          experimentalHistoryOptions
+        });
+        if (missingOutcome.aborted || !isSessionOperationValid(currentEpoch, reqUserId)) return;
+
+        skipNextAutoSyncRef.current = true;
+        isHydratedRef.current = missingOutcome.hydrated;
+        latestStateRef.current = missingOutcome.state;
+        setState(missingOutcome.state);
+        setIsFinanceHydrated(missingOutcome.hydrated);
+        setHydratedUserId(missingOutcome.hydrated ? reqUserId : null);
+        setHydrationError(missingOutcome.error || null);
+        setIsFinanceHydrating(false);
         setCloudSyncStatus('table_missing');
-        setCloudSyncMessage('Tabela "user_finance_data" não encontrada no Supabase. Crie a tabela via SQL com RLS para ativar a nuvem.');
+        setCloudSyncMessage(missingOutcome.message);
         return;
       }
 
-      // Consulta dados do usuário autenticado no Supabase
-      const remote = await fetchFinanceDataFromSupabase(supabaseUserId);
-      if (isCancelled) return;
+      const localUserCache = getUserStateFromStorage(reqUserId);
+      const outcome = await hydrateUserFinanceSession({
+        userId: reqUserId,
+        isSessionMatch: () => isSessionOperationValid(currentEpoch, reqUserId),
+        localUserCache,
+        fetchRemote: () => fetchFinanceDataFromSupabase(reqUserId),
+        uploadLocal: (s) => migrateAndVerifyFinanceData(s, reqUserId),
+        experimentalHistoryOptions
+      });
 
-      if (remote.success && remote.data) {
-        // Já existem dados no Supabase para este usuário autenticado.
-        // Resolver conflitos entre múltiplos dispositivos utilizando timestamps:
-        const conflict = resolveMultiDeviceConflict(
-          state,
-          remote.data,
-          remote.clientTimestamp || (remote.updatedAt ? new Date(remote.updatedAt).getTime() : 0)
-        );
-
-        if (conflict.strategy === 'use_remote') {
-          // Dados remotos são mais novos (modificados em outro aparelho)
-          setState(conflict.resolvedState);
-          saveStateToStorage(conflict.resolvedState);
-          setCloudSyncStatus('connected');
-          setCloudSyncMessage(conflict.reason);
-          setLastCloudSyncDate(new Date());
-          return;
-        } else if (conflict.strategy === 'use_local') {
-          // Dados locais são mais recentes (alterados offline ou recentemente neste aparelho)
-          const uploadRes = await saveFinanceDataToSupabase(state, supabaseUserId);
-          if (uploadRes.success) {
-            setCloudSyncStatus('connected');
-            setCloudSyncMessage(conflict.reason);
-            setLastCloudSyncDate(new Date());
-          }
-          return;
-        } else {
-          // Já estão em sincronia perfeita
-          setCloudSyncStatus('connected');
-          setCloudSyncMessage('Dispositivo e nuvem em perfeita sincronia.');
-          setLastCloudSyncDate(new Date());
-          return;
-        }
+      if (outcome.aborted || !isSessionOperationValid(currentEpoch, reqUserId)) {
+        return;
       }
 
-      // Se nenhum dado anterior existe na nuvem para este usuário, efetua migração segura com verificação de ida e volta (round-trip)
-      setCloudSyncMessage('Realizando migração inicial com verificação de integridade...');
-      const migrationRes = await migrateAndVerifyFinanceData(state, supabaseUserId);
-      if (isCancelled) return;
-
-      if (migrationRes.success) {
-        setCloudSyncStatus('connected');
-        setCloudSyncMessage('Migração local validada e confirmada na nuvem com sucesso!');
+      skipNextAutoSyncRef.current = outcome.skipNextAutoSync;
+      isHydratedRef.current = outcome.hydrated;
+      latestStateRef.current = outcome.state;
+      setState(outcome.state);
+      setIsFinanceHydrated(outcome.hydrated);
+      setHydratedUserId(outcome.hydrated ? reqUserId : null);
+      setHydrationError(outcome.error || null);
+      setIsFinanceHydrating(false);
+      setCloudSyncStatus(outcome.status);
+      setCloudSyncMessage(outcome.message);
+      if (outcome.hydrated && outcome.status === 'connected') {
+        lastSyncedSignatureRef.current = getStateSyncSignature(outcome.state, reqUserId);
         setLastCloudSyncDate(new Date());
-      } else {
-        setCloudSyncStatus('error');
-        setCloudSyncMessage(migrationRes.message || 'Falha na validação da migração.');
+      }
+
+      // Inspeção somente leitura da chave legada global com validação estrita de propriedade
+      if (outcome.hydrated && !isLegacyRecoveryDismissedForUser(reqUserId)) {
+        const legacyInfo = inspectLegacyStorageState(reqUserId);
+        if (
+          legacyInfo.summary.exists &&
+          (legacyInfo.summary.accessBlocked || legacyInfo.summary.transactionsCount > 0)
+        ) {
+          setLegacyBackupPrompt(legacyInfo.summary);
+        }
       }
     }
 
     initCloudSync();
 
     return () => {
-      isCancelled = true;
+      sessionEpochRef.current += 1;
+      isHydratedRef.current = false;
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+        syncTimeoutRef.current = null;
+      }
     };
-  }, [supabaseUserId, isSupabaseAuthenticated]);
+  }, [supabaseUserId, isSupabaseAuthenticated, hydrationNonce]);
 
-  // Continuous auto-sync with debounce on state changes
+  // Continuous auto-sync com debounce: bloqueado até hidratação concluída e confirmação estrita de propriedade
+  // Não depende de cloudSyncStatus para evitar loops de reenvio quando o status muda para 'syncing'/'connected'/'error'.
   useEffect(() => {
-    // Skip initial mount so we don't trigger upload before cloud fetch
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
+    if (!isHydratedRef.current || !supabaseUserId || !isSupabaseAuthenticated || hydratedUserId !== supabaseUserId) {
       return;
     }
 
-    if (!supabaseUserId || !isSupabaseAuthenticated || cloudSyncStatus === 'table_missing') return;
+    if (operationLockRef.current) {
+      return;
+    }
+
+    if (cloudSyncStatusRef.current === 'table_missing' || !hasConfirmedStateOwnership(state, supabaseUserId)) {
+      return;
+    }
+
+    if (skipNextAutoSyncRef.current) {
+      skipNextAutoSyncRef.current = false;
+      return;
+    }
+
+    if (state.isSampleLoaded && (!state.lastModified || state.lastModified <= 0)) {
+      return;
+    }
+
+    const targetSignature = getStateSyncSignature(state, supabaseUserId);
+    if (lastSyncedSignatureRef.current === targetSignature) {
+      return;
+    }
 
     if (syncTimeoutRef.current) {
       clearTimeout(syncTimeoutRef.current);
+      syncTimeoutRef.current = null;
     }
 
-    syncTimeoutRef.current = setTimeout(async () => {
-      setCloudSyncStatus('syncing');
-      const res = await saveFinanceDataToSupabase(state, supabaseUserId);
-      if (res.success) {
-        setCloudSyncStatus('connected');
-        setCloudSyncMessage('Alterações sincronizadas na nuvem.');
-        setLastCloudSyncDate(new Date());
-      } else {
-        if (res.code === '42P01') {
-          setCloudSyncStatus('table_missing');
-        } else {
-          setCloudSyncStatus('error');
-          setCloudSyncMessage(res.message || 'Erro ao sincronizar.');
-        }
+    const reqUserId = supabaseUserId;
+    const reqEpoch = sessionEpochRef.current;
+
+    const runAutoSync = async () => {
+      syncTimeoutRef.current = null;
+      if (
+        !isSessionOperationValid(reqEpoch, reqUserId) ||
+        !isHydratedRef.current ||
+        operationLockRef.current ||
+        cloudSyncStatusRef.current === 'table_missing'
+      ) {
+        return;
       }
-    }, 2000);
+
+      if (autoSyncInFlightRef.current) {
+        syncTimeoutRef.current = setTimeout(runAutoSync, 400);
+        return;
+      }
+
+      const stateToSync = latestStateRef.current;
+      if (!hasConfirmedStateOwnership(stateToSync, reqUserId)) {
+        return;
+      }
+
+      if (stateToSync.isSampleLoaded && (!stateToSync.lastModified || stateToSync.lastModified <= 0)) {
+        return;
+      }
+
+      const signatureToSync = getStateSyncSignature(stateToSync, reqUserId);
+      if (lastSyncedSignatureRef.current === signatureToSync) {
+        return;
+      }
+
+      autoSyncInFlightRef.current = true;
+      setCloudSyncStatus('syncing');
+      try {
+        const res = await saveFinanceDataToSupabase(stateToSync, reqUserId);
+        if (!isSessionOperationValid(reqEpoch, reqUserId)) {
+          return;
+        }
+        if (res.success) {
+          lastSyncedSignatureRef.current = signatureToSync;
+          setCloudSyncStatus('connected');
+          setCloudSyncMessage('Alterações sincronizadas na nuvem.');
+          setLastCloudSyncDate(new Date());
+        } else {
+          if (res.code === '42P01') {
+            setCloudSyncStatus('table_missing');
+          } else {
+            setCloudSyncStatus('error');
+            setCloudSyncMessage(res.message || 'Erro ao sincronizar.');
+          }
+        }
+      } finally {
+        autoSyncInFlightRef.current = false;
+      }
+    };
+
+    syncTimeoutRef.current = setTimeout(runAutoSync, 2000);
 
     return () => {
       if (syncTimeoutRef.current) {
         clearTimeout(syncTimeoutRef.current);
+        syncTimeoutRef.current = null;
       }
     };
-  }, [state, supabaseUserId]);
+  }, [state, supabaseUserId, isSupabaseAuthenticated, hydratedUserId]);
 
   // Helpers to get current / previous month ISO bounds aligned with real calendar
   const now = new Date();
@@ -1157,21 +2035,125 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // ================= ACTIONS ================= //
 
-  const addTransaction = (txData: Omit<Transaction, 'id'>, installmentsCount = 1) => {
+  const mutateState = (updater: (current: AppState) => AppState) => {
+    const reqUserId = supabaseUserId;
+    if (!isHydratedRef.current || !reqUserId || !isSupabaseAuthenticated || activeUserIdRef.current !== reqUserId) {
+      return;
+    }
     setState(prev => {
+      const next = applyAuthenticatedMutation(prev, reqUserId, isHydratedRef.current, updater);
+      latestStateRef.current = next;
+      return next;
+    });
+  };
+
+  const executeAuthenticatedDeletion = async <T,>(
+    entityLabel: string,
+    remover: (prev: AppState) => { nextState: AppState; removed: T | null }
+  ): Promise<DeleteResult> => {
+    const reqUserId = supabaseUserId;
+    const reqEpoch = sessionEpochRef.current;
+
+    if (
+      !isHydratedRef.current ||
+      !reqUserId ||
+      !isSupabaseAuthenticated ||
+      activeUserIdRef.current !== reqUserId ||
+      hydratedUserId !== reqUserId
+    ) {
+      return {
+        success: false,
+        synced: false,
+        message: 'Sessão não autenticada ou ainda em carregamento. Aguarde antes de excluir.'
+      };
+    }
+
+    const currentState = latestStateRef.current;
+    if (currentState.ownerUserId && currentState.ownerUserId !== reqUserId) {
+      return {
+        success: false,
+        synced: false,
+        message: 'Operação bloqueada: divergência de proprietário nos dados locais.'
+      };
+    }
+
+    const { nextState: candidateState, removed } = remover(currentState);
+    if (!removed) {
+      return {
+        success: false,
+        synced: false,
+        message: `${entityLabel} não encontrado(a) ou já removido(a).`
+      };
+    }
+
+    const nextState: AppState = {
+      ...candidateState,
+      ownerUserId: reqUserId,
+      version: Math.max(1, (currentState.version || 0) + 1),
+      lastModified: Date.now()
+    };
+
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+      syncTimeoutRef.current = null;
+    }
+    skipNextAutoSyncRef.current = true;
+    latestStateRef.current = nextState;
+    setState(nextState);
+    saveStateToStorageForUser(reqUserId, nextState);
+
+    setCloudSyncStatus('syncing');
+    setCloudSyncMessage(`Sincronizando exclusão de ${entityLabel.toLowerCase()} na nuvem...`);
+
+    const res = await saveFinanceDataToSupabase(nextState, reqUserId);
+    if (!isSessionOperationValid(reqEpoch, reqUserId)) {
+      return {
+        success: true,
+        synced: false,
+        message: `${entityLabel} excluído(a) localmente antes da troca ou encerramento da sessão.`
+      };
+    }
+
+    if (res.success) {
+      lastSyncedSignatureRef.current = getStateSyncSignature(nextState, reqUserId);
+      setCloudSyncStatus('connected');
+      setCloudSyncMessage('Alterações sincronizadas na nuvem.');
+      setLastCloudSyncDate(new Date());
+      return {
+        success: true,
+        synced: true,
+        message: `${entityLabel} excluído(a) e sincronizado(a) na nuvem com sucesso!`
+      };
+    }
+
+    if (res.code === '42P01') {
+      setCloudSyncStatus('table_missing');
+      setCloudSyncMessage('A tabela "user_finance_data" precisa ser criada no Supabase com RLS.');
+    } else {
+      setCloudSyncStatus('error');
+      setCloudSyncMessage(res.message || 'Erro ao sincronizar exclusão com a nuvem.');
+    }
+
+    return {
+      success: true,
+      synced: false,
+      message: `${entityLabel} excluído(a) localmente, mas falhou ao sincronizar com a nuvem: ${res.message || 'verifique sua conexão.'}`
+    };
+  };
+
+  const addTransaction = (txData: Omit<Transaction, 'id'>, installmentsCount = 1) => {
+    mutateState(prev => {
       const newTransactions: Transaction[] = [...prev.transactions];
       const newAccounts: BankAccount[] = prev.accounts.map(a => ({ ...a }));
       const groupId = installmentsCount > 1 ? `inst-${Date.now()}` : undefined;
 
-      // Handle multiple installments
       for (let i = 1; i <= installmentsCount; i++) {
         const id = `tx-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`;
-        
+
         let txDate = txData.date;
         let txDueDate = txData.dueDate;
 
         if (i > 1) {
-          // Increment month
           const d = new Date(txData.date + 'T00:00:00');
           d.setMonth(d.getMonth() + (i - 1));
           txDate = d.toISOString().split('T')[0];
@@ -1190,10 +2172,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           dueDate: txDueDate,
           description: installmentsCount > 1 ? `${txData.description} (${i}/${installmentsCount})` : txData.description,
           installmentInfo: installmentsCount > 1 ? { current: i, total: installmentsCount, groupId } : undefined,
-          status: i === 1 ? txData.status : 'pending', // subsequent installments start as pending
+          status: i === 1 ? txData.status : 'pending',
         };
 
-        // If installment 1 is paid and NOT paid by credit card, adjust account balance
         if (i === 1 && txData.status === 'paid') {
           if (txData.type === 'income' && txData.accountId) {
             const acc = newAccounts.find(a => a.id === txData.accountId);
@@ -1216,13 +2197,12 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const updateTransaction = (id: string, updated: Partial<Transaction>) => {
-    setState(prev => {
+    mutateState(prev => {
       const oldTx = prev.transactions.find(t => t.id === id);
       if (!oldTx) return prev;
 
       const newAccounts = prev.accounts.map(a => ({ ...a }));
 
-      // Reverse previous balance effect if it was paid
       if (oldTx.status === 'paid' && oldTx.accountId) {
         const acc = newAccounts.find(a => a.id === oldTx.accountId);
         if (acc) {
@@ -1235,7 +2215,6 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       const mergedTx: Transaction = { ...oldTx, ...updated };
 
-      // Apply new balance effect if it is paid
       if (mergedTx.status === 'paid' && mergedTx.accountId) {
         const acc = newAccounts.find(a => a.id === mergedTx.accountId);
         if (acc) {
@@ -1254,33 +2233,12 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
-  const deleteTransaction = (id: string) => {
-    setState(prev => {
-      const oldTx = prev.transactions.find(t => t.id === id);
-      if (!oldTx) return prev;
-
-      const newAccounts = prev.accounts.map(a => ({ ...a }));
-
-      // Reverse balance effect if it was paid
-      if (oldTx.status === 'paid' && oldTx.accountId) {
-        const acc = newAccounts.find(a => a.id === oldTx.accountId);
-        if (acc) {
-          if (oldTx.type === 'income') acc.balance -= oldTx.amount;
-          else if ((oldTx.type === 'expense_fixed' || oldTx.type === 'expense_variable') && oldTx.paymentMethod !== 'credit_card') {
-            acc.balance += oldTx.amount;
-          }
-        }
-      }
-
-      return {
-        ...prev,
-        transactions: prev.transactions.filter(t => t.id !== id),
-        accounts: newAccounts
-      };
-    });
+  const deleteTransaction = (id: string): Promise<DeleteResult> => {
+    return executeAuthenticatedDeletion('Lançamento', prev => removeTransactionFromState(prev, id));
   };
 
   const duplicateTransaction = (id: string) => {
+    if (!isHydratedRef.current || !supabaseUserId || !isSupabaseAuthenticated) return;
     const tx = state.transactions.find(t => t.id === id);
     if (!tx) return;
     const { id: _, ...rest } = tx;
@@ -1302,7 +2260,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   ) => {
     if (sourceAccountId === targetAccountId || amount <= 0) return;
 
-    setState(prev => {
+    mutateState(prev => {
       const source = prev.accounts.find(a => a.id === sourceAccountId);
       const target = prev.accounts.find(a => a.id === targetAccountId);
       if (!source || !target) return prev;
@@ -1342,7 +2300,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     amount: number,
     invoiceMonth: string
   ) => {
-    setState(prev => {
+    mutateState(prev => {
       const card = prev.creditCards.find(c => c.id === cardId);
       const account = prev.accounts.find(a => a.id === accountId);
       if (!card || !account || amount <= 0) return prev;
@@ -1383,7 +2341,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     date = getTodayISO(),
     notes?: string
   ) => {
-    setState(prev => {
+    mutateState(prev => {
       const debt = prev.debts.find(d => d.id === debtId);
       const account = prev.accounts.find(a => a.id === accountId);
       if (!debt || !account || amount <= 0) return prev;
@@ -1438,7 +2396,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Debt CRUD
   const addDebt = (debtData: Omit<Debt, 'id' | 'totalPaid' | 'paymentsHistory'>) => {
-    setState(prev => ({
+    mutateState(prev => ({
       ...prev,
       debts: [
         ...prev.debts,
@@ -1453,86 +2411,89 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const updateDebt = (id: string, updated: Partial<Debt>) => {
-    setState(prev => ({
-      ...prev,
-      debts: prev.debts.map(d => (d.id === id ? { ...d, ...updated } : d))
-    }));
+    mutateState(prev => {
+      if (!prev.debts.some(d => d.id === id)) return prev;
+      return {
+        ...prev,
+        debts: prev.debts.map(d => (d.id === id ? { ...d, ...updated } : d))
+      };
+    });
   };
 
-  const deleteDebt = (id: string) => {
-    setState(prev => ({
-      ...prev,
-      debts: prev.debts.filter(d => d.id !== id)
-    }));
+  const deleteDebt = (id: string): Promise<DeleteResult> => {
+    return executeAuthenticatedDeletion('Dívida', prev => removeDebtFromState(prev, id));
   };
 
   // Credit Card CRUD
   const addCreditCard = (cardData: Omit<CreditCard, 'id'>) => {
-    setState(prev => ({
+    mutateState(prev => ({
       ...prev,
       creditCards: [...prev.creditCards, { ...cardData, id: `card-${Date.now()}` }]
     }));
   };
 
   const updateCreditCard = (id: string, updated: Partial<CreditCard>) => {
-    setState(prev => ({
-      ...prev,
-      creditCards: prev.creditCards.map(c => (c.id === id ? { ...c, ...updated } : c))
-    }));
+    mutateState(prev => {
+      if (!prev.creditCards.some(c => c.id === id)) return prev;
+      return {
+        ...prev,
+        creditCards: prev.creditCards.map(c => (c.id === id ? { ...c, ...updated } : c))
+      };
+    });
   };
 
-  const deleteCreditCard = (id: string) => {
-    setState(prev => ({
-      ...prev,
-      creditCards: prev.creditCards.filter(c => c.id !== id)
-    }));
+  const deleteCreditCard = (id: string): Promise<DeleteResult> => {
+    return executeAuthenticatedDeletion('Cartão', prev => removeCreditCardFromState(prev, id));
   };
 
   // Account CRUD
   const addAccount = (accData: Omit<BankAccount, 'id'>) => {
-    setState(prev => ({
+    mutateState(prev => ({
       ...prev,
       accounts: [...prev.accounts, { ...accData, id: `acc-${Date.now()}` }]
     }));
   };
 
   const updateAccount = (id: string, updated: Partial<BankAccount>) => {
-    setState(prev => ({
-      ...prev,
-      accounts: prev.accounts.map(a => (a.id === id ? { ...a, ...updated } : a))
-    }));
+    mutateState(prev => {
+      if (!prev.accounts.some(a => a.id === id)) return prev;
+      return {
+        ...prev,
+        accounts: prev.accounts.map(a => (a.id === id ? { ...a, ...updated } : a))
+      };
+    });
   };
 
-  const deleteAccount = (id: string) => {
-    setState(prev => ({
-      ...prev,
-      accounts: prev.accounts.filter(a => a.id !== id)
-    }));
+  const deleteAccount = (id: string): Promise<DeleteResult> => {
+    return executeAuthenticatedDeletion('Conta bancária', prev => removeAccountFromState(prev, id));
   };
 
   // Category CRUD
   const addCategory = (catData: Omit<Category, 'id'>) => {
-    setState(prev => ({
+    mutateState(prev => ({
       ...prev,
       categories: [...prev.categories, { ...catData, id: `cat-${Date.now()}`, isCustom: true }]
     }));
   };
 
   const updateCategory = (id: string, updated: Partial<Category>) => {
-    setState(prev => ({
-      ...prev,
-      categories: prev.categories.map(c => (c.id === id ? { ...c, ...updated } : c))
-    }));
+    mutateState(prev => {
+      if (!prev.categories.some(c => c.id === id)) return prev;
+      return {
+        ...prev,
+        categories: prev.categories.map(c => (c.id === id ? { ...c, ...updated } : c))
+      };
+    });
   };
 
   const deleteCategory = (id: string): boolean => {
-    // Check if category has transactions
+    if (!isHydratedRef.current || !supabaseUserId || !isSupabaseAuthenticated) return false;
     const cat = state.categories.find(c => c.id === id);
     if (!cat) return false;
     const hasTransactions = state.transactions.some(t => t.category === cat.name);
     if (hasTransactions) return false;
 
-    setState(prev => ({
+    mutateState(prev => ({
       ...prev,
       categories: prev.categories.filter(c => c.id !== id)
     }));
@@ -1541,7 +2502,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Goals CRUD
   const addGoal = (goalData: Omit<FinancialGoal, 'id' | 'currentAmount' | 'completed'>) => {
-    setState(prev => ({
+    mutateState(prev => ({
       ...prev,
       goals: [
         ...prev.goals,
@@ -1556,21 +2517,21 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const updateGoal = (id: string, updated: Partial<FinancialGoal>) => {
-    setState(prev => ({
-      ...prev,
-      goals: prev.goals.map(g => (g.id === id ? { ...g, ...updated } : g))
-    }));
+    mutateState(prev => {
+      if (!prev.goals.some(g => g.id === id)) return prev;
+      return {
+        ...prev,
+        goals: prev.goals.map(g => (g.id === id ? { ...g, ...updated } : g))
+      };
+    });
   };
 
-  const deleteGoal = (id: string) => {
-    setState(prev => ({
-      ...prev,
-      goals: prev.goals.filter(g => g.id !== id)
-    }));
+  const deleteGoal = (id: string): Promise<DeleteResult> => {
+    return executeAuthenticatedDeletion('Objetivo', prev => removeGoalFromState(prev, id));
   };
 
   const contributeToGoal = (goalId: string, accountId: string, amount: number) => {
-    setState(prev => {
+    mutateState(prev => {
       const goal = prev.goals.find(g => g.id === goalId);
       const acc = prev.accounts.find(a => a.id === accountId);
       if (!goal || !acc || amount <= 0) return prev;
@@ -1602,34 +2563,695 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const setSafetyReserveDesired = (val: number) => {
-    setState(prev => ({ ...prev, safetyReserveDesired: Math.max(0, val) }));
+    mutateState(prev => ({ ...prev, safetyReserveDesired: Math.max(0, val) }));
   };
 
-  const loadSampleData = () => {
-    const s = resetToSampleState();
-    setState(s);
+  const loadSampleData = async (): Promise<DestructiveActionOutcome> => {
+    const reqUserId = supabaseUserId;
+    const reqEpoch = sessionEpochRef.current;
+    if (
+      !isHydratedRef.current ||
+      !reqUserId ||
+      !isSupabaseAuthenticated ||
+      hydratedUserId !== reqUserId ||
+      !isSessionOperationValid(reqEpoch, reqUserId)
+    ) {
+      return {
+        success: false,
+        synced: false,
+        message: 'Aguarde o carregamento da sessão autenticada antes de alterar os dados.'
+      };
+    }
+
+    if (operationLockRef.current) {
+      return {
+        success: false,
+        synced: false,
+        message: 'Outra operação crítica em andamento. Aguarde a conclusão.'
+      };
+    }
+
+    const currentState = latestStateRef.current;
+    if (currentState.ownerUserId && currentState.ownerUserId !== reqUserId) {
+      return {
+        success: false,
+        synced: false,
+        message: 'Operação bloqueada: divergência de proprietário nos dados locais.'
+      };
+    }
+
+    if (hasRealFinancialData(currentState)) {
+      return {
+        success: false,
+        synced: false,
+        blockedByRealData: true,
+        message:
+          'Ação bloqueada: esta conta possui dados financeiros reais. Para protegê-los, os dados demonstrativos não podem substituir lançamentos, dívidas ou objetivos reais.'
+      };
+    }
+
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+      syncTimeoutRef.current = null;
+    }
+
+    operationLockRef.current = true;
+    try {
+      const hadEligibleContent =
+        (currentState.transactions?.length || 0) > 0 ||
+        (currentState.debts?.length || 0) > 0 ||
+        (currentState.goals?.length || 0) > 0;
+      const sampleSnap = await saveRecoverySnapshotWithExperimentalHistory(
+        reqUserId,
+        currentState,
+        'pre_load_sample',
+        {
+          ...experimentalHistoryOptions,
+          isSessionStillValid: () => isSessionOperationValid(reqEpoch, reqUserId)
+        }
+      );
+      if (sampleSnap.abortedBySessionChange || !isSessionOperationValid(reqEpoch, reqUserId)) {
+        return {
+          success: false,
+          synced: false,
+          message: 'Sessão encerrada ou alterada durante a gravação preventiva.'
+        };
+      }
+
+      const anySampleSnapshotSaved = sampleSnap.legacySaved || sampleSnap.historySaved;
+      const sampleSnapshotStatus: 'saved' | 'not_needed' | 'failed' = anySampleSnapshotSaved
+        ? 'saved'
+        : !hadEligibleContent || sampleSnap.historyCode === 'skipped_ineligible'
+          ? 'not_needed'
+          : 'failed';
+
+      skipNextAutoSyncRef.current = true;
+      const sampleState = resetToSampleStateForUser(reqUserId, currentState.version || 0);
+      latestStateRef.current = sampleState;
+      setState(sampleState);
+      return {
+        success: true,
+        synced: false,
+        snapshotStatus: sampleSnapshotStatus,
+        message:
+          sampleSnapshotStatus === 'failed'
+            ? 'Dados demonstrativos carregados apenas para visualização local (nuvem preservada), porém não foi possível gravar o snapshot preventivo local.'
+            : 'Dados demonstrativos carregados apenas para visualização local (nuvem preservada).'
+      };
+    } finally {
+      operationLockRef.current = false;
+    }
   };
 
-  const resetAllData = () => {
-    const s = resetToCleanState();
-    setState(s);
+  const resetAllData = async (): Promise<DestructiveActionOutcome> => {
+    const reqUserId = supabaseUserId;
+    const reqEpoch = sessionEpochRef.current;
+    if (!isHydratedRef.current || !reqUserId || !isSupabaseAuthenticated || hydratedUserId !== reqUserId) {
+      return {
+        success: false,
+        synced: false,
+        message: 'Aguarde o carregamento da sessão autenticada antes de zerar os dados.'
+      };
+    }
+
+    if (operationLockRef.current) {
+      return {
+        success: false,
+        synced: false,
+        message: 'Outra operação crítica em andamento. Aguarde a conclusão.'
+      };
+    }
+
+    const currentState = latestStateRef.current;
+    if (currentState.ownerUserId && currentState.ownerUserId !== reqUserId) {
+      return {
+        success: false,
+        synced: false,
+        message: 'Operação bloqueada: divergência de proprietário nos dados locais.'
+      };
+    }
+
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+      syncTimeoutRef.current = null;
+    }
+    operationLockRef.current = true;
+
+    try {
+      const hadEligibleContent =
+        (currentState.transactions?.length || 0) > 0 ||
+        (currentState.debts?.length || 0) > 0 ||
+        (currentState.goals?.length || 0) > 0;
+      const resetSnap = await saveRecoverySnapshotWithExperimentalHistory(
+        reqUserId,
+        currentState,
+        'pre_reset_clean',
+        {
+          ...experimentalHistoryOptions,
+          isSessionStillValid: () => isSessionOperationValid(reqEpoch, reqUserId)
+        }
+      );
+      if (resetSnap.abortedBySessionChange || !isSessionOperationValid(reqEpoch, reqUserId)) {
+        return {
+          success: false,
+          synced: false,
+          message: 'Sessão alterada antes da reinicialização dos dados.'
+        };
+      }
+
+      const anyResetSnapshotSaved = resetSnap.legacySaved || resetSnap.historySaved;
+      const resetSnapshotStatus: 'saved' | 'not_needed' | 'failed' = anyResetSnapshotSaved
+        ? 'saved'
+        : !hadEligibleContent || resetSnap.historyCode === 'skipped_ineligible'
+          ? 'not_needed'
+          : 'failed';
+
+      const cleanState = resetToCleanStateForUser(reqUserId, currentState.version || 0);
+      skipNextAutoSyncRef.current = true;
+      latestStateRef.current = cleanState;
+      setState(cleanState);
+
+      setCloudSyncStatus('syncing');
+      setCloudSyncMessage('Sincronizando reinicialização limpa da conta com a nuvem...');
+      const syncRes = await saveFinanceDataToSupabase(cleanState, reqUserId);
+      if (!isSessionOperationValid(reqEpoch, reqUserId)) {
+        return {
+          success: true,
+          synced: false,
+          snapshotStatus: resetSnapshotStatus,
+          message: 'Dados zerados localmente antes do encerramento da sessão.'
+        };
+      }
+
+      if (syncRes.success) {
+        lastSyncedSignatureRef.current = getStateSyncSignature(cleanState, reqUserId);
+        setCloudSyncStatus('connected');
+        setCloudSyncMessage('Conta zerada e sincronizada com a nuvem!');
+        setLastCloudSyncDate(new Date());
+
+        const syncedMessage =
+          resetSnapshotStatus === 'saved'
+            ? 'Dados zerados com segurança! Um snapshot local prévio foi preservado e a nuvem foi atualizada.'
+            : resetSnapshotStatus === 'not_needed'
+              ? 'Dados zerados com segurança e nuvem atualizada. Nenhum snapshot preventivo foi necessário pois a conta não possuía lançamentos, dívidas ou objetivos.'
+              : 'Dados zerados e nuvem atualizada, porém não foi possível gravar o snapshot preventivo local neste navegador.';
+
+        return {
+          success: true,
+          synced: true,
+          snapshotStatus: resetSnapshotStatus,
+          message: syncedMessage
+        };
+      }
+
+      if (syncRes.code === '42P01') {
+        setCloudSyncStatus('table_missing');
+      } else {
+        setCloudSyncStatus('error');
+      }
+      setCloudSyncMessage(syncRes.message || 'Dados zerados localmente, mas não sincronizados com a nuvem.');
+
+      const unsyncedMessage =
+        resetSnapshotStatus === 'saved'
+          ? 'Dados zerados localmente (snapshot de recuperação salvo), mas houve falha ao sincronizar na nuvem.'
+          : resetSnapshotStatus === 'not_needed'
+            ? 'Dados zerados localmente (nenhum snapshot preventivo necessário para conta sem registros), mas houve falha ao sincronizar na nuvem.'
+            : 'Dados zerados localmente, porém não foi possível gravar o snapshot preventivo local e houve falha ao sincronizar na nuvem.';
+
+      return {
+        success: true,
+        synced: false,
+        snapshotStatus: resetSnapshotStatus,
+        message: unsyncedMessage
+      };
+    } finally {
+      operationLockRef.current = false;
+    }
   };
 
   const exportBackupJson = (): string => {
-    return JSON.stringify(state, null, 2);
+    return JSON.stringify(latestStateRef.current, null, 2);
   };
 
-  const importBackupJson = (jsonString: string): boolean => {
+  const requestSafeLogout = async (): Promise<void> => {
+    if (logoutCheckInFlightRef.current) return;
+
+    const reqUserId = supabaseUserId;
+    const reqEpoch = sessionEpochRef.current;
+    const idbOverride = experimentalHistoryOptions?.indexedDBFactory;
+
+    if (
+      !reqUserId ||
+      !isSupabaseAuthenticated ||
+      !isValidStorageUserId(reqUserId) ||
+      !isHydratedRef.current ||
+      hydratedUserId !== reqUserId
+    ) {
+      await logout({
+        preserveRecoveryBackups: true,
+        userEmailOverride: supabaseUserEmail,
+        indexedDBFactory: idbOverride
+      });
+      return;
+    }
+
+    const currentState = latestStateRef.current;
+    const hasInFlightSync = autoSyncInFlightRef.current || operationLockRef.current;
+    const hasExistingRecovery = Boolean(getRecoverySnapshotForUser(reqUserId));
+
+    if (hasInFlightSync) {
+      setPendingLogoutPrompt({
+        reasonCode: 'sync_in_progress',
+        message:
+          'Uma sincronização com a nuvem está em andamento neste instante. Aguarde a conclusão ou exporte seu backup antes de sair.',
+        hasLocalRecoveryBackup: hasExistingRecovery || hasRealFinancialData(currentState),
+        canRetrySync: true,
+        actionError: null,
+        isProcessing: false
+      });
+      return;
+    }
+
+    const signatureBefore = getStateSyncSignature(currentState, reqUserId);
+    logoutCheckInFlightRef.current = true;
+    setIsCheckingLogoutSafety(true);
+
     try {
-      const parsed = JSON.parse(jsonString);
-      if (parsed && Array.isArray(parsed.transactions) && Array.isArray(parsed.categories)) {
-        setState(parsed);
-        saveStateToStorage(parsed);
-        return true;
+      const preservation = await verifyCloudPreservationForUser(reqUserId, currentState);
+      if (!isSessionOperationValid(reqEpoch, reqUserId)) {
+        return;
       }
-      return false;
+
+      const signatureAfter = getStateSyncSignature(latestStateRef.current, reqUserId);
+      if (signatureBefore !== signatureAfter) {
+        setPendingLogoutPrompt({
+          reasonCode: 'state_changed',
+          message:
+            'Novas alterações locais ocorreram durante a verificação da nuvem. Sincronize ou exporte um backup antes de encerrar a sessão.',
+          hasLocalRecoveryBackup:
+            Boolean(getRecoverySnapshotForUser(reqUserId)) || hasRealFinancialData(latestStateRef.current),
+          canRetrySync: true,
+          actionError: null,
+          isProcessing: false
+        });
+        return;
+      }
+
+      if (preservation.verified) {
+        if (syncTimeoutRef.current) {
+          clearTimeout(syncTimeoutRef.current);
+          syncTimeoutRef.current = null;
+        }
+        setPendingLogoutPrompt(null);
+        await logout({
+          preserveRecoveryBackups: false,
+          userEmailOverride: supabaseUserEmail,
+          indexedDBFactory: idbOverride
+        });
+        return;
+      }
+
+      setPendingLogoutPrompt({
+        reasonCode:
+          preservation.reasonCode === 'cloud_matches_local' ||
+          preservation.reasonCode === 'empty_account'
+            ? 'unsynced_changes'
+            : preservation.reasonCode,
+        message: preservation.message,
+        hasLocalRecoveryBackup:
+          hasExistingRecovery || hasRealFinancialData(latestStateRef.current),
+        canRetrySync:
+          preservation.reasonCode !== 'table_missing' &&
+          preservation.reasonCode !== 'owner_mismatch',
+        actionError: null,
+        isProcessing: false
+      });
+    } finally {
+      logoutCheckInFlightRef.current = false;
+      if (isMountedRef.current) {
+        setIsCheckingLogoutSafety(false);
+      }
+    }
+  };
+
+  const cancelPendingLogout = () => {
+    setPendingLogoutPrompt(null);
+  };
+
+  const exportBackupForPendingLogout = (): {
+    success: boolean;
+    filename: string;
+    jsonContent: string;
+  } => {
+    const jsonContent = exportBackupJson();
+    const filename = `backup_seguro_antes_sair_${new Date().toISOString().split('T')[0]}.json`;
+    try {
+      if (typeof document !== 'undefined' && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+        const blob = new Blob([jsonContent], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
     } catch {
-      return false;
+      // Ambientes headless sem suporte completo a download ainda recebem jsonContent
+    }
+    return {
+      success: true,
+      filename,
+      jsonContent
+    };
+  };
+
+  const syncAndConfirmLogout = async (): Promise<void> => {
+    const reqUserId = supabaseUserId;
+    const reqEpoch = sessionEpochRef.current;
+    const idbOverride = experimentalHistoryOptions?.indexedDBFactory;
+
+    if (!reqUserId || !isSessionOperationValid(reqEpoch, reqUserId)) {
+      return;
+    }
+
+    setPendingLogoutPrompt(prev =>
+      prev ? { ...prev, isProcessing: true, actionError: null } : null
+    );
+
+    const uploadRes = await forceUploadLocalToCloud();
+    if (!isSessionOperationValid(reqEpoch, reqUserId)) {
+      return;
+    }
+
+    if (!uploadRes.success) {
+      setPendingLogoutPrompt(prev =>
+        prev
+          ? {
+              ...prev,
+              isProcessing: false,
+              actionError: uploadRes.message
+            }
+          : null
+      );
+      return;
+    }
+
+    const recheck = await verifyCloudPreservationForUser(reqUserId, latestStateRef.current);
+    if (!isSessionOperationValid(reqEpoch, reqUserId)) {
+      return;
+    }
+
+    if (!recheck.verified) {
+      setPendingLogoutPrompt(prev =>
+        prev
+          ? {
+              ...prev,
+              isProcessing: false,
+              actionError: recheck.message
+            }
+          : null
+      );
+      return;
+    }
+
+    setPendingLogoutPrompt(null);
+    await logout({
+      preserveRecoveryBackups: false,
+      userEmailOverride: supabaseUserEmail,
+      indexedDBFactory: idbOverride
+    });
+  };
+
+  const confirmSafeLogout = async (options?: {
+    alsoDeleteRecoveryBackups?: boolean;
+  }): Promise<void> => {
+    const reqUserId = supabaseUserId;
+    const reqEpoch = sessionEpochRef.current;
+    const idbOverride = experimentalHistoryOptions?.indexedDBFactory;
+    const alsoDeleteRecoveryBackups = Boolean(options?.alsoDeleteRecoveryBackups);
+
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+      syncTimeoutRef.current = null;
+    }
+
+    if (!reqUserId || !isValidStorageUserId(reqUserId)) {
+      setPendingLogoutPrompt(null);
+      await logout({
+        preserveRecoveryBackups: true,
+        userEmailOverride: supabaseUserEmail,
+        indexedDBFactory: idbOverride
+      });
+      return;
+    }
+
+    if (!alsoDeleteRecoveryBackups) {
+      const reason =
+        pendingLogoutPrompt?.reasonCode === 'cloud_unreachable' ||
+        pendingLogoutPrompt?.reasonCode === 'table_missing'
+          ? 'pre_unverified_logout'
+          : 'pre_unsynced_logout';
+
+      await saveRecoverySnapshotWithExperimentalHistory(
+        reqUserId,
+        latestStateRef.current,
+        reason,
+        {
+          ...experimentalHistoryOptions,
+          isSessionStillValid: () => isSessionOperationValid(reqEpoch, reqUserId)
+        }
+      );
+
+      setPendingLogoutPrompt(null);
+      await logout({
+        preserveRecoveryBackups: true,
+        skipActiveCacheBackupOnPreserve: true,
+        userEmailOverride: supabaseUserEmail,
+        indexedDBFactory: idbOverride
+      });
+      return;
+    }
+
+    setPendingLogoutPrompt(null);
+    await logout({
+      preserveRecoveryBackups: false,
+      userEmailOverride: supabaseUserEmail,
+      indexedDBFactory: idbOverride
+    });
+  };
+
+  // Etapa 1 da restauração: leitura, validação completa de schema/owner e verificação na nuvem SEM alterar estado ou localStorage
+  const inspectBackupJsonForRestore = async (jsonString: string): Promise<BackupInspectionOutcome> => {
+    const reqUserId = supabaseUserId;
+    const reqEpoch = sessionEpochRef.current;
+
+    if (!isHydratedRef.current || !reqUserId || !isSupabaseAuthenticated || hydratedUserId !== reqUserId) {
+      return {
+        valid: false,
+        canRestore: false,
+        message: 'Sessão não autenticada ou ainda em carregamento. Aguarde antes de restaurar backups.'
+      };
+    }
+
+    const validation = validateBackupJsonStructure(jsonString, reqUserId);
+    if (!validation.valid || !validation.state || !validation.counts) {
+      return {
+        valid: false,
+        canRestore: false,
+        message: validation.error || 'Arquivo de backup inválido ou incompatível.'
+      };
+    }
+
+    const remoteResult = await fetchFinanceDataFromSupabase(reqUserId);
+    if (!isSessionOperationValid(reqEpoch, reqUserId)) {
+      return {
+        valid: false,
+        canRestore: false,
+        message: 'Sessão alterada durante a verificação do backup na nuvem.'
+      };
+    }
+
+    const safety = evaluateBackupRestorationSafety({
+      backupState: validation.state,
+      currentLocalState: latestStateRef.current,
+      remoteResult,
+      expectedUserId: reqUserId
+    });
+
+    const prepared: PreparedBackupRestore = {
+      backupState: validation.state,
+      counts: validation.counts,
+      version: validation.version ?? validation.state.version,
+      lastModified: validation.lastModified ?? (validation.state.lastModified || 0),
+      ownerUserId: reqUserId,
+      sourceFormat: validation.sourceFormat,
+      snapshotSavedAt: validation.snapshotSavedAt,
+      snapshotReason: validation.snapshotReason,
+      remoteStateSnapshot: remoteResult.data,
+      remoteVersion: remoteResult.version,
+      remoteTimestamp: remoteResult.clientTimestamp,
+      safety
+    };
+
+    return {
+      valid: true,
+      canRestore: safety.allowed,
+      message: safety.message,
+      prepared
+    };
+  };
+
+  // Etapa 2 da restauração: executa somente após confirmação explícita do usuário no modal de prévia
+  const applyConfirmedBackupRestore = async (
+    prepared: PreparedBackupRestore
+  ): Promise<BackupRestoreOutcome> => {
+    const reqUserId = supabaseUserId;
+    const reqEpoch = sessionEpochRef.current;
+
+    if (!isHydratedRef.current || !reqUserId || !isSupabaseAuthenticated || hydratedUserId !== reqUserId) {
+      return {
+        success: false,
+        synced: false,
+        message: 'Sessão não autenticada ou alterada. Restauração cancelada por segurança.'
+      };
+    }
+
+    if (prepared.ownerUserId !== reqUserId || prepared.backupState.ownerUserId !== reqUserId) {
+      return {
+        success: false,
+        synced: false,
+        message: 'Restauração bloqueada: o backup não pertence à conta atualmente autenticada.'
+      };
+    }
+
+    if (operationLockRef.current) {
+      return {
+        success: false,
+        synced: false,
+        message: 'Outra operação crítica em andamento. Aguarde a conclusão antes de restaurar.'
+      };
+    }
+
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+      syncTimeoutRef.current = null;
+    }
+    operationLockRef.current = true;
+    setCloudSyncStatus('syncing');
+    setCloudSyncMessage('Validando integridade na nuvem antes de aplicar a restauração...');
+
+    try {
+      // Revalida estado remoto imediatamente antes de gravar para evitar race conditions
+      const freshRemote = await fetchFinanceDataFromSupabase(reqUserId);
+      if (!isSessionOperationValid(reqEpoch, reqUserId)) {
+        return {
+          success: false,
+          synced: false,
+          message: 'Sessão encerrada ou alterada durante a restauração.'
+        };
+      }
+
+      const freshSafety = evaluateBackupRestorationSafety({
+        backupState: prepared.backupState,
+        currentLocalState: latestStateRef.current,
+        remoteResult: freshRemote,
+        expectedUserId: reqUserId
+      });
+
+      if (!freshSafety.allowed) {
+        setCloudSyncStatus(freshSafety.reasonCode === 'cloud_unavailable' ? 'error' : 'connected');
+        setCloudSyncMessage(freshSafety.message);
+        return {
+          success: false,
+          synced: false,
+          message: freshSafety.message
+        };
+      }
+
+      // Preserva metadados autênticos do backup (nunca mascara backup antigo com Date.now())
+      const restoredState: AppState = {
+        ...prepared.backupState,
+        ownerUserId: reqUserId
+      };
+
+      const previousState = latestStateRef.current;
+      const hadEligibleContentBeforeRestore =
+        (previousState.transactions?.length || 0) > 0 ||
+        (previousState.debts?.length || 0) > 0 ||
+        (previousState.goals?.length || 0) > 0;
+      const restoreSnap = await saveRecoverySnapshotWithExperimentalHistory(
+        reqUserId,
+        previousState,
+        'pre_json_import',
+        {
+          ...experimentalHistoryOptions,
+          isSessionStillValid: () => isSessionOperationValid(reqEpoch, reqUserId)
+        }
+      );
+      if (restoreSnap.abortedBySessionChange || !isSessionOperationValid(reqEpoch, reqUserId)) {
+        return {
+          success: false,
+          synced: false,
+          message: 'Sessão encerrada ou alterada durante a gravação preventiva.'
+        };
+      }
+
+      const restoreSnapshotStatus: 'saved' | 'not_needed' | 'failed' =
+        restoreSnap.legacySaved || restoreSnap.historySaved
+          ? 'saved'
+          : !hadEligibleContentBeforeRestore || restoreSnap.historyCode === 'skipped_ineligible'
+            ? 'not_needed'
+            : 'failed';
+
+      // Grava primeiro na nuvem; só substitui o estado local ativo se o envio remoto for confirmado
+      const saveRes = await saveFinanceDataToSupabase(restoredState, reqUserId);
+      if (!isSessionOperationValid(reqEpoch, reqUserId)) {
+        return {
+          success: false,
+          synced: false,
+          snapshotStatus: restoreSnapshotStatus,
+          message: 'Sessão alterada durante a gravação do backup restaurado.'
+        };
+      }
+
+      if (!saveRes.success) {
+        if (saveRes.code === '42P01') {
+          setCloudSyncStatus('table_missing');
+        } else {
+          setCloudSyncStatus('error');
+        }
+        const failMsg =
+          saveRes.message ||
+          'Restauração cancelada: não foi possível confirmar a gravação do backup na nuvem Supabase.';
+        setCloudSyncMessage(failMsg);
+        return {
+          success: false,
+          synced: false,
+          snapshotStatus: restoreSnapshotStatus,
+          message: failMsg
+        };
+      }
+
+      skipNextAutoSyncRef.current = true;
+      lastSyncedSignatureRef.current = getStateSyncSignature(restoredState, reqUserId);
+      latestStateRef.current = restoredState;
+      setState(restoredState);
+      saveStateToStorageForUser(reqUserId, restoredState);
+      setCloudSyncStatus('connected');
+      setCloudSyncMessage('Backup restaurado e sincronizado com sucesso na nuvem!');
+      setLastCloudSyncDate(new Date());
+
+      return {
+        success: true,
+        synced: true,
+        snapshotStatus: restoreSnapshotStatus,
+        message:
+          restoreSnapshotStatus === 'failed'
+            ? 'Backup restaurado e confirmado na nuvem Supabase com sucesso, porém não foi possível gravar a cópia preventiva local neste navegador.'
+            : 'Backup restaurado e confirmado na nuvem Supabase com sucesso!'
+      };
+    } finally {
+      operationLockRef.current = false;
     }
   };
 
@@ -1657,7 +3279,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         toggleTheme,
         loadSampleData,
         resetAllData,
-        importBackupJson,
+        inspectBackupJsonForRestore,
+        applyConfirmedBackupRestore,
         exportBackupJson,
 
         addTransaction,
@@ -1720,6 +3343,17 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         simulatePurchase,
 
+        // Hydration & Isolation State
+        isFinanceHydrating,
+        isFinanceHydrated,
+        hydratedUserId,
+        hydrationError,
+        retryCloudHydration,
+        legacyBackupPrompt,
+        exportLegacyBackupFile,
+        importLegacyBackupToCurrentAccount,
+        dismissLegacyBackupPrompt,
+
         // Supabase Cloud Synchronization
         cloudSyncStatus,
         cloudSyncMessage,
@@ -1732,7 +3366,16 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           cloudSyncStatus === 'connected' ||
           cloudSyncStatus === 'synced' ||
           cloudSyncStatus === 'syncing' ||
-          cloudSyncStatus === 'idle'
+          cloudSyncStatus === 'idle',
+
+        // Safe Logout Protection (Fase 2.1)
+        pendingLogoutPrompt,
+        isCheckingLogoutSafety,
+        requestSafeLogout,
+        cancelPendingLogout,
+        syncAndConfirmLogout,
+        confirmSafeLogout,
+        exportBackupForPendingLogout
       }}
     >
       {children}

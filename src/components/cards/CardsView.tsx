@@ -21,6 +21,7 @@ import {
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency, formatDateBR, getTodayISO } from '../../utils/formatters';
 import { CreditCard, Transaction } from '../../types/finance';
+import { ActionFeedback, ActionFeedbackBanner, ConfirmDeleteModal } from '../common/ConfirmDeleteModal';
 
 export const CardsView: React.FC = () => {
   const {
@@ -37,6 +38,29 @@ export const CardsView: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [payModalCard, setPayModalCard] = useState<CreditCard | null>(null);
   const [editingCard, setEditingCard] = useState<CreditCard | null>(null);
+  const [pendingDeleteCard, setPendingDeleteCard] = useState<CreditCard | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteFeedback, setDeleteFeedback] = useState<ActionFeedback | null>(null);
+
+  const handleConfirmDeleteCard = async () => {
+    if (!pendingDeleteCard || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      const result = await deleteCreditCard(pendingDeleteCard.id);
+      setDeleteFeedback({
+        type: result.success && result.synced ? 'success' : 'error',
+        text: result.message
+      });
+    } catch (err: any) {
+      setDeleteFeedback({
+        type: 'error',
+        text: err?.message || 'Não foi possível excluir o cartão.'
+      });
+    } finally {
+      setIsDeleting(false);
+      setPendingDeleteCard(null);
+    }
+  };
 
   // Form states for Add Card
   const [name, setName] = useState('');
@@ -141,6 +165,11 @@ export const CardsView: React.FC = () => {
           <span>Cadastrar Novo Cartão</span>
         </button>
       </div>
+
+      <ActionFeedbackBanner
+        feedback={deleteFeedback}
+        onClose={() => setDeleteFeedback(null)}
+      />
 
       {/* Anti-duplicity rule callout */}
       <div className="p-3.5 bg-purple-50/70 dark:bg-purple-950/20 border border-purple-200/80 dark:border-purple-900/60 rounded-xl text-xs text-purple-900 dark:text-purple-300 flex items-start gap-2.5">
@@ -275,12 +304,14 @@ export const CardsView: React.FC = () => {
                   </button>
 
                   <button
-                    onClick={() => {
-                      if (confirm(`Deseja excluir o cartão "${card.name}"?`)) {
-                        deleteCreditCard(card.id);
-                      }
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      setPendingDeleteCard(card);
                     }}
-                    className="text-xs text-slate-400 hover:text-rose-600 flex items-center gap-1 transition-colors"
+                    className="text-xs text-slate-400 hover:text-rose-600 flex items-center gap-1 transition-colors cursor-pointer"
+                    title="Excluir cartão"
+                    aria-label={`Excluir cartão ${card.name}`}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Excluir</span>
@@ -575,6 +606,17 @@ export const CardsView: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ConfirmDeleteModal
+        isOpen={!!pendingDeleteCard}
+        title="Excluir Cartão de Crédito"
+        description="Deseja excluir este cartão de crédito? Os demais cartões e lançamentos permanecerão preservados."
+        itemLabel={pendingDeleteCard?.name}
+        itemValue={pendingDeleteCard ? `Limite: ${formatCurrency(pendingDeleteCard.limitTotal)}` : undefined}
+        isDeleting={isDeleting}
+        onConfirm={handleConfirmDeleteCard}
+        onCancel={() => setPendingDeleteCard(null)}
+      />
     </div>
   );
 };

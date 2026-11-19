@@ -30,9 +30,8 @@ export function resolveValidUrl(rawUrl?: unknown): string {
 }
 
 /**
- * Valida e sanitiza a chave anônima/publicável do Supabase
+ * Valida e sanitiza a chave pública publishable do Supabase
  * Garante que a chave possua formato válido (sb_publishable_... ou JWT eyJ...)
- * Rejeita explicitamente valores corrompidos (como o PIN '6145' ou strings curtas)
  */
 export function resolveValidKey(rawKey?: unknown): string {
   if (typeof rawKey !== 'string') return DEFAULT_SUPABASE_KEY;
@@ -41,7 +40,6 @@ export function resolveValidKey(rawKey?: unknown): string {
     !cleaned ||
     cleaned === 'undefined' ||
     cleaned === 'null' ||
-    cleaned === '6145' ||
     cleaned.length < 20 ||
     (!cleaned.startsWith('sb_publishable_') && !cleaned.startsWith('eyJ'))
   ) {

@@ -14,7 +14,16 @@ import {
 } from '../services/supabaseSyncService';
 import { supabase } from '../utils/supabase';
 import { AppState } from '../utils/storage';
-import { SUPABASE_CONFIGURED_FLAG, mapAuthError } from '../context/AuthContext';
+import {
+  SUPABASE_CONFIGURED_FLAG,
+  mapAuthError,
+  isValidEmailFormat,
+  validatePasswordStrength,
+  isTrustedMessageOrigin,
+  isSessionExpired,
+  deriveUserDisplayName,
+  scrubLegacyLocalAuthKeys
+} from '../context/AuthContext';
 
 // Mock do supabase
 vi.mock('../utils/supabase', () => {
@@ -22,8 +31,13 @@ vi.mock('../utils/supabase', () => {
     supabase: {
       auth: {
         getSession: vi.fn(),
+        refreshSession: vi.fn(),
         signInWithPassword: vi.fn(),
         signInWithOAuth: vi.fn(),
+        signInWithOtp: vi.fn(),
+        verifyOtp: vi.fn(),
+        resetPasswordForEmail: vi.fn(),
+        updateUser: vi.fn(),
         signUp: vi.fn(),
         signOut: vi.fn(),
         onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } }))
@@ -38,7 +52,7 @@ vi.mock('../utils/supabase', () => {
         upsert: vi.fn().mockResolvedValue({ data: null, error: null })
       }))
     },
-    SUPABASE_PROJECT_URL: 'https://lwkecyfhpkyuakbbxksl.supabase.co'
+    SUPABASE_PROJECT_URL: 'https://exemplo.supabase.co'
   };
 });
 
@@ -71,219 +85,144 @@ Object.defineProperty(globalThis, 'sessionStorage', {
   writable: true
 });
 
-describe('1. AuthContext - Sessão, GitHub OAuth e Status da Nuvem', () => {
+describe('1. AuthContext - Autenticação Comercial Exclusiva Supabase Auth', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localMock.clear();
     sessionMock.clear();
   });
 
-  it('getSession null sem flag no localStorage -> status "not_configured"', async () => {
+  it('Valida formato de e-mail e força mínima de senha (mín. 6 caracteres)', () => {
+    expect(isValidEmailFormat('cliente@empresa.com')).toBe(true);
+    expect(isValidEmailFormat('email-invalido')).toBe(false);
+    expect(isValidEmailFormat('sem@dominio')).toBe(false);
+
+    expect(validatePasswordStrength('12345').valid).toBe(false);
+    expect(validatePasswordStrength('123456').valid).toBe(true);
+  });
+
+  it('Rejeita postMessage de origens não confiáveis e aceita apenas mesma origem', () => {
+    const appOrigin = 'https://gestaofinanceira.workers.dev';
+    expect(isTrustedMessageOrigin(appOrigin, appOrigin)).toBe(true);
+    expect(isTrustedMessageOrigin('https://attacker.example', appOrigin)).toBe(false);
+    expect(isTrustedMessageOrigin('null', appOrigin)).toBe(false);
+    expect(isTrustedMessageOrigin(undefined, appOrigin)).toBe(false);
+  });
+
+  it('Detecta sessão expirada com base em expires_at e session null', () => {
+    expect(isSessionExpired(null)).toBe(true);
+
+    const expiredSession = {
+      user: { id: '550e8400-e29b-41d4-a716-446655440000' },
+      expires_at: Math.floor(Date.now() / 1000) - 60
+    } as any;
+    expect(isSessionExpired(expiredSession)).toBe(true);
+
+    const activeSession = {
+      user: { id: '550e8400-e29b-41d4-a716-446655440000' },
+      expires_at: Math.floor(Date.now() / 1000) + 3600
+    } as any;
+    expect(isSessionExpired(activeSession)).toBe(false);
+  });
+
+  it('Deriva nome de exibição comercial a partir do usuário autenticado sem hardcode pessoal', () => {
+    expect(
+      deriveUserDisplayName({
+        id: '550e8400-e29b-41d4-a716-446655440000',
+        email: 'maria@exemplo.com',
+        user_metadata: { full_name: 'Maria Silva' }
+      } as any)
+    ).toBe('Maria Silva');
+
+    expect(
+      deriveUserDisplayName({
+        id: '550e8400-e29b-41d4-a716-446655440000',
+        email: 'joao@exemplo.com',
+        user_metadata: {}
+      } as any)
+    ).toBe('joao');
+
+    expect(deriveUserDisplayName(null)).toBe('Conta');
+  });
+
+  it('Remove credenciais legadas em texto simples do localStorage e sessionStorage', () => {
+    const hadWindow = typeof (globalThis as any).window !== 'undefined';
+    if (!hadWindow) {
+      Object.defineProperty(globalThis, 'window', { value: globalThis, writable: true, configurable: true });
+    }
+    localStorage.setItem('finance_auth_user', 'old-user');
+    localStorage.setItem('finance_auth_password', 'old-pass');
+    localStorage.setItem('finance_auth_session', 'true');
+    sessionStorage.setItem('finance_auth_session', 'true');
+
+    scrubLegacyLocalAuthKeys();
+
+    expect(localStorage.getItem('finance_auth_user')).toBeNull();
+    expect(localStorage.getItem('finance_auth_password')).toBeNull();
+    expect(localStorage.getItem('finance_auth_session')).toBeNull();
+    expect(sessionStorage.getItem('finance_auth_session')).toBeNull();
+  });
+
+  it('getSession null sem sessão ativa bloqueia acesso e não autentica localmente', async () => {
     vi.mocked(supabase.auth.getSession).mockResolvedValueOnce({
       data: { session: null },
       error: null
     });
 
     const { data: { session } } = await supabase.auth.getSession();
-    const wasConfigured = localStorage.getItem(SUPABASE_CONFIGURED_FLAG) === 'true';
-    const status = session?.user ? 'connected' : wasConfigured ? 'session_expired' : 'not_configured';
-    expect(status).toBe('not_configured');
+    expect(session).toBeNull();
+    expect(isSessionExpired(session)).toBe(true);
   });
 
-  it('getSession null com flag finance_supabase_was_configured = true -> status "session_expired"', async () => {
-    localStorage.setItem(SUPABASE_CONFIGURED_FLAG, 'true');
-
-    vi.mocked(supabase.auth.getSession).mockResolvedValueOnce({
-      data: { session: null },
-      error: null
-    });
-
-    const { data: { session } } = await supabase.auth.getSession();
-    const wasConfigured = localStorage.getItem(SUPABASE_CONFIGURED_FLAG) === 'true';
-    const status = session?.user ? 'connected' : wasConfigured ? 'session_expired' : 'not_configured';
-    expect(status).toBe('session_expired');
-  });
-
-  it('getSession com sessão válida -> status "connected" e persiste a flag no localStorage', async () => {
-    const validUuid = '550e8400-e29b-41d4-a716-446655440000';
-    vi.mocked(supabase.auth.getSession).mockResolvedValueOnce({
+  it('Cadastro com confirmação de e-mail obrigatória (session: null) não libera sessão autenticada', async () => {
+    vi.mocked(supabase.auth.signUp).mockResolvedValueOnce({
       data: {
-        session: {
-          user: { id: validUuid, email: 'lucas@exemplo.com' }
-        } as any
+        user: { id: '550e8400-e29b-41d4-a716-446655440000', email: 'novo@cliente.com' } as any,
+        session: null
       },
       error: null
     });
 
-    const { data: { session } } = await supabase.auth.getSession();
-    let status = 'not_configured';
-    if (session?.user) {
-      status = 'connected';
-      localStorage.setItem(SUPABASE_CONFIGURED_FLAG, 'true');
-    }
-
-    expect(status).toBe('connected');
-    expect(localStorage.getItem(SUPABASE_CONFIGURED_FLAG)).toBe('true');
-  });
-
-  it('Login local (PIN lucasgomes/6145) valida acesso mas NUNCA define supabaseUserId', () => {
-    const defaultUser = 'lucasgomes';
-    const defaultPass = '6145';
-    let localAuthenticated = false;
-    let supabaseUserId: string | null = null;
-
-    const login = (user: string, pass: string) => {
-      if (user === defaultUser && pass === defaultPass) {
-        localAuthenticated = true;
-        // Importante: Nunca deve atribuir supabaseUserId aqui
-        return { success: true };
-      }
-      return { success: false };
-    };
-
-    const res = login('lucasgomes', '6145');
-    expect(res.success).toBe(true);
-    expect(localAuthenticated).toBe(true);
-    expect(supabaseUserId).toBeNull();
-  });
-
-  it('loginWithGitHub chama signInWithOAuth com skipBrowserRedirect: true e retorna { success: true, url }', async () => {
-    const testOauthUrl = 'https://github.com/login/oauth/authorize';
-    vi.mocked(supabase.auth.signInWithOAuth).mockResolvedValueOnce({
-      data: { provider: 'github', url: testOauthUrl },
-      error: null
+    const res = await supabase.auth.signUp({
+      email: 'novo@cliente.com',
+      password: 'SenhaSegura123'
     });
-
-    const loginWithGitHub = async () => {
-      try {
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'github',
-          options: {
-            redirectTo: 'http://localhost:3000',
-            scopes: 'read:user user:email',
-            skipBrowserRedirect: true
-          }
-        });
-        if (error) return { success: false, message: mapAuthError(error) };
-        if (data?.url) return { success: true, url: data.url };
-        return { success: true };
-      } catch (err: any) {
-        return { success: false, message: err.message };
-      }
-    };
-
-    const res = await loginWithGitHub();
-    expect(res.success).toBe(true);
-    expect(res.url).toBe(testOauthUrl);
-    expect(supabase.auth.signInWithOAuth).toHaveBeenCalledWith({
-      provider: 'github',
-      options: {
-        redirectTo: 'http://localhost:3000',
-        scopes: 'read:user user:email',
-        skipBrowserRedirect: true
-      }
-    });
+    expect(res.error).toBeNull();
+    expect(res.data.user?.id).toBeDefined();
+    expect(res.data.session).toBeNull();
   });
 
-  it('loginWithGitHub retorna erro amigável se o provider não estiver habilitado no Supabase', async () => {
-    vi.mocked(supabase.auth.signInWithOAuth).mockResolvedValueOnce({
-      data: { provider: 'github', url: null },
-      error: {
-        name: 'AuthApiError',
-        message: 'Unsupported provider: provider is not enabled',
-        code: 'provider_not_enabled',
-        status: 400
-      } as any
-    });
-
-    const loginWithGitHub = async () => {
-      try {
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: 'github',
-          options: {
-            redirectTo: 'http://localhost:3000',
-            scopes: 'read:user user:email',
-            skipBrowserRedirect: true
-          }
-        });
-        if (error) return { success: false, message: mapAuthError(error) };
-        return { success: true };
-      } catch (err: any) {
-        return { success: false, message: err.message };
-      }
-    };
-
-    const res = await loginWithGitHub();
-    expect(res.success).toBe(false);
-    expect(res.message).toContain('Login com GitHub não está habilitado');
-    expect(res.message).toContain('Authentication > Providers > GitHub');
-  });
-
-  it('loginWithGitHub retorna { success: false } quando signInWithOAuth lança exceção', async () => {
-    vi.mocked(supabase.auth.signInWithOAuth).mockRejectedValueOnce(
-      new Error('Falha de conexão com a rede OAuth')
-    );
-
-    const loginWithGitHub = async () => {
-      try {
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: 'github',
-          options: {
-            redirectTo: 'http://localhost:3000',
-            scopes: 'read:user user:email',
-            skipBrowserRedirect: true
-          }
-        });
-        if (error) return { success: false, message: mapAuthError(error) };
-        return { success: true };
-      } catch (err: any) {
-        return { success: false, message: err.message || 'Erro ao iniciar login com GitHub.' };
-      }
-    };
-
-    const res = await loginWithGitHub();
-    expect(res.success).toBe(false);
-    expect(res.message).toBe('Falha de conexão com a rede OAuth');
-  });
-
-  it('mapAuthError formata todos os casos de erro especificados', () => {
-    // 1. invalid_credentials
+  it('mapAuthError traduz erros comerciais de login, cadastro, recuperação e OAuth', () => {
     expect(mapAuthError({ code: 'invalid_credentials', message: 'Invalid credentials' }))
       .toBe('E-mail ou senha incorretos.');
 
-    // 2. email_not_confirmed
-    const emailErr = mapAuthError({ code: 'email_not_confirmed', message: 'Email not confirmed' });
-    expect(emailErr).toContain('E-mail ainda não confirmado no Supabase');
+    expect(mapAuthError({ code: 'email_not_confirmed', message: 'Email not confirmed' }))
+      .toContain('E-mail ainda não confirmado');
 
-    // 3. too_many_requests
+    expect(mapAuthError({ code: 'user_already_exists', message: 'User already registered' }))
+      .toContain('já está cadastrado');
+
     expect(mapAuthError({ code: 'too_many_requests', message: 'Too many requests' }))
-      .toBe('Muitas tentativas. Aguarde alguns minutos.');
+      .toContain('Muitas tentativas');
 
-    // 4. provider_not_enabled
-    const provErr = mapAuthError({ code: 'provider_not_enabled', message: 'provider is not enabled' });
-    expect(provErr).toContain('Login com GitHub não está habilitado no projeto Supabase');
+    expect(mapAuthError({ code: 'provider_not_enabled', message: 'provider is not enabled' }))
+      .toContain('GitHub não está habilitado');
 
-    // 5. access_denied / oauth
     expect(mapAuthError({ code: 'access_denied', message: 'access_denied' }))
-      .toBe('Login com GitHub cancelado ou negado.');
+      .toContain('cancelada ou negada');
 
-    // 6. Outros erros retornam mensagem original
     expect(mapAuthError({ code: 'unknown_error', message: 'Serviço temporariamente indisponível' }))
       .toBe('Serviço temporariamente indisponível');
   });
 
-  it('logoutFromSupabase remove a flag finance_supabase_was_configured e reseta status', async () => {
+  it('signOut limpa a flag de sessão configurada no logout', async () => {
     localStorage.setItem(SUPABASE_CONFIGURED_FLAG, 'true');
     vi.mocked(supabase.auth.signOut).mockResolvedValueOnce({ error: null });
 
-    const logoutFromSupabase = async () => {
-      await supabase.auth.signOut();
-      localStorage.removeItem(SUPABASE_CONFIGURED_FLAG);
-      return 'not_configured';
-    };
+    await supabase.auth.signOut();
+    localStorage.removeItem(SUPABASE_CONFIGURED_FLAG);
 
-    const newStatus = await logoutFromSupabase();
-    expect(newStatus).toBe('not_configured');
+    expect(supabase.auth.signOut).toHaveBeenCalledTimes(1);
     expect(localStorage.getItem(SUPABASE_CONFIGURED_FLAG)).toBeNull();
   });
 });
@@ -293,10 +232,10 @@ describe('2. supabaseSyncService - Validações de UUID, Sessão e Bloqueio', ()
     vi.clearAllMocks();
   });
 
-  it('UUID inválido (ex: "abc", "123", "lucasgomes") deve ser rejeitado', () => {
+  it('UUID inválido (ex: "abc", "123", "usuario-invalido") deve ser rejeitado', () => {
     expect(isValidUUID('abc')).toBe(false);
     expect(isValidUUID('123')).toBe(false);
-    expect(isValidUUID('lucasgomes')).toBe(false);
+    expect(isValidUUID('usuario-invalido')).toBe(false);
     expect(isValidUUID('12345678-1234-1234-1234-12345678901z')).toBe(false);
   });
 

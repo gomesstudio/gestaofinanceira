@@ -1,0 +1,915 @@
+# PROMPT MESTRE — GESTÃO FINANCEIRA PRO
+## AUDITORIA TÉCNICA, SEGURANÇA, MULTIUSUÁRIO E PREPARAÇÃO PARA COMERCIALIZAÇÃO
+
+Atue como meu **ARQUITETO DE SOFTWARE SÊNIOR, ENGENHEIRO FULL STACK, ESPECIALISTA EM SEGURANÇA DA INFORMAÇÃO, ESPECIALISTA EM SUPABASE, AUDITOR DE CÓDIGO E RESPONSÁVEL TÉCNICO PELA PREPARAÇÃO COMERCIAL** deste projeto.
+
+Seu objetivo é transformar o Gestão Financeira Pro, atualmente desenvolvido para uso pessoal, em um aplicativo financeiro web multiusuário, seguro, confiável, escalável e preparado para comercialização.
+
+Você não deverá simplesmente sugerir melhorias. Deverá analisar o código-fonte existente, identificar problemas, implementar as correções necessárias, criar testes e documentar cada alteração.
+
+Trabalhe como responsável técnico pelo projeto, priorizando segurança, integridade dos dados e estabilidade.
+
+---
+
+# 1. CONTEXTO DO PROJETO
+
+O Gestão Financeira Pro é um aplicativo de gestão financeira pessoal desenvolvido com:
+
+- React 19.
+- TypeScript.
+- Vite.
+- Supabase.
+- PostgreSQL.
+- Supabase Auth.
+- LocalStorage.
+- Cloudflare para hospedagem.
+- GitHub para versionamento do código-fonte.
+
+O projeto já possui interface funcional e diversos módulos financeiros.
+
+A infraestrutura inicial de GitHub e Cloudflare será configurada e publicada por mim. Portanto:
+
+**NÃO REFAÇA A CONFIGURAÇÃO DO GITHUB OU DA HOSPEDAGEM CLOUDFLARE.**
+
+Considere que o projeto já está conectado ao GitHub e que a publicação pelo Cloudflare já está realizada.
+
+Concentre seu trabalho nas correções internas do aplicativo, segurança, banco de dados, autenticação, sincronização e preparação comercial.
+
+O Google AI Studio será utilizado como ambiente de desenvolvimento e implementação.
+
+## Estrutura funcional já existente
+
+O aplicativo possui:
+
+- Dashboard financeiro.
+- Controle de entradas.
+- Controle de despesas fixas e variáveis.
+- Gerenciamento de contas.
+- Cartões de crédito.
+- Dívidas e parcelamentos.
+- Metas financeiras.
+- Poder de compra.
+- Categorias personalizadas.
+- Calendário financeiro.
+- Relatórios e análises.
+- Configurações.
+- Exportação e importação de dados.
+- Tema claro e escuro.
+- Sincronização com Supabase.
+
+Arquivos e componentes técnicos importantes já identificados:
+
+- AuthContext.tsx
+- FinanceContext.tsx
+- supabaseSyncService.ts
+- storage.ts
+- AuthLockScreen
+- auth_and_sync.test.ts
+
+Esses nomes são referências iniciais. Faça uma inspeção do projeto real para identificar os arquivos e suas responsabilidades atuais.
+
+**Não recrie funcionalidades que já existem. Preserve o máximo possível do trabalho realizado.**
+
+---
+
+# 2. REGRA FUNDAMENTAL: PRESERVAÇÃO DOS DADOS
+
+Antes de qualquer alteração, estabeleça um procedimento de segurança.
+
+O aplicativo foi utilizado pessoalmente e possui dados financeiros reais.
+
+Existe uma tabela Supabase anteriormente configurada:
+
+`user_finance_data`
+
+Estrutura anteriormente utilizada:
+
+- user_id: uuid
+- data: jsonb
+- version: integer
+- client_timestamp: bigint
+- updated_at: timestamptz
+
+Também existem políticas RLS anteriormente configuradas.
+
+Existe um arquivo JSON de backup dos dados pessoais exportado em 12/11/2026.
+
+A sincronização apresentou problemas de divergência entre dados locais e dados da nuvem.
+
+Por isso:
+
+1. Não exclua a tabela atual.
+2. Não apague registros existentes.
+3. Não recrie o projeto Supabase.
+4. Não altere ou substitua dados reais automaticamente.
+5. Não execute operações destrutivas no banco.
+6. Não importe automaticamente o backup pessoal.
+7. Não substitua dados locais ou remotos sem identificar a origem e a versão.
+8. Não faça migração estrutural irreversível.
+9. Preserve a compatibilidade com os dados já armazenados.
+10. Não considere o timestamp isoladamente como prova de que determinado conjunto de dados é mais recente ou correto.
+
+Primeiro faça uma auditoria do estado atual.
+
+Se encontrar divergências, apresente o diagnóstico e solicite minha autorização antes de qualquer restauração ou migração de dados.
+
+Crie um mecanismo de recuperação que preserve os dados anteriores antes de alterações relevantes.
+
+O aplicativo deve ser capaz de identificar:
+
+- Dados locais.
+- Dados remotos.
+- Usuário autenticado.
+- Última sincronização.
+- Versão dos dados.
+- Possíveis conflitos.
+- Estado da conexão.
+- Falhas de sincronização.
+
+O usuário deve receber mensagens claras quando houver divergência.
+
+Não descarte silenciosamente informações.
+
+---
+
+# 3. AUDITORIA COMPLETA DO CÓDIGO-FONTE
+
+Antes de modificar qualquer arquivo, faça uma auditoria geral.
+
+Examine:
+
+- Estrutura de diretórios.
+- Componentes React.
+- Contextos.
+- Serviços.
+- Hooks.
+- Configurações.
+- Variáveis de ambiente.
+- Dependências.
+- Integração Supabase.
+- Autenticação.
+- Armazenamento local.
+- Sincronização.
+- Testes existentes.
+- Configuração de build.
+- Arquivos de publicação.
+
+Identifique:
+
+1. Código duplicado.
+2. Funções desnecessárias.
+3. Dependências vulneráveis ou desatualizadas.
+4. Problemas de tipagem.
+5. Erros de autenticação.
+6. Falhas de persistência.
+7. Possíveis vazamentos de dados.
+8. Credenciais expostas.
+9. Rotinas que podem sobrescrever informações.
+10. Componentes que podem apresentar erros em dispositivos móveis.
+
+Verifique também se existem credenciais padrão embutidas no código ou exibidas na tela de login.
+
+Caso existam, remova-as como mecanismo de autenticação.
+
+Não faça uma reformulação visual desnecessária.
+
+O objetivo principal é melhorar a arquitetura interna sem prejudicar a experiência do usuário.
+
+## Entrega obrigatória desta etapa
+
+Crie um relatório chamado:
+
+`AUDITORIA_TECNICA_GESTAO_FINANCEIRA.md`
+
+O relatório deverá apresentar:
+
+- Problema identificado.
+- Arquivo envolvido.
+- Gravidade.
+- Risco.
+- Correção recomendada.
+- Correção realizada.
+- Teste necessário.
+- Resultado do teste.
+
+Classifique os riscos em:
+
+- CRÍTICO.
+- ALTO.
+- MÉDIO.
+- BAIXO.
+
+Não declare um problema resolvido sem implementar e testar a solução.
+
+---
+
+# 4. AUTENTICAÇÃO COMERCIAL — SUPABASE AUTH
+
+O aplicativo deverá funcionar como um produto multiusuário.
+
+Cada cliente deverá possuir uma conta individual.
+
+O Supabase Auth deverá ser a única autoridade de autenticação.
+
+Implemente ou corrija:
+
+- Cadastro com e-mail e senha.
+- Login.
+- Logout.
+- Recuperação de senha.
+- Redefinição de senha.
+- Persistência segura de sessão.
+- Verificação de sessão válida.
+- Tratamento de sessão expirada.
+- Proteção de rotas privadas.
+- Tratamento de erros de autenticação.
+
+Remova mecanismos provisórios de login local que possam permitir acesso sem uma sessão válida do Supabase.
+
+Um PIN local poderá existir futuramente como bloqueio adicional, mas nunca substituir a autenticação principal.
+
+## Regras obrigatórias
+
+1. Não permitir acesso aos dados financeiros sem autenticação válida.
+2. Não confiar em identificadores fornecidos pelo navegador.
+3. Não permitir que o usuário escolha livremente o user_id utilizado nas operações.
+4. Utilizar o UUID retornado pela sessão autenticada.
+5. Não armazenar senhas em texto simples.
+6. Não criar usuários administrativos com privilégios indevidos.
+7. Tratar corretamente expiração e renovação de sessões.
+8. Garantir que o logout encerre a sessão e limpe os dados privados da memória da aplicação.
+
+Implemente mensagens profissionais e claras para o usuário.
+
+---
+
+# 5. ARQUITETURA MULTIUSUÁRIO
+
+O aplicativo deverá suportar múltiplos clientes utilizando a mesma infraestrutura.
+
+Exemplo:
+
+- Usuário A: Lucas.
+- Usuário B: Maria.
+- Usuário C: João.
+- Usuário D: Pedro.
+
+Cada pessoa deverá visualizar exclusivamente suas próprias informações financeiras.
+
+Os dados de um usuário nunca poderão ser exibidos, alterados ou excluídos por outro usuário.
+
+A separação deverá ocorrer no próprio banco de dados, não apenas na interface React.
+
+## Regras de isolamento
+
+- Cada registro deve estar associado ao UUID autenticado.
+- Consultas devem respeitar o usuário da sessão.
+- Gravações devem utilizar a identidade autenticada.
+- Atualizações devem respeitar a propriedade do registro.
+- Exclusões devem respeitar a propriedade do registro.
+- Não permitir alteração de user_id para assumir a identidade de outro usuário.
+
+Avalie a estrutura JSONB atualmente existente.
+
+Não faça uma migração automática para várias tabelas neste momento.
+
+Primeiro mantenha a compatibilidade com `user_finance_data`.
+
+Avalie se essa arquitetura atual consegue atender ao MVP comercial com segurança.
+
+Apresente posteriormente uma proposta de evolução para tabelas relacionais, sem executá-la sem autorização.
+
+---
+
+# 6. SEGURANÇA DO BANCO DE DADOS E RLS
+
+Esta é uma das etapas mais importantes.
+
+Audite todas as tabelas utilizadas pelo aplicativo.
+
+Verifique se Row Level Security (RLS) está habilitado.
+
+Revise as permissões e políticas de:
+
+- SELECT.
+- INSERT.
+- UPDATE.
+- DELETE.
+
+Para a tabela `user_finance_data`, garanta que:
+
+- SELECT permita somente consultar o próprio registro.
+- INSERT permita criar somente registro vinculado ao usuário autenticado.
+- UPDATE permita alterar somente o próprio registro.
+- DELETE permita excluir somente o próprio registro, quando autorizado.
+
+Utilize `auth.uid()` para validar a identidade.
+
+A política precisa proteger o banco mesmo que alguém tente manipular manualmente as requisições HTTP ou o código JavaScript.
+
+Verifique também:
+
+- Grants e permissões de tabelas.
+- Funções RPC.
+- Views.
+- Triggers.
+- Funções com SECURITY DEFINER.
+- Exposição de schemas.
+- Políticas permissivas ou redundantes.
+
+Não confie apenas no fato de uma tabela possuir RLS habilitado. Verifique se as políticas realmente impedem acesso indevido.
+
+## Segurança das chaves
+
+Separe corretamente:
+
+- Chave pública publishable.
+- Chaves secretas.
+- Credenciais administrativas.
+
+A chave pública poderá ser utilizada no frontend conforme as recomendações do Supabase.
+
+Nunca exponha:
+
+- service_role.
+- sb_secret.
+- Senhas administrativas.
+- Tokens privados.
+- Credenciais de banco de dados.
+
+Não coloque segredos em arquivos JavaScript, HTML ou variáveis VITE_.
+
+As credenciais administrativas devem existir somente em ambientes seguros de servidor, quando realmente necessárias.
+
+Crie ou revise:
+
+`.env.example`
+
+O arquivo deverá conter apenas nomes de variáveis e exemplos fictícios, nunca valores reais.
+
+Não imprima segredos nos relatórios.
+
+---
+
+# 7. SINCRONIZAÇÃO E INTEGRIDADE DOS DADOS
+
+Reestruture e audite o serviço de sincronização.
+
+Arquivo de referência:
+
+`supabaseSyncService.ts`
+
+O objetivo é garantir sincronização confiável entre dispositivos.
+
+O aplicativo deverá:
+
+1. Consultar a sessão antes de iniciar a sincronização.
+2. Confirmar a identidade do usuário.
+3. Consultar os dados remotos.
+4. Identificar se já existe registro remoto.
+5. Identificar se existem alterações locais.
+6. Detectar divergências.
+7. Preservar os dados anteriores.
+8. Aplicar uma estratégia de resolução de conflitos.
+9. Atualizar os metadados de sincronização.
+10. Confirmar o resultado da operação.
+
+Não utilize somente o timestamp local para decidir qual dado é mais recente.
+
+Não permita que um navegador novo sobrescreva automaticamente dados existentes na nuvem.
+
+Não permita que uma nuvem desatualizada sobrescreva alterações locais ainda não sincronizadas.
+
+## Estratégia recomendada
+
+Implemente um fluxo de sincronização controlado.
+
+Cenários que devem ser tratados:
+
+A. Primeiro acesso do usuário em um dispositivo.
+
+B. Usuário com dados existentes na nuvem.
+
+C. Usuário com dados locais mais recentes.
+
+D. Usuário com alterações em dois dispositivos.
+
+E. Usuário sem conexão com a internet.
+
+F. Sessão expirada durante uma operação.
+
+G. Erro durante uma gravação.
+
+H. Dados divergentes entre navegador e Supabase.
+
+I. Registro remoto inexistente.
+
+J. Registro remoto existente, mas vazio ou inválido.
+
+Sempre que houver conflito não resolvido, preserve as duas versões e solicite uma decisão segura ao usuário.
+
+Implemente tratamento adequado para gravações concorrentes, utilizando versionamento ou controle otimista de concorrência quando possível.
+
+A sincronização manual deverá consultar o estado remoto antes de enviar informações.
+
+O timestamp deverá ser atualizado a cada gravação confirmada.
+
+Não confunda horário de modificação com confirmação de integridade.
+
+## Backup local de recuperação
+
+Antes de substituir dados locais divergentes:
+
+- Criar cópia de recuperação.
+- Identificar o usuário.
+- Registrar data e horário.
+- Preservar a versão anterior.
+- Confirmar que o backup foi gravado corretamente.
+
+Não considerar o backup local uma substituição de backup do banco de dados.
+
+---
+
+# 8. ARMAZENAMENTO LOCAL E PRIVACIDADE
+
+Revise o uso de LocalStorage.
+
+Não utilize o armazenamento local como autoridade principal dos dados financeiros.
+
+Avalie:
+
+- Quais informações precisam ficar armazenadas localmente.
+- Como limpar os dados após logout.
+- Como impedir que outro usuário do mesmo dispositivo visualize dados anteriores.
+- Como evitar mistura de informações entre sessões.
+- Como lidar com armazenamento corrompido.
+- Como recuperar informações temporárias.
+
+Não armazene segredos de autenticação ou credenciais administrativas em LocalStorage.
+
+Evite manter informações financeiras desnecessárias em cache.
+
+Ao trocar de usuário, os dados privados do usuário anterior deverão ser removidos da memória e do armazenamento local pertinente, sem apagar backups que precisem ser preservados.
+
+Implemente uma estratégia segura de isolamento por sessão.
+
+---
+
+# 9. BACKUP E RECUPERAÇÃO
+
+Implemente uma política de proteção de dados.
+
+O aplicativo deverá permitir:
+
+- Exportação dos dados financeiros.
+- Importação validada.
+- Verificação de integridade.
+- Identificação da versão do backup.
+- Confirmação antes da restauração.
+- Criação de backup anterior à restauração.
+- Mensagens claras sobre o resultado.
+
+Não permita importar um arquivo JSON arbitrário sem validação.
+
+Verifique estrutura, campos, tipos, identificadores e integridade.
+
+Para o banco de dados, documente uma rotina de exportação externa utilizando ferramentas compatíveis com Supabase e PostgreSQL.
+
+O backup externo deve ficar separado do banco original.
+
+Não dependa exclusivamente do plano gratuito do Supabase para recuperação.
+
+Crie o documento:
+
+`POLITICA_BACKUP_E_RECUPERACAO.md`
+
+Inclua:
+
+- O que deve ser salvo.
+- Frequência recomendada.
+- Onde armazenar.
+- Como proteger os arquivos.
+- Como restaurar.
+- Como testar uma restauração.
+- Como agir em caso de perda de dados.
+
+Não implemente exclusão automática de backups sem uma política de retenção documentada.
+
+---
+
+# 10. PROTEÇÃO CONTRA ATAQUES E ABUSOS
+
+Faça uma análise de segurança do aplicativo.
+
+Verifique:
+
+- XSS.
+- Injeção SQL.
+- Manipulação de parâmetros.
+- Exposição de informações.
+- Acesso indevido a endpoints.
+- Tentativas de acesso sem autenticação.
+- Abuso de operações.
+- Vazamento de informações em logs.
+- Dependências vulneráveis.
+- Uploads inseguros.
+- Manipulação de dados no frontend.
+
+Avalie mecanismos de rate limiting, proteção contra abuso e bloqueio de tentativas excessivas de autenticação.
+
+Não invente proteções que não estejam implementadas.
+
+Quando alguma proteção depender de configuração externa, documente claramente o procedimento.
+
+Utilize HTTPS na aplicação.
+
+Não recomende VPN como requisito para os usuários finais. A segurança deverá ser garantida principalmente pela arquitetura, autenticação, autorização e proteção da comunicação.
+
+---
+
+# 11. LGPD E RESPONSABILIDADE SOBRE DADOS
+
+Prepare o aplicativo para operar de acordo com a Lei Geral de Proteção de Dados (LGPD).
+
+O aplicativo poderá armazenar informações financeiras pessoais.
+
+Implemente suporte técnico para:
+
+- Consulta dos dados pessoais.
+- Exportação dos dados.
+- Solicitação de exclusão da conta.
+- Exclusão dos dados conforme política definida.
+- Correção de informações.
+- Registro de consentimentos quando aplicável.
+- Identificação dos dados coletados.
+- Tratamento de incidentes.
+
+Prepare os seguintes documentos iniciais:
+
+1. `POLITICA_DE_PRIVACIDADE.md`
+2. `TERMOS_DE_USO.md`
+3. `POLITICA_DE_EXCLUSAO_DE_DADOS.md`
+4. `REGISTRO_DE_TRATAMENTO_DE_DADOS.md`
+
+Os documentos deverão ser apresentados como minutas técnicas para revisão jurídica.
+
+Não invente garantias de segurança, certificações ou conformidades legais.
+
+Não afirme que o aplicativo está plenamente adequado à LGPD apenas por possuir esses documentos.
+
+Identifique os fornecedores envolvidos, os dados tratados e as responsabilidades de cada parte.
+
+Não implemente integração bancária automática nesta fase.
+
+O aplicativo deverá continuar funcionando com lançamentos financeiros inseridos manualmente pelos usuários.
+
+---
+
+# 12. EXPERIÊNCIA COMERCIAL E MULTIUSUÁRIO
+
+Prepare a estrutura para receber novos clientes sem prejudicar a experiência atual.
+
+Preserve a identidade visual e os módulos existentes.
+
+Avalie melhorias para:
+
+- Tela de cadastro.
+- Tela de login.
+- Recuperação de senha.
+- Primeiro acesso.
+- Apresentação inicial do aplicativo.
+- Mensagens de sincronização.
+- Perfil do usuário.
+- Configurações de privacidade.
+- Encerramento de sessão.
+- Exclusão de conta.
+
+Cada usuário deverá possuir seus próprios dados e configurações.
+
+Não misture informações entre clientes.
+
+Não disponibilize painel administrativo com acesso irrestrito aos dados financeiros dos usuários.
+
+Se houver necessidade futura de administração comercial, mantenha essa função separada da visualização de dados financeiros.
+
+---
+
+# 13. PLANOS, ASSINATURAS E MONETIZAÇÃO
+
+Prepare a arquitetura para uma futura comercialização.
+
+Por enquanto:
+
+- Não implemente cobrança real.
+- Não contrate serviços.
+- Não crie assinaturas pagas automaticamente.
+- Não implemente pagamentos fictícios.
+- Não bloqueie funcionalidades existentes.
+
+Apenas prepare uma proposta técnica para uma futura estrutura de planos:
+
+- Gratuito.
+- Premium.
+- Profissional, se fizer sentido comercialmente.
+
+Avalie como implementar posteriormente:
+
+- Controle de assinatura.
+- Status de pagamento.
+- Data de vencimento.
+- Período de teste.
+- Cancelamento.
+- Bloqueio controlado de funcionalidades.
+- Webhooks de confirmação de pagamento.
+
+O controle de acesso comercial deverá ser validado no backend, não somente por condições visuais no frontend.
+
+Não confie em informações de pagamento fornecidas pelo navegador.
+
+Apresente a arquitetura recomendada para implementar essa etapa futuramente.
+
+---
+
+# 14. TESTES OBRIGATÓRIOS
+
+Crie ou atualize os testes automatizados.
+
+Não considere o aplicativo pronto apenas porque a interface abre.
+
+## Testes de autenticação
+
+- Cadastro de usuário.
+- Login válido.
+- Login inválido.
+- Logout.
+- Recuperação de senha.
+- Sessão expirada.
+- Acesso sem autenticação.
+
+## Testes de isolamento
+
+Crie dois usuários de teste:
+
+Usuário A.
+
+Usuário B.
+
+Cadastre informações financeiras diferentes para cada um.
+
+Verifique:
+
+- A não acessa os dados de B.
+- B não acessa os dados de A.
+- A não altera registros de B.
+- B não exclui registros de A.
+- Usuários não autenticados não acessam dados privados.
+
+Faça os testes diretamente contra o Supabase, não apenas pela interface.
+
+## Testes de sincronização
+
+- Primeiro acesso.
+- Sincronização manual.
+- Sincronização automática.
+- Dois dispositivos.
+- Conflitos.
+- Falha de conexão.
+- Sessão expirada.
+- Recuperação de backup.
+- Falha de gravação.
+
+## Testes de integridade
+
+- Valores monetários.
+- Datas.
+- Categorias.
+- Contas.
+- Cartões.
+- Dívidas.
+- Metas.
+- Identificadores.
+- Relações entre lançamentos e contas.
+
+Não utilize dados financeiros reais nos testes de isolamento. Utilize contas de teste separadas.
+
+---
+
+# 15. BUILD E QUALIDADE DO CÓDIGO
+
+Execute os procedimentos disponíveis:
+
+- Instalação das dependências.
+- Verificação de TypeScript.
+- ESLint, se configurado.
+- Testes automatizados.
+- Build de produção.
+- Verificação das variáveis de ambiente.
+
+Resolva erros encontrados.
+
+Não ignore erros de build.
+
+Não declare que o projeto está pronto se algum teste importante não foi executado.
+
+Se alguma validação depender de credenciais ou acesso externo, explique exatamente o que está pendente.
+
+Não invente resultados de testes.
+
+---
+
+# 16. CONTROLE DE CUSTOS E FERRAMENTAS GRATUITAS
+
+Priorize ferramentas com planos gratuitos.
+
+A infraestrutura inicial deverá considerar:
+
+- GitHub: código-fonte privado.
+- Cloudflare: hospedagem e HTTPS.
+- Supabase: autenticação e banco de dados.
+- Google AI Studio: desenvolvimento.
+- Ferramentas gratuitas de testes e análise.
+
+Não contrate serviços sem minha autorização.
+
+Não assuma que os planos gratuitos oferecem recursos ilimitados.
+
+Documente:
+
+- Limites de armazenamento.
+- Limites de usuários.
+- Transferência de dados.
+- Limites de requisições.
+- Possibilidade de pausa.
+- Política de backup.
+- Riscos de crescimento.
+
+Prepare um documento:
+
+`CUSTOS_E_INFRAESTRUTURA.md`
+
+Apresente os limites relevantes e os sinais que indicariam a necessidade de migrar para um plano pago.
+
+Não sacrifique segurança ou integridade de dados para manter custo zero.
+
+---
+
+# 17. REGRAS DE EXECUÇÃO E AUTONOMIA
+
+Você deverá trabalhar de maneira organizada e técnica.
+
+Siga esta ordem:
+
+FASE 1 — Auditoria completa.
+
+FASE 2 — Diagnóstico e plano de correção.
+
+FASE 3 — Segurança e autenticação.
+
+FASE 4 — Isolamento multiusuário e RLS.
+
+FASE 5 — Sincronização e recuperação.
+
+FASE 6 — LGPD e preparação comercial.
+
+FASE 7 — Testes.
+
+FASE 8 — Build e validação final.
+
+Não tente executar tudo de maneira desordenada.
+
+Não faça alterações destrutivas sem autorização.
+
+Não substitua arquivos inteiros quando uma alteração pontual for suficiente.
+
+Não remova módulos existentes.
+
+Não modifique a identidade visual sem necessidade.
+
+Não altere dados reais do Supabase.
+
+Não publique alterações diretamente em produção sem minha autorização.
+
+Não crie novas tabelas ou execute SQL no projeto de produção sem apresentar previamente o SQL e explicar seu impacto.
+
+Quando precisar de uma configuração externa, explique o procedimento e aguarde minha confirmação.
+
+Quando puder realizar uma correção segura diretamente no código, faça a implementação e apresente o resultado.
+
+---
+
+# 18. DOCUMENTAÇÃO FINAL OBRIGATÓRIA
+
+Ao longo do trabalho, mantenha os seguintes documentos atualizados:
+
+1. `AUDITORIA_TECNICA_GESTAO_FINANCEIRA.md`
+2. `ARQUITETURA_DO_SISTEMA.md`
+3. `SEGURANCA_E_RLS.md`
+4. `POLITICA_BACKUP_E_RECUPERACAO.md`
+5. `POLITICA_DE_PRIVACIDADE.md`
+6. `TERMOS_DE_USO.md`
+7. `POLITICA_DE_EXCLUSAO_DE_DADOS.md`
+8. `REGISTRO_DE_TRATAMENTO_DE_DADOS.md`
+9. `CUSTOS_E_INFRAESTRUTURA.md`
+10. `RELATORIO_DE_TESTES.md`
+11. `PENDENCIAS_PARA_LANCAMENTO.md`
+
+Esses documentos devem refletir o estado real do projeto.
+
+Não marque como concluída uma etapa que dependa de configuração externa ainda não realizada.
+
+---
+
+# 19. CRITÉRIOS PARA CONSIDERAR O PRODUTO PRONTO
+
+O Gestão Financeira Pro somente poderá ser considerado tecnicamente preparado para um lançamento comercial experimental quando:
+
+- O cadastro individual funcionar.
+- O login funcionar.
+- A recuperação de senha funcionar.
+- O Supabase Auth controlar o acesso.
+- As políticas RLS estiverem auditadas.
+- Os testes de isolamento forem aprovados.
+- Não houver credenciais secretas expostas.
+- A sincronização estiver validada.
+- A recuperação de dados estiver testada.
+- O build de produção passar.
+- Os testes essenciais forem aprovados.
+- A política de privacidade estiver preparada.
+- Os termos de uso estiverem preparados.
+- A exclusão de dados estiver documentada e implementada conforme a política.
+- Os riscos conhecidos estiverem documentados.
+
+Mesmo após esses critérios, a liberação comercial dependerá da revisão das configurações externas, da infraestrutura e das questões jurídicas.
+
+---
+
+# 20. PRIMEIRA ORDEM: COMECE AGORA
+
+Não comece alterando o banco de dados.
+
+Não comece modificando a interface.
+
+Não comece criando funcionalidades novas.
+
+Sua primeira tarefa é:
+
+1. Inspecionar todo o código-fonte existente.
+2. Mapear a autenticação atual.
+3. Identificar como o Supabase está conectado.
+4. Identificar como os dados são armazenados.
+5. Auditar as políticas e operações de sincronização presentes no código.
+6. Identificar credenciais padrão ou informações sensíveis expostas.
+7. Avaliar a estrutura de testes.
+8. Identificar dependências do Google AI Studio que possam afetar a independência do projeto.
+9. Elaborar o relatório de auditoria.
+10. Apresentar a ordem de execução das correções.
+
+**IMPORTANTE: NA PRIMEIRA RESPOSTA, NÃO EXECUTE ALTERAÇÕES DESTRUCTIVAS.**
+
+Apresente:
+
+A. Diagnóstico técnico geral.
+
+B. Problemas críticos encontrados.
+
+C. Riscos para os dados financeiros.
+
+D. Riscos de segurança multiusuário.
+
+E. Correções necessárias.
+
+F. Arquivos que precisarão ser modificados.
+
+G. Configurações que dependerão de mim no Supabase ou Cloudflare.
+
+H. Plano de execução por fases.
+
+I. Testes que serão realizados.
+
+J. Estimativa de complexidade de cada etapa.
+
+Depois da apresentação, comece pela primeira etapa segura de implementação, sem modificar os dados reais ou a estrutura de produção.
+
+---
+
+# DIRETRIZ FINAL
+
+Pense como o responsável técnico por um produto financeiro que será utilizado por pessoas reais.
+
+Não quero apenas um aplicativo bonito.
+
+Quero um sistema confiável, com segurança no banco, privacidade dos usuários, sincronização consistente, recuperação de informações e possibilidade de crescimento.
+
+Priorize soluções gratuitas quando forem tecnicamente adequadas.
+
+Não invente resultados.
+
+Não esconda problemas.
+
+Não faça alterações desnecessárias.
+
+Explique as decisões técnicas em português claro, pois sou o proprietário do produto e preciso entender o que está sendo feito.
+
+**Nosso objetivo é transformar o Gestão Financeira Pro em um produto comercial seguro, profissional, independente e sustentável.**
+
+COMECE PELA AUDITORIA TÉCNICA COMPLETA DO PROJETO.

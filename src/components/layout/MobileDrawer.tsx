@@ -20,7 +20,7 @@ import {
   Settings,
   ShieldCheck,
   ChevronRight,
-  Lock
+  LogOut
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { useAuth } from '../../context/AuthContext';
@@ -39,8 +39,8 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({
   currentTab,
   setCurrentTab,
 }) => {
-  const { totalBankBalance, freeMoneyAvailable } = useFinance();
-  const { logout } = useAuth();
+  const { totalBankBalance, freeMoneyAvailable, requestSafeLogout } = useFinance();
+  const { logout, supabaseUserDisplayName, supabaseUserEmail } = useAuth();
 
   if (!isOpen) return null;
 
@@ -147,17 +147,24 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({
           })}
         </nav>
 
-        {/* User & Lock Footer */}
-        <div className="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850">
+        {/* User & Logout Footer */}
+        <div className="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850 space-y-2">
+          <div className="px-1 text-[11px] text-slate-500 dark:text-slate-400 truncate">
+            Conectado como <strong className="text-slate-700 dark:text-slate-200">{supabaseUserEmail || supabaseUserDisplayName}</strong>
+          </div>
           <button
             onClick={() => {
               onClose();
-              logout();
+              if (requestSafeLogout) {
+                requestSafeLogout();
+              } else {
+                logout();
+              }
             }}
             className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 rounded-xl border border-rose-200/50 dark:border-rose-900/50 transition-all cursor-pointer"
           >
-            <Lock className="w-3.5 h-3.5" />
-            <span>Bloquear Aplicativo (Sair)</span>
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Encerrar Sessão (Sair)</span>
           </button>
         </div>
       </div>

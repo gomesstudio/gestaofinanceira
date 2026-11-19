@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "homolog": "vite --config homologation/vite.homolog.config.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -36,6 +37,8 @@
     "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
+    "fake-indexeddb": "^6.2.8",
+    "jsdom": "^31.0.1",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2",

@@ -3,53 +3,153 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../utils/supabase';
+import {
+  clearAllLocalDataForUser,
+  getUserStateFromStorage,
+  saveRecoverySnapshotForUser
+} from '../utils/storage';
+import { clearRecoveryHistoryForUser } from '../utils/recoveryHistoryDb';
+import { clearPendingRegistrationIntent } from '../services/subscriptionService';
 import type { User as SupabaseUser, Session as SupabaseSession } from '@supabase/supabase-js';
 
 export type CloudAuthStatus = 'connected' | 'not_configured' | 'session_expired' | 'unauthenticated';
 export type SupabaseConnectionStatus = CloudAuthStatus;
 
-export interface AuthContextType {
-  // Estado local (Senha/PIN do dispositivo)
-  isAuthenticated: boolean;
-  username: string;
-  isSessionLoading: boolean;
-  login: (user: string, pass: string, remember?: boolean) => { success: boolean; message?: string };
-  logout: () => void;
-  updateCredentials: (newUser: string, newPass: string) => { success: boolean; message: string };
-  lastLoginDate: string | null;
+export interface LogoutCleanupOptions {
+  preserveRecoveryBackups?: boolean;
+  skipActiveCacheBackupOnPreserve?: boolean;
+  userEmailOverride?: string | null;
+  indexedDBFactory?: IDBFactory | null;
+}
 
-  // Supabase Auth oficial (Nuvem com RLS)
+export interface AuthResult {
+  success: boolean;
+  message?: string;
+  userId?: string;
+  requiresEmailConfirmation?: boolean;
+}
+
+export interface AuthContextType {
+  // Estado principal controlado estritamente pelo Supabase Auth
+  isAuthenticated: boolean;
+  isSessionLoading: boolean;
+  isPasswordRecoveryMode: boolean;
+  authUrlError?: string | null;
+  clearAuthUrlError?: () => void;
   supabaseConnectionStatus: SupabaseConnectionStatus;
   cloudAuthStatus: CloudAuthStatus;
   supabaseUser: SupabaseUser | null;
   supabaseUserId: string | null;
   supabaseUserEmail: string | null;
+  supabaseUserDisplayName: string;
+
+  // Alias mantido para compatibilidade com módulos financeiros
   isSupabaseAuthenticated: boolean;
-  loginWithSupabase: (email: string, pass: string) => Promise<{ success: boolean; message?: string; userId?: string }>;
+
+  // Operações oficiais de autenticação comercial
+  loginWithSupabase: (email: string, pass: string) => Promise<AuthResult>;
+  signInWithSupabase: (email: string, pass: string) => Promise<AuthResult>;
+  signUpWithSupabase: (
+    email: string,
+    pass: string,
+    fullName?: string,
+    extra?: { whatsapp?: string; requestedPlan?: 'monthly' | 'annual' }
+  ) => Promise<AuthResult>;
   loginWithGitHub: () => Promise<{ success: boolean; message?: string; url?: string }>;
   signInWithOtp: (email: string) => Promise<{ success: boolean; message?: string }>;
-  verifyOtp: (email: string, token: string) => Promise<{ success: boolean; message?: string; userId?: string }>;
+  verifyOtp: (email: string, token: string) => Promise<AuthResult>;
   sendPasswordResetEmail: (email: string) => Promise<{ success: boolean; message?: string }>;
-  signInWithSupabase: (email: string, pass: string) => Promise<{ success: boolean; message?: string; userId?: string }>;
-  signUpWithSupabase: (email: string, pass: string) => Promise<{ success: boolean; message?: string; userId?: string }>;
-  logoutFromSupabase: () => Promise<void>;
-  disconnectCloud: () => Promise<void>;
+  updatePassword: (newPassword: string) => Promise<{ success: boolean; message?: string }>;
+  cancelPasswordRecovery: () => Promise<void>;
+  logout: (options?: LogoutCleanupOptions) => Promise<void>;
+  logoutFromSupabase: (options?: LogoutCleanupOptions) => Promise<void>;
+  disconnectCloud: (options?: LogoutCleanupOptions) => Promise<void>;
   checkSessionStatus: () => Promise<void>;
 }
 
-const DEFAULT_USERNAME = 'lucasgomes';
-const DEFAULT_PASSWORD = '6145';
-
-const USERNAME_STORAGE_KEY = 'finance_auth_user';
-const PASSWORD_STORAGE_KEY = 'finance_auth_password';
-const SESSION_STORAGE_KEY = 'finance_auth_session';
-const LAST_LOGIN_KEY = 'finance_auth_last_login';
 export const SUPABASE_CONFIGURED_FLAG = 'finance_supabase_was_configured';
 
+// Chaves legadas de PIN local que devem ser removidas do navegador
+const LEGACY_AUTH_KEYS = [
+  'finance_auth_user',
+  'finance_auth_password',
+  'finance_auth_session',
+  'finance_auth_last_login'
+] as const;
+
+export function scrubLegacyLocalAuthKeys(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    LEGACY_AUTH_KEYS.forEach(key => {
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        // ignore storage restrictions
+      }
+      try {
+        sessionStorage.removeItem(key);
+      } catch {
+        // ignore storage restrictions
+      }
+    });
+  } catch {
+    // ignore
+  }
+}
+
+export function isValidEmailFormat(email: string): boolean {
+  const trimmed = email.trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+}
+
+export function validatePasswordStrength(password: string): { valid: boolean; message?: string } {
+  if (!password || password.length < 6) {
+    return {
+      valid: false,
+      message: 'A senha deve conter no mínimo 6 caracteres.'
+    };
+  }
+  if (password.length > 128) {
+    return {
+      valid: false,
+      message: 'A senha excede o limite máximo permitido de 128 caracteres.'
+    };
+  }
+  return { valid: true };
+}
+
+export function isTrustedMessageOrigin(eventOrigin: string | undefined, expectedOrigin: string | undefined): boolean {
+  if (!eventOrigin || !expectedOrigin) return false;
+  if (eventOrigin === 'null') return false;
+  return eventOrigin === expectedOrigin;
+}
+
+export function isSessionExpired(session: SupabaseSession | null): boolean {
+  if (!session || !session.user) return true;
+  if (typeof session.expires_at === 'number') {
+    const expiresAtMs = session.expires_at * 1000;
+    return expiresAtMs <= Date.now();
+  }
+  return false;
+}
+
+export function deriveUserDisplayName(user: SupabaseUser | null): string {
+  if (!user) return 'Conta';
+  const metaName =
+    (typeof user.user_metadata?.full_name === 'string' && user.user_metadata.full_name.trim()) ||
+    (typeof user.user_metadata?.name === 'string' && user.user_metadata.name.trim()) ||
+    (typeof user.user_metadata?.user_name === 'string' && user.user_metadata.user_name.trim());
+  if (metaName) return metaName;
+  if (user.email) {
+    return user.email.split('@')[0];
+  }
+  return 'Conta';
+}
+
 /**
- * Mapeamento amigável de erros de autenticação Supabase (senha e OAuth)
+ * Mapeamento amigável de erros de autenticação Supabase (senha, cadastro, recuperação e OAuth)
  */
 export const mapAuthError = (error: any): string => {
   if (!error) return 'Erro inesperado de autenticação.';
@@ -60,16 +160,25 @@ export const mapAuthError = (error: any): string => {
     return 'E-mail ou senha incorretos.';
   }
   if (code === 'email_not_confirmed' || msg.includes('email not confirmed')) {
-    return 'E-mail ainda não confirmado no Supabase. Confirme no painel Authentication > Users ou reenvie o e-mail de confirmação.';
+    return 'E-mail ainda não confirmado. Verifique sua caixa de entrada e clique no link de confirmação antes de entrar.';
+  }
+  if (code === 'user_already_exists' || msg.includes('already registered')) {
+    return 'Este e-mail já está cadastrado. Faça login ou utilize a opção "Esqueci minha senha".';
+  }
+  if (code === 'weak_password' || msg.includes('password should be at least')) {
+    return 'A senha não atende aos requisitos mínimos de segurança (mínimo de 6 caracteres).';
+  }
+  if (code === 'same_password' || msg.includes('new password should be different')) {
+    return 'A nova senha precisa ser diferente da senha atual.';
   }
   if (code === 'too_many_requests' || msg.includes('too many requests')) {
-    return 'Muitas tentativas. Aguarde alguns minutos.';
+    return 'Muitas tentativas seguidas. Aguarde alguns minutos antes de tentar novamente.';
   }
   if (code === 'over_email_send_rate_limit' || msg.includes('rate limit')) {
-    return 'Limite de envio de e-mails atingido temporariamente pelo Supabase. Aguarde alguns instantes ou entre via GitHub ou Senha.';
+    return 'Limite temporário de envio de e-mails atingido. Aguarde alguns instantes antes de reenviar.';
   }
   if (code === 'invalid_api_key' || msg.includes('api key') || msg.includes('invalid api key')) {
-    return 'Chave de conexão pública do Supabase inválida. Restaurando chave padrão oficial.';
+    return 'Configuração de conexão pública do Supabase inválida. Verifique as variáveis de ambiente.';
   }
   if (
     code === 'provider_not_enabled' ||
@@ -77,7 +186,7 @@ export const mapAuthError = (error: any): string => {
     msg.includes('provider is not enabled') ||
     msg.includes('provider_not_enabled')
   ) {
-    return 'Login com GitHub não está habilitado no projeto Supabase. Ative em Authentication > Providers > GitHub.';
+    return 'Login com GitHub não está habilitado no projeto Supabase.';
   }
   if (
     code === 'access_denied' ||
@@ -87,208 +196,384 @@ export const mapAuthError = (error: any): string => {
     msg.includes('canceled') ||
     msg.includes('cancelled')
   ) {
-    return 'Login com GitHub cancelado ou negado.';
+    return 'Autenticação cancelada ou negada pelo usuário.';
   }
   if (code === 'otp_expired' || msg.includes('otp has expired') || msg.includes('token has expired')) {
-    return 'O código de acesso por e-mail expirou. Solicite um novo código.';
+    return 'O link ou código de acesso expirou. Solicite um novo.';
   }
   if (code === 'otp_disabled' || msg.includes('signups not allowed for otp')) {
-    return 'Envio de código por e-mail desativado no momento.';
+    return 'Envio de código sem senha está desativado nas configurações de autenticação.';
+  }
+  if (code === 'session_expired' || code === 'refresh_token_not_found' || msg.includes('session_not_found')) {
+    return 'Sua sessão expirou. Faça login novamente para continuar.';
   }
   return error.message || 'Erro inesperado de autenticação.';
 };
 
+export const SENSITIVE_AUTH_URL_PARAMS = [
+  'code',
+  'token_hash',
+  'token',
+  'type',
+  'access_token',
+  'refresh_token',
+  'expires_in',
+  'expires_at',
+  'token_type',
+  'provider_token',
+  'provider_refresh_token',
+  'error',
+  'error_code',
+  'error_description',
+  'sb'
+] as const;
+
+const SENSITIVE_AUTH_PARAM_SET = new Set<string>(SENSITIVE_AUTH_URL_PARAMS);
+
+function parseHashQueryParams(rawHash: string | undefined): URLSearchParams | null {
+  if (!rawHash) return null;
+  const trimmed = rawHash.startsWith('#') ? rawHash.slice(1) : rawHash;
+  if (!trimmed || !trimmed.includes('=')) return null;
+  try {
+    return new URLSearchParams(trimmed);
+  } catch {
+    return null;
+  }
+}
+
+export function hasPasswordRecoveryParamsInUrl(
+  locationLike?: { search?: string; hash?: string }
+): boolean {
+  const loc = locationLike ?? (typeof window !== 'undefined' ? window.location : undefined);
+  if (!loc) return false;
+  try {
+    const searchParams = new URLSearchParams(loc.search || '');
+    if (searchParams.get('type') === 'recovery') return true;
+    const hashParams = parseHashQueryParams(loc.hash);
+    if (hashParams?.get('type') === 'recovery') return true;
+  } catch {
+    // fallback substring check
+  }
+  return (
+    Boolean(loc.hash?.includes('type=recovery')) ||
+    Boolean(loc.search?.includes('type=recovery'))
+  );
+}
+
+export function hasSensitiveAuthParamsInUrl(
+  locationLike?: { search?: string; hash?: string }
+): boolean {
+  const loc = locationLike ?? (typeof window !== 'undefined' ? window.location : undefined);
+  if (!loc) return false;
+  try {
+    const searchParams = new URLSearchParams(loc.search || '');
+    for (const key of searchParams.keys()) {
+      if (SENSITIVE_AUTH_PARAM_SET.has(key)) return true;
+    }
+    const hashParams = parseHashQueryParams(loc.hash);
+    if (hashParams) {
+      for (const key of hashParams.keys()) {
+        if (SENSITIVE_AUTH_PARAM_SET.has(key)) return true;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return false;
+}
+
+export function hasOAuthOrMagicLinkReturnInUrl(
+  locationLike?: { search?: string; hash?: string }
+): boolean {
+  const loc = locationLike ?? (typeof window !== 'undefined' ? window.location : undefined);
+  if (!loc) return false;
+  try {
+    const searchParams = new URLSearchParams(loc.search || '');
+    if (searchParams.has('code') || searchParams.has('token_hash') || searchParams.has('access_token')) {
+      return true;
+    }
+    const hashParams = parseHashQueryParams(loc.hash);
+    if (hashParams && (hashParams.has('access_token') || hashParams.has('code') || hashParams.has('refresh_token'))) {
+      return true;
+    }
+  } catch {
+    // fallback
+  }
+  return (
+    Boolean(loc.hash?.includes('access_token=')) ||
+    Boolean(loc.search?.includes('code=')) ||
+    Boolean(loc.search?.includes('token_hash='))
+  );
+}
+
+export function extractAuthErrorFromUrl(
+  locationLike?: { search?: string; hash?: string }
+): string | null {
+  const loc = locationLike ?? (typeof window !== 'undefined' ? window.location : undefined);
+  if (!loc) return null;
+  try {
+    const searchParams = new URLSearchParams(loc.search || '');
+    const hashParams = parseHashQueryParams(loc.hash);
+    const error = searchParams.get('error') || hashParams?.get('error') || '';
+    const errorCode = searchParams.get('error_code') || hashParams?.get('error_code') || '';
+    const errorDescription =
+      searchParams.get('error_description') || hashParams?.get('error_description') || '';
+
+    if (!error && !errorCode && !errorDescription) {
+      return null;
+    }
+
+    return mapAuthError({
+      code: errorCode || error,
+      message: errorDescription || error || 'Falha na autenticação.'
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Remove códigos, tokens e parâmetros sensíveis de autenticação da URL do navegador
+ * via history.replaceState, preservando rota atual e parâmetros não relacionados à autenticação.
+ */
+export function scrubSensitiveAuthParamsFromUrl(): boolean {
+  if (typeof window === 'undefined' || !window.location || !window.history?.replaceState) {
+    return false;
+  }
+
+  try {
+    const url = new URL(window.location.href);
+    let removedAny = false;
+
+    for (const key of Array.from(url.searchParams.keys())) {
+      if (SENSITIVE_AUTH_PARAM_SET.has(key)) {
+        url.searchParams.delete(key);
+        removedAny = true;
+      }
+    }
+
+    if (removedAny && url.searchParams.has('state')) {
+      url.searchParams.delete('state');
+    }
+
+    const hashParams = parseHashQueryParams(url.hash);
+    if (hashParams) {
+      let removedHashAuth = false;
+      for (const key of Array.from(hashParams.keys())) {
+        if (SENSITIVE_AUTH_PARAM_SET.has(key)) {
+          hashParams.delete(key);
+          removedHashAuth = true;
+          removedAny = true;
+        }
+      }
+      if (removedHashAuth && hashParams.has('state')) {
+        hashParams.delete('state');
+      }
+      if (removedHashAuth) {
+        const nextHash = hashParams.toString();
+        url.hash = nextHash ? `#${nextHash}` : '';
+      }
+    }
+
+    if (!removedAny) return false;
+
+    const currentRelative = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    const nextRelative = `${url.pathname}${url.search}${url.hash}`;
+    if (nextRelative !== currentRelative) {
+      window.history.replaceState(window.history.state ?? null, '', nextRelative);
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Indica se a verificação inicial de sessão Supabase ainda está rodando
   const [isSessionLoading, setIsSessionLoading] = useState<boolean>(true);
-
-  // Credenciais locais (PIN do dispositivo)
-  const [storedUsername, setStoredUsername] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem(USERNAME_STORAGE_KEY);
-      if (saved && saved.trim()) return saved.trim();
-      localStorage.setItem(USERNAME_STORAGE_KEY, DEFAULT_USERNAME);
-      return DEFAULT_USERNAME;
-    } catch {
-      return DEFAULT_USERNAME;
-    }
-  });
-
-  const [storedPassword, setStoredPassword] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem(PASSWORD_STORAGE_KEY);
-      if (saved && saved.trim()) return saved.trim();
-      localStorage.setItem(PASSWORD_STORAGE_KEY, DEFAULT_PASSWORD);
-      return DEFAULT_PASSWORD;
-    } catch {
-      return DEFAULT_PASSWORD;
-    }
-  });
-
-  // Estado de desbloqueio da tela local
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    try {
-      const session = sessionStorage.getItem(SESSION_STORAGE_KEY);
-      const localSession = localStorage.getItem(SESSION_STORAGE_KEY);
-      return session === 'true' || localSession === 'true';
-    } catch {
-      return false;
-    }
-  });
-
-  const [lastLoginDate, setLastLoginDate] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem(LAST_LOGIN_KEY);
-    } catch {
-      return null;
-    }
-  });
-
-  // Supabase Auth State (auth.users)
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
+  const [isPasswordRecoveryMode, setIsPasswordRecoveryMode] = useState<boolean>(() =>
+    hasPasswordRecoveryParamsInUrl()
+  );
+  const [authUrlError, setAuthUrlError] = useState<string | null>(() =>
+    extractAuthErrorFromUrl()
+  );
+  const clearAuthUrlError = useCallback(() => setAuthUrlError(null), []);
+
   const [supabaseConnectionStatus, setSupabaseConnectionStatus] = useState<SupabaseConnectionStatus>(() => {
     try {
       const wasConfigured = localStorage.getItem(SUPABASE_CONFIGURED_FLAG) === 'true';
-      return wasConfigured ? 'session_expired' : 'not_configured';
+      return wasConfigured ? 'session_expired' : 'unauthenticated';
     } catch {
-      return 'not_configured';
+      return 'unauthenticated';
     }
   });
+
   const isMountedRef = useRef(true);
 
-  const applySession = (session: SupabaseSession | null) => {
-    if (!isMountedRef.current) return;
-    if (session?.user) {
-      setSupabaseUser(session.user);
-      setSupabaseConnectionStatus('connected');
-      try {
-        localStorage.setItem(SUPABASE_CONFIGURED_FLAG, 'true');
-      } catch (e) {
-        console.warn('Storage error saving configured flag:', e);
-      }
-    } else {
-      setSupabaseUser(null);
-      let wasConfigured = false;
-      try {
-        wasConfigured = localStorage.getItem(SUPABASE_CONFIGURED_FLAG) === 'true';
-      } catch {
-        wasConfigured = false;
-      }
-      setSupabaseConnectionStatus(wasConfigured ? 'session_expired' : 'not_configured');
+  const readWasConfigured = (): boolean => {
+    try {
+      return typeof window !== 'undefined' && localStorage.getItem(SUPABASE_CONFIGURED_FLAG) === 'true';
+    } catch {
+      return false;
     }
   };
 
-  const checkSessionStatus = async () => {
+  const markConfigured = () => {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(SUPABASE_CONFIGURED_FLAG, 'true');
+      }
+    } catch {
+      // ignore storage errors
+    }
+  };
+
+  const applySession = useCallback((session: SupabaseSession | null) => {
+    if (!isMountedRef.current) return;
+    if (session?.user && !isSessionExpired(session)) {
+      setSupabaseUser(session.user);
+      setSupabaseConnectionStatus('connected');
+      markConfigured();
+    } else {
+      setSupabaseUser(null);
+      setSupabaseConnectionStatus(readWasConfigured() ? 'session_expired' : 'unauthenticated');
+    }
+  }, []);
+
+  const checkSessionStatus = useCallback(async () => {
     try {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error) {
-        console.warn('Erro ao consultar sessão Supabase:', error.message);
         if (isMountedRef.current) {
           setSupabaseUser(null);
-          const wasConfigured = typeof window !== 'undefined' && localStorage.getItem(SUPABASE_CONFIGURED_FLAG) === 'true';
-          setSupabaseConnectionStatus(wasConfigured ? 'session_expired' : 'not_configured');
+          setSupabaseConnectionStatus(readWasConfigured() ? 'session_expired' : 'unauthenticated');
         }
         return;
       }
-      applySession(session);
-    } catch (err) {
-      console.warn('Erro de rede ao verificar sessão Supabase:', err);
-    }
-  };
 
-  // 1. Recupera a sessão Supabase com getSession() na montagem com fallback seguro de tempo limite
+      if (session && isSessionExpired(session)) {
+        const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError || !refreshed.session) {
+          applySession(null);
+          return;
+        }
+        applySession(refreshed.session);
+        return;
+      }
+
+      applySession(session);
+    } catch {
+      if (isMountedRef.current) {
+        setSupabaseUser(null);
+        setSupabaseConnectionStatus(readWasConfigured() ? 'session_expired' : 'unauthenticated');
+      }
+    }
+  }, [applySession]);
+
   useEffect(() => {
     isMountedRef.current = true;
 
-    // Timeout de segurança (máximo 1.5s) para garantir que a UI nunca fique travada
+    // Remove quaisquer credenciais legadas em texto simples armazenadas anteriormente no navegador
+    scrubLegacyLocalAuthKeys();
+
     const timeoutTimer = setTimeout(() => {
-      if (isMountedRef.current && isSessionLoading) {
-        setIsSessionLoading(false);
-      }
-    }, 1500);
-
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      clearTimeout(timeoutTimer);
       if (isMountedRef.current) {
-        if (error) {
-          console.warn('Aviso ao recuperar sessão inicial Supabase:', error.message);
-          const wasConfigured = typeof window !== 'undefined' && localStorage.getItem(SUPABASE_CONFIGURED_FLAG) === 'true';
-          setSupabaseConnectionStatus(wasConfigured ? 'session_expired' : 'not_configured');
-        } else if (session?.user) {
-          setSupabaseUser(session.user);
-          setSupabaseConnectionStatus('connected');
-          try {
-            localStorage.setItem(SUPABASE_CONFIGURED_FLAG, 'true');
-          } catch (e) {
-            console.warn('Storage error on setItem:', e);
-          }
-        } else {
-          const wasConfigured = typeof window !== 'undefined' && localStorage.getItem(SUPABASE_CONFIGURED_FLAG) === 'true';
-          setSupabaseConnectionStatus(wasConfigured ? 'session_expired' : 'not_configured');
-        }
         setIsSessionLoading(false);
       }
-    }).catch(err => {
-      clearTimeout(timeoutTimer);
-      console.warn('Falha na inicialização da sessão Supabase:', err);
-      if (isMountedRef.current) {
-        const wasConfigured = typeof window !== 'undefined' && localStorage.getItem(SUPABASE_CONFIGURED_FLAG) === 'true';
-        setSupabaseConnectionStatus(wasConfigured ? 'session_expired' : 'not_configured');
-        setIsSessionLoading(false);
+    }, 2500);
+
+    const initialHasOAuthReturn = hasOAuthOrMagicLinkReturnInUrl();
+    const initialHasSensitiveUrlParams = hasSensitiveAuthParamsInUrl();
+
+    const dispatchOAuthPopupPayload = (session: SupabaseSession | null) => {
+      if (
+        typeof window === 'undefined' ||
+        !initialHasOAuthReturn ||
+        !session?.access_token ||
+        !session?.refresh_token
+      ) {
+        return;
       }
-    });
 
-    // 2. Escuta mudanças na autenticação em tempo real (TOKEN_REFRESHED, SIGNED_IN, SIGNED_OUT)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!isMountedRef.current) return;
+      const payload = {
+        type: 'SUPABASE_AUTH_SUCCESS',
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+        userId: session.user.id,
+        email: session.user.email
+      };
 
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        if (session?.user) {
-          setSupabaseUser(session.user);
-          setSupabaseConnectionStatus('connected');
-          try {
-            localStorage.setItem(SUPABASE_CONFIGURED_FLAG, 'true');
-          } catch (e) {
-            console.warn('Storage error on setItem:', e);
-          }
-        }
-      } else if (event === 'SIGNED_OUT') {
-        setSupabaseUser(null);
-        let wasConfigured = false;
+      const targetOrigin = window.location.origin;
+
+      if (window.opener && window.opener !== window) {
         try {
-          wasConfigured = localStorage.getItem(SUPABASE_CONFIGURED_FLAG) === 'true';
+          window.opener.postMessage(payload, targetOrigin);
         } catch {
-          wasConfigured = false;
-        }
-        setSupabaseConnectionStatus(wasConfigured ? 'session_expired' : 'not_configured');
-      } else if (event === 'USER_UPDATED') {
-        if (session?.user) {
-          setSupabaseUser(session.user);
+          // Origem distinta do opener; fallback via BroadcastChannel/sessão local
         }
       }
-    });
 
-    // 3. Ouvintes de eventos entre janelas e abas para sincronizar sessão OAuth (incluindo iframes particionados)
-    const handleAuthMessage = async (data: any) => {
+      try {
+        if (broadcastChannel) {
+          broadcastChannel.postMessage(payload);
+        }
+      } catch {
+        // ignore
+      }
+
+      if (window.opener && window.opener !== window) {
+        setTimeout(() => {
+          try {
+            window.close();
+          } catch {
+            // ignore
+          }
+        }, 1000);
+      }
+    };
+
+    const handleAuthPayload = async (data: any) => {
+      if (data?.type === 'SUPABASE_LOGOUT') {
+        if (!isMountedRef.current) return;
+        setSupabaseUser(null);
+        setIsPasswordRecoveryMode(false);
+        setSupabaseConnectionStatus('unauthenticated');
+        try {
+          sessionStorage.clear();
+        } catch {
+          // ignore
+        }
+        return;
+      }
+
       if (data?.type === 'SUPABASE_AUTH_SUCCESS') {
-        if (data.access_token && data.refresh_token) {
+        if (typeof data.access_token === 'string' && typeof data.refresh_token === 'string') {
           try {
             await supabase.auth.setSession({
               access_token: data.access_token,
               refresh_token: data.refresh_token
             });
-          } catch (err) {
-            console.warn('Erro ao aplicar setSession recebida:', err);
+          } catch {
+            // Ignora token inválido; checkSessionStatus refletirá estado real
           }
         }
         await checkSessionStatus();
       }
     };
 
+    const onWindowMessage = (e: MessageEvent) => {
+      if (typeof window === 'undefined') return;
+      if (!isTrustedMessageOrigin(e.origin, window.location.origin)) {
+        return;
+      }
+      handleAuthPayload(e.data);
+    };
+
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key && (e.key.includes('auth-token') || e.key === SUPABASE_CONFIGURED_FLAG)) {
+      if (e.key === null || (e.key && (e.key.includes('auth-token') || e.key === SUPABASE_CONFIGURED_FLAG))) {
         checkSessionStatus();
       }
     };
@@ -296,67 +581,112 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let broadcastChannel: BroadcastChannel | null = null;
     if (typeof window !== 'undefined') {
       window.addEventListener('storage', handleStorageChange);
-      window.addEventListener('message', (e: MessageEvent) => handleAuthMessage(e.data));
+      window.addEventListener('message', onWindowMessage);
 
       try {
         if ('BroadcastChannel' in window) {
           broadcastChannel = new BroadcastChannel('finance_supabase_oauth');
-          broadcastChannel.onmessage = (e: MessageEvent) => handleAuthMessage(e.data);
+          broadcastChannel.onmessage = (e: MessageEvent) => {
+            if (isTrustedMessageOrigin(e.origin || window.location.origin, window.location.origin)) {
+              handleAuthPayload(e.data);
+            }
+          };
         }
-      } catch (err) {
-        console.warn('BroadcastChannel não suportado neste navegador:', err);
+      } catch {
+        // BroadcastChannel indisponível
       }
     }
 
-    // Se esta janela foi aberta pelo retorno OAuth (hash com access_token ou query com code)
-    if (typeof window !== 'undefined') {
-      const hasOAuthReturn =
-        window.location.hash.includes('access_token=') ||
-        window.location.search.includes('code=');
-      if (hasOAuthReturn) {
-        // Aguarda a sessão ser inicializada pelo SDK do Supabase
-        supabase.auth.getSession().then(({ data: { session } }) => {
-          if (session?.access_token && session?.refresh_token) {
-            const payload = {
-              type: 'SUPABASE_AUTH_SUCCESS',
-              access_token: session.access_token,
-              refresh_token: session.refresh_token,
-              userId: session.user.id,
-              email: session.user.email
-            };
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMountedRef.current) return;
 
-            // Notifica window.opener (janela que abriu o popup)
-            if (window.opener && window.opener !== window) {
-              try {
-                window.opener.postMessage(payload, '*');
-              } catch (err) {
-                console.warn('Não foi possível notificar window.opener:', err);
-              }
-            }
+      if (event === 'PASSWORD_RECOVERY') {
+        if (session?.user) {
+          setSupabaseUser(session.user);
+          setSupabaseConnectionStatus('connected');
+        }
+        setIsPasswordRecoveryMode(true);
+        setAuthUrlError(null);
+        scrubSensitiveAuthParamsFromUrl();
+        return;
+      }
 
-            // Notifica outras abas/iframes via BroadcastChannel
-            try {
-              if (broadcastChannel) {
-                broadcastChannel.postMessage(payload);
-              }
-            } catch (err) {
-              console.warn('Erro ao transmitir pelo BroadcastChannel:', err);
-            }
-
-            // Se for popup filho, fecha após notificar para uma experiência limpa
-            if (window.opener && window.opener !== window) {
-              setTimeout(() => {
-                try {
-                  window.close();
-                } catch {
-                  // Caso o navegador bloqueie o window.close()
-                }
-              }, 1000);
-            }
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (session?.user && !isSessionExpired(session)) {
+          setSupabaseUser(session.user);
+          setSupabaseConnectionStatus('connected');
+          setAuthUrlError(null);
+          markConfigured();
+          if (event === 'SIGNED_IN' && hasSensitiveAuthParamsInUrl()) {
+            dispatchOAuthPopupPayload(session);
+            scrubSensitiveAuthParamsFromUrl();
           }
-        });
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setSupabaseUser(null);
+        setIsPasswordRecoveryMode(false);
+        setSupabaseConnectionStatus(readWasConfigured() ? 'session_expired' : 'unauthenticated');
+      } else if (event === 'USER_UPDATED') {
+        if (session?.user) {
+          setSupabaseUser(session.user);
+        }
       }
-    }
+    });
+
+    supabase.auth
+      .getSession()
+      .then(async ({ data: { session }, error }) => {
+        clearTimeout(timeoutTimer);
+        if (!isMountedRef.current) return;
+
+        let activeSession: SupabaseSession | null = null;
+        if (error) {
+          setSupabaseUser(null);
+          setSupabaseConnectionStatus(readWasConfigured() ? 'session_expired' : 'unauthenticated');
+          setIsSessionLoading(false);
+          if (initialHasSensitiveUrlParams) {
+            scrubSensitiveAuthParamsFromUrl();
+          }
+          return;
+        }
+
+        if (session && isSessionExpired(session)) {
+          const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession();
+          if (!refreshErr && refreshed.session) {
+            activeSession = refreshed.session;
+            applySession(refreshed.session);
+          } else {
+            applySession(null);
+          }
+        } else {
+          activeSession = session;
+          applySession(session);
+        }
+
+        if (activeSession) {
+          dispatchOAuthPopupPayload(activeSession);
+        }
+
+        // Só remove parâmetros sensíveis da URL depois que o Supabase concluiu getSession() e notificações OAuth
+        if (initialHasSensitiveUrlParams) {
+          scrubSensitiveAuthParamsFromUrl();
+        }
+
+        setIsSessionLoading(false);
+      })
+      .catch(() => {
+        clearTimeout(timeoutTimer);
+        if (isMountedRef.current) {
+          setSupabaseUser(null);
+          setSupabaseConnectionStatus(readWasConfigured() ? 'session_expired' : 'unauthenticated');
+          setIsSessionLoading(false);
+        }
+        if (initialHasSensitiveUrlParams) {
+          scrubSensitiveAuthParamsFromUrl();
+        }
+      });
 
     return () => {
       isMountedRef.current = false;
@@ -364,6 +694,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscription.unsubscribe();
       if (typeof window !== 'undefined') {
         window.removeEventListener('storage', handleStorageChange);
+        window.removeEventListener('message', onWindowMessage);
         if (broadcastChannel) {
           try {
             broadcastChannel.close();
@@ -373,17 +704,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     };
-  }, []);
+  }, [applySession, checkSessionStatus]);
 
-  // Login no Supabase Auth com mensagens de erro tratadas individualmente
-  const loginWithSupabase = async (
-    email: string,
-    pass: string
-  ): Promise<{ success: boolean; message?: string; userId?: string }> => {
+  const loginWithSupabase = async (email: string, pass: string): Promise<AuthResult> => {
+    const cleanEmail = email.trim();
+    if (!isValidEmailFormat(cleanEmail)) {
+      return { success: false, message: 'Informe um endereço de e-mail válido.' };
+    }
+    if (!pass) {
+      return { success: false, message: 'Informe sua senha.' };
+    }
+
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: pass.trim()
+        email: cleanEmail,
+        password: pass
       });
 
       if (error) {
@@ -393,21 +728,96 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data.user && data.session) {
         setSupabaseUser(data.user);
         setSupabaseConnectionStatus('connected');
-        try {
-          localStorage.setItem(SUPABASE_CONFIGURED_FLAG, 'true');
-        } catch (e) {
-          console.warn('Storage error on loginWithSupabase:', e);
-        }
+        setIsPasswordRecoveryMode(false);
+        setAuthUrlError(null);
+        markConfigured();
         return { success: true, userId: data.user.id };
       }
 
-      return { success: false, message: 'Sessão não pôde ser iniciada. Verifique suas credenciais.' };
+      return { success: false, message: 'Não foi possível iniciar a sessão. Verifique suas credenciais.' };
     } catch (err: any) {
-      return { success: false, message: err.message || 'Erro inesperado ao autenticar com Supabase.' };
+      return { success: false, message: err?.message || 'Erro de conexão ao autenticar.' };
     }
   };
 
-  // Login OAuth com GitHub no Supabase (compatível com iframe via skipBrowserRedirect)
+  const signUpWithSupabase = async (
+    email: string,
+    pass: string,
+    fullName?: string,
+    extra?: { whatsapp?: string; requestedPlan?: 'monthly' | 'annual' }
+  ): Promise<AuthResult> => {
+    const cleanEmail = email.trim();
+    if (!isValidEmailFormat(cleanEmail)) {
+      return { success: false, message: 'Informe um endereço de e-mail válido para cadastro.' };
+    }
+
+    const strength = validatePasswordStrength(pass);
+    if (!strength.valid) {
+      return { success: false, message: strength.message };
+    }
+
+    try {
+      const redirectOrigin = typeof window !== 'undefined' ? window.location.origin : undefined;
+      const cleanName = fullName?.trim();
+      const cleanWhatsapp = extra?.whatsapp?.trim();
+      const safeRequestedPlan =
+        extra?.requestedPlan === 'monthly' || extra?.requestedPlan === 'annual'
+          ? extra.requestedPlan
+          : undefined;
+
+      const metaData: Record<string, string> = {};
+      if (cleanName) metaData.full_name = cleanName;
+      if (cleanWhatsapp) metaData.whatsapp = cleanWhatsapp;
+      if (safeRequestedPlan) metaData.requested_plan = safeRequestedPlan;
+
+      const { data, error } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password: pass,
+        options: {
+          emailRedirectTo: redirectOrigin,
+          data: Object.keys(metaData).length > 0 ? metaData : undefined
+        }
+      });
+
+      if (error) {
+        return { success: false, message: mapAuthError(error) };
+      }
+
+      if (data.user) {
+        if (data.session) {
+          setSupabaseUser(data.user);
+          setSupabaseConnectionStatus('connected');
+          setIsPasswordRecoveryMode(false);
+          markConfigured();
+          return {
+            success: true,
+            userId: data.user.id,
+            requiresEmailConfirmation: false,
+            message: 'Conta criada e autenticada com sucesso!'
+          };
+        }
+
+        // Confirmação por e-mail ativa no Supabase: não autentica ainda
+        setSupabaseUser(null);
+        setSupabaseConnectionStatus('unauthenticated');
+        return {
+          success: true,
+          userId: undefined,
+          requiresEmailConfirmation: true,
+          message: 'Cadastro realizado! Enviamos um link de confirmação para o seu e-mail. Confirme antes de entrar.'
+        };
+      }
+
+      return {
+        success: true,
+        requiresEmailConfirmation: true,
+        message: 'Verifique sua caixa de entrada para confirmar o cadastro.'
+      };
+    } catch (err: any) {
+      return { success: false, message: err?.message || 'Erro inesperado ao criar conta.' };
+    }
+  };
+
   const loginWithGitHub = async (): Promise<{ success: boolean; message?: string; url?: string }> => {
     try {
       const redirectOrigin = typeof window !== 'undefined' ? window.location.origin : undefined;
@@ -430,16 +840,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return { success: true };
     } catch (err: any) {
-      return { success: false, message: err.message || 'Erro ao iniciar login com GitHub.' };
+      return { success: false, message: err?.message || 'Erro ao iniciar login com GitHub.' };
     }
   };
 
-  // Envia código OTP ou link mágico para o e-mail
   const signInWithOtp = async (email: string): Promise<{ success: boolean; message?: string }> => {
+    const cleanEmail = email.trim();
+    if (!isValidEmailFormat(cleanEmail)) {
+      return { success: false, message: 'Informe um endereço de e-mail válido.' };
+    }
+
     try {
       const redirectOrigin = typeof window !== 'undefined' ? window.location.origin : undefined;
       const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
+        email: cleanEmail,
         options: {
           emailRedirectTo: redirectOrigin
         }
@@ -451,22 +865,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return {
         success: true,
-        message: 'Código de acesso enviado! Verifique sua caixa de entrada e pasta de spam.'
+        message: 'Link ou código de acesso enviado! Verifique sua caixa de entrada e spam.'
       };
     } catch (err: any) {
-      return { success: false, message: err.message || 'Erro ao enviar código para o e-mail.' };
+      return { success: false, message: err?.message || 'Erro ao enviar código para o e-mail.' };
     }
   };
 
-  // Valida o código OTP de 6 dígitos recebido por e-mail
-  const verifyOtp = async (
-    email: string,
-    token: string
-  ): Promise<{ success: boolean; message?: string; userId?: string }> => {
+  const verifyOtp = async (email: string, token: string): Promise<AuthResult> => {
+    const cleanEmail = email.trim();
+    const cleanToken = token.trim();
+    if (!isValidEmailFormat(cleanEmail) || !cleanToken) {
+      return { success: false, message: 'Informe o e-mail e o código de verificação recebido.' };
+    }
+
     try {
       const { data, error } = await supabase.auth.verifyOtp({
-        email: email.trim(),
-        token: token.trim(),
+        email: cleanEmail,
+        token: cleanToken,
         type: 'email'
       });
 
@@ -477,25 +893,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data.user && data.session) {
         setSupabaseUser(data.user);
         setSupabaseConnectionStatus('connected');
-        try {
-          localStorage.setItem(SUPABASE_CONFIGURED_FLAG, 'true');
-        } catch (e) {
-          console.warn('Storage error on verifyOtp:', e);
-        }
+        setIsPasswordRecoveryMode(false);
+        setAuthUrlError(null);
+        markConfigured();
         return { success: true, userId: data.user.id };
       }
 
       return { success: false, message: 'Código inválido ou expirado.' };
     } catch (err: any) {
-      return { success: false, message: err.message || 'Erro ao validar código.' };
+      return { success: false, message: err?.message || 'Erro ao validar código.' };
     }
   };
 
-  // Envia e-mail de redefinição de senha para o usuário poder cadastrar uma senha no Supabase
   const sendPasswordResetEmail = async (email: string): Promise<{ success: boolean; message?: string }> => {
+    const cleanEmail = email.trim();
+    if (!isValidEmailFormat(cleanEmail)) {
+      return { success: false, message: 'Informe um endereço de e-mail válido para recuperar a senha.' };
+    }
+
     try {
-      const redirectOrigin = typeof window !== 'undefined' ? window.location.origin : undefined;
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      const redirectOrigin = typeof window !== 'undefined' ? `${window.location.origin}/?type=recovery` : undefined;
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
         redirectTo: redirectOrigin
       });
 
@@ -505,184 +923,165 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return {
         success: true,
-        message: 'Link para cadastrar/redefinir senha enviado para seu e-mail!'
+        message: 'Se o e-mail estiver cadastrado, enviaremos um link para você redefinir sua senha.'
       };
     } catch (err: any) {
-      return { success: false, message: err.message || 'Erro ao solicitar redefinição de senha.' };
+      return { success: false, message: err?.message || 'Erro ao solicitar redefinição de senha.' };
     }
   };
 
-  const signInWithSupabase = loginWithSupabase;
+  const updatePassword = async (newPassword: string): Promise<{ success: boolean; message?: string }> => {
+    const strength = validatePasswordStrength(newPassword);
+    if (!strength.valid) {
+      return { success: false, message: strength.message };
+    }
 
-  // Cadastro no Supabase Auth
-  // Se data.session for null (confirmação por e-mail ligada), NÃO marca como autenticado
-  const signUpWithSupabase = async (
-    email: string,
-    pass: string
-  ): Promise<{ success: boolean; message?: string; userId?: string }> => {
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password: pass.trim()
+      const { data, error } = await supabase.auth.updateUser({
+        password: newPassword
       });
 
       if (error) {
-        let friendlyMessage = error.message;
-        if (error.code === 'user_already_exists' || error.message.toLowerCase().includes('already registered')) {
-          friendlyMessage = 'Este e-mail já está cadastrado. Faça login ou recupere a senha.';
-        }
-        return { success: false, message: friendlyMessage };
+        return { success: false, message: mapAuthError(error) };
       }
 
       if (data.user) {
-        if (data.session) {
-          // Sessão imediata (confirmação de email desligada)
-          setSupabaseUser(data.user);
-          setSupabaseConnectionStatus('connected');
-          try {
-            localStorage.setItem(SUPABASE_CONFIGURED_FLAG, 'true');
-          } catch (e) {
-            console.warn('Storage error on signUp:', e);
-          }
-          return {
-            success: true,
-            userId: data.user.id,
-            message: 'Conta criada e conectada com sucesso!'
-          };
-        } else {
-          // Confirmação de e-mail obrigatória: NÃO autentica
-          setSupabaseUser(null);
-          return {
-            success: true,
-            userId: undefined,
-            message: 'Verifique sua caixa de entrada para confirmar o e-mail antes de usar a nuvem.'
-          };
+        setSupabaseUser(data.user);
+        setSupabaseConnectionStatus('connected');
+      }
+      setIsPasswordRecoveryMode(false);
+      setAuthUrlError(null);
+      scrubSensitiveAuthParamsFromUrl();
+
+      return {
+        success: true,
+        message: 'Senha atualizada com sucesso!'
+      };
+    } catch (err: any) {
+      return { success: false, message: err?.message || 'Erro ao atualizar a senha.' };
+    }
+  };
+
+  const logoutFromSupabase = async (rawOptions?: LogoutCleanupOptions | unknown): Promise<void> => {
+    const options: LogoutCleanupOptions | undefined =
+      rawOptions &&
+      typeof rawOptions === 'object' &&
+      !('nativeEvent' in rawOptions) &&
+      !('preventDefault' in rawOptions)
+        ? (rawOptions as LogoutCleanupOptions)
+        : undefined;
+
+    const previousUserId = supabaseUser?.id ?? null;
+    const previousUserEmail = options?.userEmailOverride ?? supabaseUser?.email ?? null;
+    const preserveRecoveryBackups = options?.preserveRecoveryBackups ?? true;
+
+    // Se há obrigação de preservar backups antes de limpar o cache ativo (ex.: logout fora do fluxo verificado),
+    // garante cópia de segurança escopada para o UUID antes de remover finance_pro_app_state_<uuid>.
+    if (previousUserId && preserveRecoveryBackups && !options?.skipActiveCacheBackupOnPreserve) {
+      const activeCache = getUserStateFromStorage(previousUserId);
+      if (
+        activeCache &&
+        !activeCache.isSampleLoaded &&
+        (activeCache.transactions.length > 0 || activeCache.debts.length > 0 || activeCache.goals.length > 0)
+      ) {
+        saveRecoverySnapshotForUser(previousUserId, activeCache, 'pre_unverified_logout');
+      }
+    }
+
+    // Reseta imediatamente o estado em memória para desmontar o FinanceProvider antes da chamada de rede
+    setSupabaseUser(null);
+    setIsPasswordRecoveryMode(false);
+    setSupabaseConnectionStatus('unauthenticated');
+
+    let signOutErrored = false;
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        signOutErrored = true;
+      }
+    } catch {
+      signOutErrored = true;
+    }
+
+    if (signOutErrored) {
+      try {
+        await supabase.auth.signOut({ scope: 'local' });
+      } catch {
+        // Continua limpeza local mesmo se houver falha de rede ou ambiente offline
+      }
+    }
+
+    scrubLegacyLocalAuthKeys();
+    clearPendingRegistrationIntent(previousUserEmail);
+    clearAllLocalDataForUser(previousUserId, {
+      preserveRecoverySnapshot: preserveRecoveryBackups
+    });
+
+    if (previousUserId && !preserveRecoveryBackups) {
+      try {
+        await clearRecoveryHistoryForUser(
+          previousUserId,
+          options?.indexedDBFactory !== undefined
+            ? { indexedDBFactory: options.indexedDBFactory }
+            : undefined
+        );
+      } catch {
+        // Falha controlada no IndexedDB não impede encerramento seguro da sessão
+      }
+    }
+
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(SUPABASE_CONFIGURED_FLAG);
+        sessionStorage.clear();
+
+        if ('BroadcastChannel' in window) {
+          const ch = new BroadcastChannel('finance_supabase_oauth');
+          ch.postMessage({ type: 'SUPABASE_LOGOUT', userId: previousUserId });
+          ch.close();
         }
       }
-
-      return { success: true, message: 'Verifique sua caixa de entrada para confirmar o e-mail antes de usar a nuvem.' };
-    } catch (err: any) {
-      return { success: false, message: err.message || 'Erro ao criar conta no Supabase.' };
+    } catch {
+      // ignore
     }
   };
 
-  // Desconecta explicitamente a nuvem (botão nas configurações ou modal)
-  const logoutFromSupabase = async (): Promise<void> => {
-    try {
-      await supabase.auth.signOut();
-    } catch (err) {
-      console.warn('Erro ao deslogar do Supabase', err);
-    }
-    try {
-      localStorage.removeItem(SUPABASE_CONFIGURED_FLAG);
-    } catch (err) {
-      console.warn('Erro ao remover flag do Supabase:', err);
-    }
-    setSupabaseUser(null);
-    setSupabaseConnectionStatus('not_configured');
+  const cancelPasswordRecovery = async (): Promise<void> => {
+    await logoutFromSupabase({ preserveRecoveryBackups: true });
   };
 
-  const disconnectCloud = logoutFromSupabase;
-
-  // Login por senha local (PIN do dispositivo) — NUNCA define supabaseUserId!
-  const login = (inputUser: string, inputPass: string, remember = false): { success: boolean; message?: string } => {
-    const cleanInputUser = inputUser.trim().toLowerCase();
-    const cleanStoredUser = storedUsername.trim().toLowerCase();
-    const cleanInputPass = inputPass.trim();
-    const cleanStoredPass = storedPassword.trim();
-
-    if (!cleanInputUser || !cleanInputPass) {
-      return { success: false, message: 'Por favor, preencha o usuário e a senha.' };
-    }
-
-    if (cleanInputUser !== cleanStoredUser || cleanInputPass !== cleanStoredPass) {
-      return {
-        success: false,
-        message: 'Credenciais incorretas. Apenas o proprietário autorizado tem permissão de acesso.'
-      };
-    }
-
-    const nowISO = new Date().toISOString();
-    try {
-      sessionStorage.setItem(SESSION_STORAGE_KEY, 'true');
-      if (remember) {
-        localStorage.setItem(SESSION_STORAGE_KEY, 'true');
-      } else {
-        localStorage.removeItem(SESSION_STORAGE_KEY);
-      }
-      localStorage.setItem(LAST_LOGIN_KEY, nowISO);
-    } catch (e) {
-      console.warn('Storage error on login', e);
-    }
-
-    setLastLoginDate(nowISO);
-    setIsAuthenticated(true);
-    return { success: true };
-  };
-
-  // Bloqueio do aplicativo (volta para a tela de PIN local sem deslogar da nuvem)
-  const logout = () => {
-    try {
-      sessionStorage.removeItem(SESSION_STORAGE_KEY);
-      localStorage.removeItem(SESSION_STORAGE_KEY);
-    } catch (e) {
-      console.warn('Storage error on logout', e);
-    }
-    setIsAuthenticated(false);
-  };
-
-  const updateCredentials = (newUser: string, newPass: string): { success: boolean; message: string } => {
-    const cleanUser = newUser.trim();
-    const cleanPass = newPass.trim();
-
-    if (!cleanUser) {
-      return { success: false, message: 'O nome de usuário não pode ficar vazio.' };
-    }
-    if (!cleanPass || cleanPass.length < 4) {
-      return { success: false, message: 'A senha deve conter no mínimo 4 caracteres ou dígitos.' };
-    }
-
-    try {
-      localStorage.setItem(USERNAME_STORAGE_KEY, cleanUser);
-      localStorage.setItem(PASSWORD_STORAGE_KEY, cleanPass);
-      setStoredUsername(cleanUser);
-      setStoredPassword(cleanPass);
-      return { success: true, message: 'Credenciais de segurança atualizadas com sucesso!' };
-    } catch (e) {
-      return { success: false, message: 'Erro ao salvar credenciais no armazenamento local.' };
-    }
-  };
-
-  // O UUID oficial é estritamente auth.users.id
   const supabaseUserId = supabaseUser?.id ?? null;
   const supabaseUserEmail = supabaseUser?.email ?? null;
+  const supabaseUserDisplayName = deriveUserDisplayName(supabaseUser);
   const isSupabaseAuthenticated = !!supabaseUserId && supabaseConnectionStatus === 'connected';
 
   return (
     <AuthContext.Provider
       value={{
-        isAuthenticated,
-        username: storedUsername,
+        isAuthenticated: isSupabaseAuthenticated,
         isSessionLoading,
-        login,
-        logout,
-        updateCredentials,
-        lastLoginDate,
+        isPasswordRecoveryMode,
+        authUrlError,
+        clearAuthUrlError,
         supabaseConnectionStatus,
         cloudAuthStatus: supabaseConnectionStatus,
         supabaseUser,
         supabaseUserId,
         supabaseUserEmail,
+        supabaseUserDisplayName,
         isSupabaseAuthenticated,
         loginWithSupabase,
+        signInWithSupabase: loginWithSupabase,
+        signUpWithSupabase,
         loginWithGitHub,
         signInWithOtp,
         verifyOtp,
         sendPasswordResetEmail,
-        signInWithSupabase,
-        signUpWithSupabase,
+        updatePassword,
+        cancelPasswordRecovery,
+        logout: logoutFromSupabase,
         logoutFromSupabase,
-        disconnectCloud,
+        disconnectCloud: logoutFromSupabase,
         checkSessionStatus
       }}
     >

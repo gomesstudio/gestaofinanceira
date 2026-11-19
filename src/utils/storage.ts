@@ -430,6 +430,7 @@ export const DEFAULT_TRANSACTIONS: Transaction[] = [
 ];
 
 export interface AppState {
+  ownerUserId?: string;
   version: number;
   lastModified?: number; // Timestamp epoch em ms para ordenação e prevenção de conflitos
   transactions: Transaction[];
@@ -442,54 +443,77 @@ export interface AppState {
   isSampleLoaded: boolean;
 }
 
-const STORAGE_KEY = 'finance_pro_app_state_v1';
+export interface LegacyStorageSummary {
+  exists: boolean;
+  ownershipVerified: boolean;
+  accessBlocked: boolean;
+  requiresAdminRecovery: boolean;
+  rawSizeBytes: number;
+  transactionsCount: number;
+  accountsCount: number;
+  debtsCount: number;
+  goalsCount: number;
+  lastModified?: number;
+  isSampleLoaded: boolean;
+}
 
-export function getInitialState(): AppState {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && Array.isArray(parsed.transactions)) {
-        return {
-          ...parsed,
-          lastModified: parsed.lastModified || Date.now()
-        };
-      }
-    }
-  } catch (err) {
-    console.error('Error loading state from localStorage:', err);
+export const LEGACY_STORAGE_KEY = 'finance_pro_app_state_v1';
+export const USER_STORAGE_KEY_PREFIX = 'finance_pro_app_state_';
+export const USER_RECOVERY_KEY_PREFIX = 'finance_pro_recovery_';
+export const LEGACY_DISMISSED_KEY_PREFIX = 'finance_pro_legacy_dismissed_';
+
+const STORAGE_UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function isValidStorageUserId(userId?: string | null): userId is string {
+  return typeof userId === 'string' && STORAGE_UUID_REGEX.test(userId);
+}
+
+export function getUserStorageKey(userId: string): string {
+  if (!isValidStorageUserId(userId)) {
+    throw new Error('Identificador de usuário inválido para chave de armazenamento local.');
   }
+  return `${USER_STORAGE_KEY_PREFIX}${userId}`;
+}
 
-  // Fallback to rich default state with initial data
+export function getUserRecoveryKey(userId: string): string {
+  if (!isValidStorageUserId(userId)) {
+    throw new Error('Identificador de usuário inválido para chave de recuperação.');
+  }
+  return `${USER_RECOVERY_KEY_PREFIX}${userId}`;
+}
+
+/**
+ * Estado neutro inicial enquanto a sessão e os dados do usuário estão sendo hidratados.
+ * Nunca contém lançamentos ou saldos financeiros de nenhum usuário.
+ */
+export function createNeutralLoadingState(userId?: string): AppState {
   return {
-    version: 1,
-    lastModified: Date.now(),
-    transactions: DEFAULT_TRANSACTIONS,
+    ownerUserId: isValidStorageUserId(userId) ? userId : undefined,
+    version: 0,
+    lastModified: 0,
+    transactions: [],
     categories: DEFAULT_CATEGORIES,
-    accounts: DEFAULT_ACCOUNTS,
-    creditCards: DEFAULT_CARDS,
-    debts: DEFAULT_DEBTS,
-    goals: DEFAULT_GOALS,
-    safetyReserveDesired: 2000.00,
-    isSampleLoaded: true,
+    accounts: [],
+    creditCards: [],
+    debts: [],
+    goals: [],
+    safetyReserveDesired: 0,
+    isSampleLoaded: false,
   };
 }
 
-export function saveStateToStorage(state: AppState): void {
-  try {
-    const stateWithTs = {
-      ...state,
-      lastModified: state.lastModified || Date.now()
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stateWithTs));
-  } catch (err) {
-    console.error('Failed to save to localStorage:', err);
+/**
+ * Estado inicial limpo para um usuário autenticado novo sem registro prévio na nuvem.
+ * Mantém lastModified: 0 para não se sobrepor indevidamente a dados remotos.
+ */
+export function createCleanUserState(userId: string): AppState {
+  if (!isValidStorageUserId(userId)) {
+    throw new Error('UUID de usuário obrigatório para criar estado inicial.');
   }
-}
-
-export function resetToCleanState(): AppState {
-  const cleanState: AppState = {
+  return {
+    ownerUserId: userId,
     version: 1,
+    lastModified: 0,
     transactions: [],
     categories: DEFAULT_CATEGORIES,
     accounts: [
@@ -504,13 +528,209 @@ export function resetToCleanState(): AppState {
     safetyReserveDesired: 1000.00,
     isSampleLoaded: false,
   };
-  saveStateToStorage(cleanState);
-  return cleanState;
 }
 
-export function resetToSampleState(): AppState {
+/**
+ * Lê exclusivamente o cache local pertencente ao userId autenticado.
+ * Nunca lê a chave legada global e rejeita estados com ownerUserId divergente.
+ */
+export function getUserStateFromStorage(userId: string): AppState | null {
+  if (!isValidStorageUserId(userId)) {
+    return null;
+  }
+
+  try {
+    const key = getUserStorageKey(userId);
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.transactions) || !Array.isArray(parsed.categories)) {
+      return null;
+    }
+
+    // Rejeita se o cache estiver explicitamente marcado com outro proprietário
+    if (parsed.ownerUserId && parsed.ownerUserId !== userId) {
+      return null;
+    }
+
+    return {
+      ...parsed,
+      ownerUserId: userId,
+      version: typeof parsed.version === 'number' ? parsed.version : 1,
+      lastModified: typeof parsed.lastModified === 'number' ? parsed.lastModified : 0,
+    };
+  } catch (err) {
+    console.error('Erro ao ler cache local do usuário:', err);
+    return null;
+  }
+}
+
+/**
+ * Grava o estado financeiro exclusivamente na chave vinculada ao userId autenticado.
+ * Bloqueia gravação se o estado pertencer a outro usuário.
+ */
+export function saveStateToStorageForUser(userId: string, state: AppState): boolean {
+  if (!isValidStorageUserId(userId)) {
+    return false;
+  }
+
+  if (state.ownerUserId && state.ownerUserId !== userId) {
+    console.warn('Bloqueada tentativa de salvar estado financeiro de outro proprietário no cache local.');
+    return false;
+  }
+
+  try {
+    const key = getUserStorageKey(userId);
+    const stateToSave: AppState = {
+      ...state,
+      ownerUserId: userId,
+      version: typeof state.version === 'number' && state.version > 0 ? state.version : 1,
+      lastModified: typeof state.lastModified === 'number' ? state.lastModified : 0,
+    };
+    localStorage.setItem(key, JSON.stringify(stateToSave));
+    return true;
+  } catch (err) {
+    console.error('Falha ao gravar cache local do usuário:', err);
+    return false;
+  }
+}
+
+/**
+ * Salva snapshot individual de recuperação escopado por usuário antes de limpezas ou substituições.
+ */
+export function saveRecoverySnapshotForUser(userId: string, state: AppState, reason: string): boolean {
+  if (!isValidStorageUserId(userId)) return false;
+  if (state.ownerUserId && state.ownerUserId !== userId) return false;
+  if (state.transactions.length === 0 && state.debts.length === 0 && state.goals.length === 0) {
+    return false;
+  }
+
+  try {
+    const recoveryKey = getUserRecoveryKey(userId);
+    const payload = {
+      savedAt: new Date().toISOString(),
+      reason,
+      ownerUserId: userId,
+      state: {
+        ...state,
+        ownerUserId: userId,
+      },
+    };
+    localStorage.setItem(recoveryKey, JSON.stringify(payload));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function getRecoverySnapshotForUser(userId: string): { savedAt: string; reason: string; state: AppState } | null {
+  if (!isValidStorageUserId(userId)) return null;
+  try {
+    const raw = localStorage.getItem(getUserRecoveryKey(userId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || parsed.ownerUserId !== userId || !parsed.state || !Array.isArray(parsed.state.transactions)) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Limpa o cache ativo do usuário encerrado no logout (preservando snapshots individuais de recuperação
+ * caso existam dados reais não sincronizados, e sem tocar na chave legada global).
+ */
+export function clearUserActiveCache(userId?: string | null): boolean {
+  if (!isValidStorageUserId(userId)) return false;
+  try {
+    localStorage.removeItem(getUserStorageKey(userId));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function clearUserRecoverySnapshot(userId?: string | null): boolean {
+  if (!isValidStorageUserId(userId)) return false;
+  try {
+    localStorage.removeItem(getUserRecoveryKey(userId));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function clearUserLegacyDismissedFlag(userId?: string | null): boolean {
+  if (!isValidStorageUserId(userId)) return false;
+  try {
+    localStorage.removeItem(`${LEGACY_DISMISSED_KEY_PREFIX}${userId}`);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Limpa estritamente as chaves locais pertencentes ao UUID do usuário informado.
+ * Nunca toca na chave legada global, em chaves de outros usuários ou em preferências não sensíveis.
+ */
+export function clearAllLocalDataForUser(
+  userId?: string | null,
+  options?: { preserveRecoverySnapshot?: boolean }
+): {
+  activeCacheRemoved: boolean;
+  recoverySnapshotRemoved: boolean;
+  legacyDismissedRemoved: boolean;
+} {
+  if (!isValidStorageUserId(userId)) {
+    return {
+      activeCacheRemoved: false,
+      recoverySnapshotRemoved: false,
+      legacyDismissedRemoved: false,
+    };
+  }
+
+  const activeCacheRemoved = clearUserActiveCache(userId);
+  if (options?.preserveRecoverySnapshot) {
+    return {
+      activeCacheRemoved,
+      recoverySnapshotRemoved: false,
+      legacyDismissedRemoved: false,
+    };
+  }
+
+  const recoverySnapshotRemoved = clearUserRecoverySnapshot(userId);
+  const legacyDismissedRemoved = clearUserLegacyDismissedFlag(userId);
+  return {
+    activeCacheRemoved,
+    recoverySnapshotRemoved,
+    legacyDismissedRemoved,
+  };
+}
+
+export function resetToCleanStateForUser(userId: string, currentVersion = 0): AppState {
+  const clean = createCleanUserState(userId);
+  const nextState: AppState = {
+    ...clean,
+    ownerUserId: userId,
+    version: Math.max(1, currentVersion + 1),
+    lastModified: Date.now(),
+  };
+  saveStateToStorageForUser(userId, nextState);
+  return nextState;
+}
+
+export function resetToSampleStateForUser(userId: string, currentVersion = 0): AppState {
+  if (!isValidStorageUserId(userId)) {
+    throw new Error('UUID de usuário obrigatório.');
+  }
   const sampleState: AppState = {
-    version: 1,
+    ownerUserId: userId,
+    version: Math.max(1, currentVersion + 1),
+    lastModified: 0,
     transactions: DEFAULT_TRANSACTIONS,
     categories: DEFAULT_CATEGORIES,
     accounts: DEFAULT_ACCOUNTS,
@@ -520,6 +740,119 @@ export function resetToSampleState(): AppState {
     safetyReserveDesired: 2000.00,
     isSampleLoaded: true,
   };
-  saveStateToStorage(sampleState);
+  saveStateToStorageForUser(userId, sampleState);
   return sampleState;
+}
+
+/**
+ * Inspeciona a chave legada global em modo SOMENTE LEITURA com bloqueio estrito de propriedade.
+ * Se não houver ownerUserId comprovadamente idêntico ao usuário autenticado, bloqueia visualização,
+ * exportação e importação, sinalizando necessidade de recuperação administrativa segura sem apagar a chave.
+ */
+export function inspectLegacyStorageState(
+  authenticatedUserId?: string | null
+): { summary: LegacyStorageSummary; state: AppState | null } {
+  const emptySummary: LegacyStorageSummary = {
+    exists: false,
+    ownershipVerified: false,
+    accessBlocked: false,
+    requiresAdminRecovery: false,
+    rawSizeBytes: 0,
+    transactionsCount: 0,
+    accountsCount: 0,
+    debtsCount: 0,
+    goalsCount: 0,
+    isSampleLoaded: false,
+  };
+
+  try {
+    const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (!raw) return { summary: emptySummary, state: null };
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.transactions) || !Array.isArray(parsed.categories)) {
+      return { summary: emptySummary, state: null };
+    }
+
+    const ownershipVerified =
+      isValidStorageUserId(authenticatedUserId) &&
+      isValidStorageUserId(parsed.ownerUserId) &&
+      parsed.ownerUserId === authenticatedUserId;
+
+    if (!ownershipVerified) {
+      return {
+        summary: {
+          exists: true,
+          ownershipVerified: false,
+          accessBlocked: true,
+          requiresAdminRecovery: true,
+          rawSizeBytes: 0,
+          transactionsCount: 0,
+          accountsCount: 0,
+          debtsCount: 0,
+          goalsCount: 0,
+          isSampleLoaded: false,
+        },
+        state: null,
+      };
+    }
+
+    const transactionsCount = parsed.transactions.length;
+    const accountsCount = Array.isArray(parsed.accounts) ? parsed.accounts.length : 0;
+    const debtsCount = Array.isArray(parsed.debts) ? parsed.debts.length : 0;
+    const goalsCount = Array.isArray(parsed.goals) ? parsed.goals.length : 0;
+    const isSampleLoaded = Boolean(parsed.isSampleLoaded);
+
+    return {
+      summary: {
+        exists: true,
+        ownershipVerified: true,
+        accessBlocked: false,
+        requiresAdminRecovery: false,
+        rawSizeBytes: raw.length,
+        transactionsCount,
+        accountsCount,
+        debtsCount,
+        goalsCount,
+        lastModified: typeof parsed.lastModified === 'number' ? parsed.lastModified : undefined,
+        isSampleLoaded,
+      },
+      state: {
+        ...parsed,
+        ownerUserId: authenticatedUserId,
+      },
+    };
+  } catch {
+    return { summary: emptySummary, state: null };
+  }
+}
+
+export function exportLegacyStorageJson(authenticatedUserId?: string | null): string | null {
+  try {
+    const inspection = inspectLegacyStorageState(authenticatedUserId);
+    if (!inspection.summary.exists || !inspection.summary.ownershipVerified) {
+      return null;
+    }
+    return localStorage.getItem(LEGACY_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function isLegacyRecoveryDismissedForUser(userId: string): boolean {
+  if (!isValidStorageUserId(userId)) return true;
+  try {
+    return localStorage.getItem(`${LEGACY_DISMISSED_KEY_PREFIX}${userId}`) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function dismissLegacyRecoveryPromptForUser(userId: string): void {
+  if (!isValidStorageUserId(userId)) return;
+  try {
+    localStorage.setItem(`${LEGACY_DISMISSED_KEY_PREFIX}${userId}`, 'true');
+  } catch {
+    // ignore
+  }
 }

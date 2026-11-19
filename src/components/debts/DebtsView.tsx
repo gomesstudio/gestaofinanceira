@@ -26,6 +26,7 @@ import confetti from 'canvas-confetti';
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency, formatDateBR, getTodayISO } from '../../utils/formatters';
 import { Debt, DebtPriority, DebtStatus } from '../../types/finance';
+import { ActionFeedback, ActionFeedbackBanner, ConfirmDeleteModal } from '../common/ConfirmDeleteModal';
 
 export const DebtsView: React.FC = () => {
   const {
@@ -41,6 +42,29 @@ export const DebtsView: React.FC = () => {
   const [amortizeModalDebt, setAmortizeModalDebt] = useState<Debt | null>(null);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
   const [historyModalDebt, setHistoryModalDebt] = useState<Debt | null>(null);
+  const [pendingDeleteDebt, setPendingDeleteDebt] = useState<Debt | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteFeedback, setDeleteFeedback] = useState<ActionFeedback | null>(null);
+
+  const handleConfirmDeleteDebt = async () => {
+    if (!pendingDeleteDebt || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      const result = await deleteDebt(pendingDeleteDebt.id);
+      setDeleteFeedback({
+        type: result.success && result.synced ? 'success' : 'error',
+        text: result.message
+      });
+    } catch (err: any) {
+      setDeleteFeedback({
+        type: 'error',
+        text: err?.message || 'Não foi possível excluir a dívida.'
+      });
+    } finally {
+      setIsDeleting(false);
+      setPendingDeleteDebt(null);
+    }
+  };
 
   // Form states for Add Debt
   const [name, setName] = useState('');
@@ -231,6 +255,11 @@ export const DebtsView: React.FC = () => {
           <span>Cadastrar Nova Dívida</span>
         </button>
       </div>
+
+      <ActionFeedbackBanner
+        feedback={deleteFeedback}
+        onClose={() => setDeleteFeedback(null)}
+      />
 
       {/* Fundamental Rule Note */}
       <div className="p-3.5 bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200/80 dark:border-blue-900/60 rounded-xl text-xs text-blue-900 dark:text-blue-300 flex items-start gap-2.5">
@@ -424,13 +453,14 @@ export const DebtsView: React.FC = () => {
                       </button>
 
                       <button
-                        onClick={() => {
-                          if (confirm(`Deseja excluir a dívida "${debt.name}"?`)) {
-                            deleteDebt(debt.id);
-                          }
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          setPendingDeleteDebt(debt);
                         }}
-                        className="text-xs text-slate-400 hover:text-rose-600 flex items-center gap-1 transition-colors"
+                        className="text-xs text-slate-400 hover:text-rose-600 flex items-center gap-1 transition-colors cursor-pointer"
                         title="Excluir dívida"
+                        aria-label={`Excluir dívida ${debt.name}`}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                         <span>Excluir</span>
@@ -897,6 +927,17 @@ export const DebtsView: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ConfirmDeleteModal
+        isOpen={!!pendingDeleteDebt}
+        title="Excluir Dívida"
+        description="Deseja excluir este registro de dívida? Os demais compromissos e saldos bancários permanecerão preservados."
+        itemLabel={pendingDeleteDebt?.name}
+        itemValue={pendingDeleteDebt ? formatCurrency(pendingDeleteDebt.currentBalance) : undefined}
+        isDeleting={isDeleting}
+        onConfirm={handleConfirmDeleteDebt}
+        onCancel={() => setPendingDeleteDebt(null)}
+      />
     </div>
   );
 };

@@ -22,6 +22,7 @@ import {
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency, formatDateBR } from '../../utils/formatters';
 import { IncomeGroup, Transaction } from '../../types/finance';
+import { ActionFeedback, ActionFeedbackBanner, ConfirmDeleteModal } from '../common/ConfirmDeleteModal';
 
 export const IncomesView: React.FC = () => {
   const {
@@ -47,6 +48,31 @@ export const IncomesView: React.FC = () => {
   const [editAccountId, setEditAccountId] = useState('');
   const [editStatus, setEditStatus] = useState<'paid' | 'pending'>('paid');
   const [editNotes, setEditNotes] = useState('');
+
+  // Delete confirmation & feedback state
+  const [pendingDeleteTx, setPendingDeleteTx] = useState<Transaction | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteFeedback, setDeleteFeedback] = useState<ActionFeedback | null>(null);
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDeleteTx || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      const result = await deleteTransaction(pendingDeleteTx.id);
+      setDeleteFeedback({
+        type: result.success && result.synced ? 'success' : 'error',
+        text: result.message
+      });
+    } catch (err: any) {
+      setDeleteFeedback({
+        type: 'error',
+        text: err?.message || 'Não foi possível excluir a entrada financeira.'
+      });
+    } finally {
+      setIsDeleting(false);
+      setPendingDeleteTx(null);
+    }
+  };
 
   const handleOpenEdit = (tx: Transaction) => {
     setEditingTx(tx);
@@ -141,6 +167,11 @@ export const IncomesView: React.FC = () => {
           <span>Cadastrar Nova Entrada</span>
         </button>
       </div>
+
+      <ActionFeedbackBanner
+        feedback={deleteFeedback}
+        onClose={() => setDeleteFeedback(null)}
+      />
 
       {/* Group Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
@@ -316,13 +347,14 @@ export const IncomesView: React.FC = () => {
                             <Copy className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => {
-                              if (confirm('Deseja excluir este lançamento de entrada? O saldo bancário será ajustado.')) {
-                                deleteTransaction(tx.id);
-                              }
+                            type="button"
+                            onClick={e => {
+                              e.stopPropagation();
+                              setPendingDeleteTx(tx);
                             }}
                             title="Excluir entrada"
-                            className="p-1 hover:text-rose-600 transition-colors"
+                            aria-label={`Excluir entrada ${tx.description}`}
+                            className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 transition-colors cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -457,6 +489,17 @@ export const IncomesView: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ConfirmDeleteModal
+        isOpen={!!pendingDeleteTx}
+        title="Excluir Entrada Financeira"
+        description="Deseja excluir este lançamento de entrada? Caso já tenha sido recebido, o saldo da conta bancária vinculada será ajustado automaticamente e os demais lançamentos permanecerão intactos."
+        itemLabel={pendingDeleteTx?.description}
+        itemValue={pendingDeleteTx ? `+${formatCurrency(pendingDeleteTx.amount)}` : undefined}
+        isDeleting={isDeleting}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setPendingDeleteTx(null)}
+      />
     </div>
   );
 };
