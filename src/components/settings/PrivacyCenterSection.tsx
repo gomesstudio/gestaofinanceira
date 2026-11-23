@@ -432,8 +432,8 @@ export const PrivacyCenterSection: React.FC<PrivacyCenterSectionProps> = ({
       className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden"
     >
       {/* Header da Central de Privacidade */}
-      <div className="p-5 border-b border-slate-200/75 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
+      <div className="p-4 sm:p-5 border-b border-slate-200/75 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="min-w-0">
           <h3
             id="privacy-center-heading"
             className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2"
@@ -453,7 +453,7 @@ export const PrivacyCenterSection: React.FC<PrivacyCenterSectionProps> = ({
 
       <div className="divide-y divide-slate-200/75 dark:divide-slate-800">
         {/* 1. Meus dados e informações */}
-        <div data-testid="privacy-my-data-section" className="p-5 space-y-4">
+        <div data-testid="privacy-my-data-section" className="p-4 sm:p-5 space-y-4">
           <div>
             <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <UserCheck className="w-4 h-4 text-slate-600 dark:text-slate-300 shrink-0" />
@@ -465,19 +465,19 @@ export const PrivacyCenterSection: React.FC<PrivacyCenterSectionProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-800">
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-800 min-w-0">
               <div className="text-[11px] text-slate-500 dark:text-slate-400">Nome de exibição</div>
               <div className="text-xs font-semibold text-slate-900 dark:text-white mt-0.5 truncate">
                 {userDisplayName?.trim() || 'Não informado no perfil'}
               </div>
             </div>
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-800">
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-800 min-w-0">
               <div className="text-[11px] text-slate-500 dark:text-slate-400">E-mail da conta</div>
               <div className="text-xs font-semibold text-slate-900 dark:text-white mt-0.5 truncate">
                 {userEmail?.trim() || 'Sessão sem e-mail conectado'}
               </div>
             </div>
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-800">
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-800 min-w-0">
               <div className="text-[11px] text-slate-500 dark:text-slate-400">
                 Identificador isolado da conta (UUID)
               </div>
@@ -492,7 +492,7 @@ export const PrivacyCenterSection: React.FC<PrivacyCenterSectionProps> = ({
               Categorias de registros armazenados nesta conta ({' '}
               <span className="tabular-nums">{totalFinancialRecords}</span> registros principais)
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+            <div className="grid grid-cols-2 min-[480px]:grid-cols-3 lg:grid-cols-6 gap-2.5">
               <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800">
                 <div className="text-[11px] text-slate-500 dark:text-slate-400">Lançamentos</div>
                 <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums mt-0.5">
@@ -544,10 +544,10 @@ export const PrivacyCenterSection: React.FC<PrivacyCenterSectionProps> = ({
         {/* 2. Termos de Uso e Política de Privacidade */}
         <div
           data-testid="settings-legal-documents-card"
-          className="p-5 space-y-4"
+          className="p-4 sm:p-5 space-y-4"
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
+            <div className="min-w-0">
               <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <FileText className="w-4 h-4 text-emerald-500 shrink-0" />
                 <span>Documentos Legais, Privacidade & Transparência (LGPD)</span>
@@ -570,7 +570,7 @@ export const PrivacyCenterSection: React.FC<PrivacyCenterSectionProps> = ({
                 handleOpenLegalDocument('terms_of_use');
               }}
               data-testid="settings-terms-link"
-              className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition-colors flex items-center justify-between gap-3 cursor-pointer"
+              className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition-colors flex items-center justify-between gap-3 cursor-pointer min-w-0"
             >
               <div className="flex items-start gap-3 min-w-0">
                 <FileText className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
@@ -594,7 +594,7 @@ export const PrivacyCenterSection: React.FC<PrivacyCenterSectionProps> = ({
                 handleOpenLegalDocument('privacy_policy');
               }}
               data-testid="settings-privacy-link"
-              className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition-colors flex items-center justify-between gap-3 cursor-pointer"
+              className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition-colors flex items-center justify-between gap-3 cursor-pointer min-w-0"
             >
               <div className="flex items-start gap-3 min-w-0">
                 <ShieldCheck className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
@@ -614,9 +614,9 @@ export const PrivacyCenterSection: React.FC<PrivacyCenterSectionProps> = ({
         </div>
 
         {/* 3. Histórico de aceites */}
-        <div data-testid="privacy-acceptance-history-section" className="p-5 space-y-4">
+        <div data-testid="privacy-acceptance-history-section" className="p-4 sm:p-5 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <History className="w-4 h-4 text-indigo-500 shrink-0" />
                 <span>Histórico de aceites</span>
@@ -632,9 +632,9 @@ export const PrivacyCenterSection: React.FC<PrivacyCenterSectionProps> = ({
                 onClick={() => void loadConsentData()}
                 disabled={isLoadingConsent}
                 data-testid="privacy-refresh-history-btn"
-                className="min-h-[40px] px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 inline-flex items-center justify-center gap-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60"
+                className="w-full sm:w-auto min-h-[40px] px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 inline-flex items-center justify-center gap-2 text-center leading-snug transition-colors shrink-0 cursor-pointer disabled:opacity-60"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingConsent ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${isLoadingConsent ? 'animate-spin' : ''}`} />
                 <span>
                   {isLoadingConsent
                     ? 'Consultando...'
@@ -735,9 +735,9 @@ export const PrivacyCenterSection: React.FC<PrivacyCenterSectionProps> = ({
         </div>
 
         {/* 4. Preferências de comunicação (Integrado à Fase 2.4.1) */}
-        <div data-testid="privacy-communication-preferences-section" className="p-5 space-y-4">
+        <div data-testid="privacy-communication-preferences-section" className="p-4 sm:p-5 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <span>Preferências de comunicação</span>
@@ -759,9 +759,9 @@ export const PrivacyCenterSection: React.FC<PrivacyCenterSectionProps> = ({
           </div>
 
           {/* Estado atual e controles */}
-          <div className="p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/35 space-y-3">
+          <div className="p-3.5 sm:p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/35 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="space-y-1">
+              <div className="space-y-1 min-w-0">
                 <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   Comunicações comerciais proativas via WhatsApp (opcional)
                 </div>
@@ -797,7 +797,7 @@ export const PrivacyCenterSection: React.FC<PrivacyCenterSectionProps> = ({
                   type="button"
                   onClick={() => void loadConsentData()}
                   data-testid="whatsapp-consent-load-btn"
-                  className="min-h-[40px] px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-100 inline-flex items-center justify-center gap-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                  className="w-full sm:w-auto min-h-[40px] px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-100 inline-flex items-center justify-center gap-2 text-center leading-snug transition-colors shrink-0 cursor-pointer"
                 >
                   <RefreshCw className="w-3.5 h-3.5 shrink-0" />
                   <span>Consultar preferências no servidor</span>
@@ -805,14 +805,14 @@ export const PrivacyCenterSection: React.FC<PrivacyCenterSectionProps> = ({
               )}
 
               {canManageWhatsappConsent && (
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto shrink-0">
                   {consentState?.optionalWhatsappConsentActive ? (
                     <button
                       type="button"
                       disabled={isUpdatingWhatsapp}
                       onClick={() => void handleWhatsappConsentAction('revoke')}
                       data-testid="whatsapp-consent-revoke-btn"
-                      className="min-h-[40px] px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-800/70 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-950/50 text-xs font-semibold text-rose-700 dark:text-rose-300 transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60"
+                      className="w-full sm:w-auto min-h-[40px] px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-800/70 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-950/50 text-xs font-semibold text-rose-700 dark:text-rose-300 text-center leading-snug transition-colors shrink-0 cursor-pointer disabled:opacity-60"
                     >
                       {isUpdatingWhatsapp ? 'Registrando...' : 'Revogar autorização comercial'}
                     </button>
@@ -822,7 +822,7 @@ export const PrivacyCenterSection: React.FC<PrivacyCenterSectionProps> = ({
                       disabled={isUpdatingWhatsapp}
                       onClick={() => void handleWhatsappConsentAction('grant')}
                       data-testid="whatsapp-consent-grant-btn"
-                      className="min-h-[40px] px-4 py-2 rounded-xl bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-xs font-semibold text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60"
+                      className="w-full sm:w-auto min-h-[40px] px-4 py-2 rounded-xl bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-xs font-semibold text-white text-center leading-snug transition-colors shrink-0 cursor-pointer disabled:opacity-60"
                     >
                       {isUpdatingWhatsapp ? 'Registrando...' : 'Conceder autorização comercial'}
                     </button>
@@ -851,7 +851,7 @@ export const PrivacyCenterSection: React.FC<PrivacyCenterSectionProps> = ({
                     target="_blank"
                     rel="noopener noreferrer"
                     data-testid="whatsapp-consent-manual-channel-link"
-                    className="inline-flex items-center gap-1.5 font-semibold text-amber-950 dark:text-amber-100 underline underline-offset-2"
+                    className="inline-flex flex-wrap items-center gap-1.5 font-semibold text-amber-950 dark:text-amber-100 underline underline-offset-2 leading-snug"
                   >
                     <span>
                       Solicitar alteração ou revogação pelo canal oficial (
@@ -932,9 +932,9 @@ export const PrivacyCenterSection: React.FC<PrivacyCenterSectionProps> = ({
         </div>
 
         {/* 5. Exportação dos meus dados */}
-        <div data-testid="privacy-data-export-section" className="p-5 space-y-3">
+        <div data-testid="privacy-data-export-section" className="p-4 sm:p-5 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="space-y-1 max-w-2xl">
+            <div className="space-y-1 max-w-2xl min-w-0">
               <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Download className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
                 <span>Exportação dos meus dados</span>
@@ -950,7 +950,7 @@ export const PrivacyCenterSection: React.FC<PrivacyCenterSectionProps> = ({
               type="button"
               onClick={onExportJson}
               data-testid="privacy-export-json-btn"
-              className="min-h-[40px] px-4 py-2 rounded-xl bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="w-full sm:w-auto min-h-[40px] px-4 py-2 rounded-xl bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-semibold inline-flex items-center justify-center gap-2 text-center leading-snug transition-colors shrink-0 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5 shrink-0" />
               <span>Exportar meus dados (JSON)</span>
@@ -959,9 +959,9 @@ export const PrivacyCenterSection: React.FC<PrivacyCenterSectionProps> = ({
         </div>
 
         {/* 6. Solicitações de privacidade (Direitos LGPD) */}
-        <div data-testid="privacy-rights-requests-section" className="p-5 space-y-4">
+        <div data-testid="privacy-rights-requests-section" className="p-4 sm:p-5 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <span>Solicitações de privacidade</span>
@@ -976,7 +976,7 @@ export const PrivacyCenterSection: React.FC<PrivacyCenterSectionProps> = ({
               target="_blank"
               rel="noopener noreferrer"
               data-testid="privacy-rights-whatsapp-link"
-              className="min-h-[40px] px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-100 inline-flex items-center justify-center gap-2 transition-colors whitespace-nowrap shrink-0"
+              className="w-full sm:w-auto min-h-[40px] px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-100 inline-flex items-center justify-center gap-2 text-center leading-snug transition-colors shrink-0"
             >
               <span>Atendimento LGPD via WhatsApp</span>
               <ExternalLink className="w-3.5 h-3.5 shrink-0" />
@@ -987,7 +987,7 @@ export const PrivacyCenterSection: React.FC<PrivacyCenterSectionProps> = ({
             {LGPD_RIGHTS_LIST.map(right => (
               <div
                 key={right.title}
-                className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-1"
+                className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-1 min-w-0"
               >
                 <div className="text-xs font-semibold text-slate-900 dark:text-white">
                   {right.title}
@@ -1008,9 +1008,9 @@ export const PrivacyCenterSection: React.FC<PrivacyCenterSectionProps> = ({
         </div>
 
         {/* 7. Excluir minha conta (exclusivamente informativo nesta etapa) */}
-        <div data-testid="privacy-account-deletion-section" className="p-5 space-y-3">
+        <div data-testid="privacy-account-deletion-section" className="p-4 sm:p-5 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-            <div className="space-y-1.5 max-w-2xl">
+            <div className="space-y-1.5 max-w-2xl min-w-0">
               <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
                 <span>Excluir minha conta</span>
@@ -1044,7 +1044,7 @@ export const PrivacyCenterSection: React.FC<PrivacyCenterSectionProps> = ({
               target="_blank"
               rel="noopener noreferrer"
               data-testid="privacy-delete-account-whatsapp-link"
-              className="min-h-[40px] px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-800/70 bg-rose-50 dark:bg-rose-950/25 hover:bg-rose-100 dark:hover:bg-rose-950/45 text-xs font-semibold text-rose-700 dark:text-rose-300 inline-flex items-center justify-center gap-2 transition-colors whitespace-nowrap shrink-0"
+              className="w-full sm:w-auto min-h-[40px] px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-800/70 bg-rose-50 dark:bg-rose-950/25 hover:bg-rose-100 dark:hover:bg-rose-950/45 text-xs font-semibold text-rose-700 dark:text-rose-300 inline-flex items-center justify-center gap-2 text-center leading-snug transition-colors shrink-0"
             >
               <span>Solicitar exclusão via canal oficial</span>
               <ExternalLink className="w-3.5 h-3.5 shrink-0" />

@@ -78,22 +78,22 @@ const MainAppContent: React.FC<MainAppContentProps> = ({
   if (isFinanceHydrating || !isFinanceHydrated || hydratedUserId !== supabaseUserId) {
     if (hydrationError) {
       return (
-        <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 bg-slate-950 text-slate-200 font-sans">
-          <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center space-y-4 shadow-xl">
+        <div className="min-h-screen min-h-[100dvh] w-full flex flex-col p-4 overflow-y-auto bg-slate-950 text-slate-200 font-sans">
+          <div className="max-w-md w-full m-auto bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 text-center space-y-4 shadow-xl">
             <h2 className="text-base font-bold text-white">Falha ao carregar os dados da conta</h2>
             <p className="text-xs text-slate-400 leading-relaxed">{hydrationError}</p>
             <div className="flex flex-col sm:flex-row gap-2 pt-2">
               <button
                 type="button"
                 onClick={retryCloudHydration}
-                className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                className="flex-1 min-h-[44px] py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
               >
                 Tentar Novamente
               </button>
               <button
                 type="button"
                 onClick={() => logout()}
-                className="flex-1 py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                className="flex-1 min-h-[44px] py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
               >
                 Encerrar Sessão
               </button>
@@ -104,7 +104,7 @@ const MainAppContent: React.FC<MainAppContentProps> = ({
     }
 
     return (
-      <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-200 font-sans">
+      <div className="min-h-screen min-h-[100dvh] w-full flex flex-col items-center justify-center p-4 text-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-200 font-sans">
         <div className="w-10 h-10 border-3 border-emerald-500/30 border-t-emerald-400 rounded-full animate-spin mb-4" />
         <p className="text-sm font-semibold text-white">Carregando dados exclusivos da sua conta...</p>
         <p className="text-xs text-slate-400 mt-1">Isolamento seguro por usuário autenticado</p>
@@ -150,12 +150,12 @@ const MainAppContent: React.FC<MainAppContentProps> = ({
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-500/20 selection:text-emerald-700 dark:selection:text-emerald-300">
+    <div className="flex min-h-screen min-h-[100dvh] bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-500/20 selection:text-emerald-700 dark:selection:text-emerald-300">
       {/* Desktop Sidebar */}
       <Sidebar currentTab={currentTab} setCurrentTab={setCurrentTab} />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 pb-20 lg:pb-8">
+      <div className="flex-1 flex flex-col min-w-0 pb-[calc(5.25rem+env(safe-area-inset-bottom))] lg:pb-8">
         {/* Sticky Header with Hamburger button on mobile */}
         <Header
           currentTab={currentTab}
@@ -170,7 +170,7 @@ const MainAppContent: React.FC<MainAppContentProps> = ({
           setCurrentTab={setCurrentTab}
         />
 
-        <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 lg:p-8 animate-in fade-in duration-150">
+        <main className="flex-1 max-w-7xl w-full mx-auto min-w-0 p-3 sm:p-5 lg:p-8 animate-in fade-in duration-150">
           {renderActiveView()}
         </main>
       </div>
@@ -565,7 +565,7 @@ const AuthenticatedApp: React.FC<AuthenticatedAppProps> = ({
 
   if (isSessionLoading) {
     return (
-      <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-200 font-sans">
+      <div className="min-h-screen min-h-[100dvh] w-full flex flex-col items-center justify-center p-4 text-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-200 font-sans">
         <div className="w-10 h-10 border-3 border-emerald-500/30 border-t-emerald-400 rounded-full animate-spin mb-4" />
         <p className="text-sm font-semibold text-white">Verificando sessão segura...</p>
         <p className="text-xs text-slate-400 mt-1">Autenticação segura da sua conta</p>
@@ -580,7 +580,7 @@ const AuthenticatedApp: React.FC<AuthenticatedAppProps> = ({
   if (isLegalConsentGateActive) {
     if (isCheckingLegalConsent || !legalConsentState) {
       return (
-        <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-200 font-sans">
+        <div className="min-h-screen min-h-[100dvh] w-full flex flex-col items-center justify-center p-4 text-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-200 font-sans">
           <div className="w-10 h-10 border-3 border-emerald-500/30 border-t-emerald-400 rounded-full animate-spin mb-4" />
           <p className="text-sm font-semibold text-white">Verificando aceite jurídico e privacidade...</p>
           <p className="text-xs text-slate-400 mt-1">Conferência segura vinculada à sua conta</p>
@@ -604,7 +604,7 @@ const AuthenticatedApp: React.FC<AuthenticatedAppProps> = ({
 
   if (isCheckingSubscription || !subscriptionAccess) {
     return (
-      <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-200 font-sans">
+      <div className="min-h-screen min-h-[100dvh] w-full flex flex-col items-center justify-center p-4 text-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-200 font-sans">
         <div className="w-10 h-10 border-3 border-emerald-500/30 border-t-emerald-400 rounded-full animate-spin mb-4" />
         <p className="text-sm font-semibold text-white">Validando plano e assinatura da conta...</p>
         <p className="text-xs text-slate-400 mt-1">Verificação segura da sua assinatura</p>

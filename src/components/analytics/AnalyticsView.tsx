@@ -16,13 +16,13 @@ import {
   Target,
   Sparkles,
   ChevronRight,
-  X,
   Calendar,
   Wallet
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency, formatDateBR, formatPercent, MONTH_NAMES_SHORT_PT } from '../../utils/formatters';
 import { Transaction } from '../../types/finance';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 
 export const AnalyticsView: React.FC = () => {
   const {
@@ -216,15 +216,15 @@ export const AnalyticsView: React.FC = () => {
       {/* Grid of 10 Mandatory Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* GRÁFICO 1: Entradas versus Saídas por Mês */}
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-          <div className="flex items-center justify-between mb-4">
-            <div>
+        <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <div className="min-w-0">
               <h3 className="font-bold text-slate-900 dark:text-white text-sm">
                 1. Entradas vs Saídas Mensais
               </h3>
               <p className="text-[11px] text-slate-400">Comparativo do fluxo de caixa nos últimos meses</p>
             </div>
-            <div className="flex items-center gap-3 text-[11px]">
+            <div className="flex items-center gap-3 text-[11px] shrink-0">
               <span className="flex items-center gap-1">
                 <span className="w-2.5 h-2.5 rounded-xs bg-emerald-500" /> Entradas
               </span>
@@ -235,29 +235,31 @@ export const AnalyticsView: React.FC = () => {
           </div>
 
           {/* SVG / Bar Chart */}
-          <div className="h-56 flex items-end justify-between gap-3 pt-6 pb-2 px-2">
-            {monthlyTrends.map((m, idx) => {
-              const incomeHeight = maxMonthlyVal > 0 ? (m.income / maxMonthlyVal) * 160 : 0;
-              const expenseHeight = maxMonthlyVal > 0 ? (m.expense / maxMonthlyVal) * 160 : 0;
+          <div className="overflow-x-auto overscroll-x-contain">
+            <div className="min-w-[340px] sm:min-w-0 h-56 flex items-end justify-between gap-2 sm:gap-3 pt-6 pb-2 px-2">
+              {monthlyTrends.map((m, idx) => {
+                const incomeHeight = maxMonthlyVal > 0 ? (m.income / maxMonthlyVal) * 160 : 0;
+                const expenseHeight = maxMonthlyVal > 0 ? (m.expense / maxMonthlyVal) * 160 : 0;
 
-              return (
-                <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
-                  <div className="flex items-end gap-1 w-full justify-center">
-                    <div
-                      className="w-3 sm:w-4 bg-emerald-500 rounded-t-sm transition-all hover:opacity-85"
-                      style={{ height: `${Math.max(4, incomeHeight)}px` }}
-                      title={`Entradas ${m.label}: ${formatCurrency(m.income)}`}
-                    />
-                    <div
-                      className="w-3 sm:w-4 bg-rose-500 rounded-t-sm transition-all hover:opacity-85"
-                      style={{ height: `${Math.max(4, expenseHeight)}px` }}
-                      title={`Saídas ${m.label}: ${formatCurrency(m.expense)}`}
-                    />
+                return (
+                  <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
+                    <div className="flex items-end gap-1 w-full justify-center">
+                      <div
+                        className="w-3 sm:w-4 bg-emerald-500 rounded-t-sm transition-all hover:opacity-85"
+                        style={{ height: `${Math.max(4, incomeHeight)}px` }}
+                        title={`Entradas ${m.label}: ${formatCurrency(m.income)}`}
+                      />
+                      <div
+                        className="w-3 sm:w-4 bg-rose-500 rounded-t-sm transition-all hover:opacity-85"
+                        style={{ height: `${Math.max(4, expenseHeight)}px` }}
+                        title={`Saídas ${m.label}: ${formatCurrency(m.expense)}`}
+                      />
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-400 mt-1">{m.label}</span>
                   </div>
-                  <span className="text-[10px] font-mono text-slate-400 mt-1">{m.label}</span>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
 
@@ -285,13 +287,13 @@ export const AnalyticsView: React.FC = () => {
                   onClick={() => setSelectedDrilldownCategory(cat.name)}
                   className="w-full group text-left p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
                 >
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <div className="flex items-center gap-2 truncate">
+                  <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs mb-1">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
                       <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 truncate">
                         {cat.name}
                       </span>
-                      <span className="text-[10px] text-slate-400">({cat.count} itens)</span>
+                      <span className="text-[10px] text-slate-400 shrink-0">({cat.count} itens)</span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="font-mono font-bold text-slate-900 dark:text-white tabular-nums">
@@ -326,7 +328,7 @@ export const AnalyticsView: React.FC = () => {
 
           <div className="flex items-center justify-center py-4">
             <div className="w-full max-w-sm space-y-4">
-              <div className="flex justify-between text-xs font-semibold">
+              <div className="flex flex-wrap justify-between gap-2 text-xs font-semibold">
                 <span className="text-blue-600 dark:text-blue-400">
                   Fixas: {formatCurrency(totalFixedExpenses)} ({totalExpensePeriod > 0 ? ((totalFixedExpenses / totalExpensePeriod) * 100).toFixed(0) : 0}%)
                 </span>
@@ -354,7 +356,7 @@ export const AnalyticsView: React.FC = () => {
         </div>
 
         {/* GRÁFICO 4: Evolução do Saldo Mensal */}
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+        <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
           <div className="mb-4">
             <h3 className="font-bold text-slate-900 dark:text-white text-sm">
               4. Evolução do Saldo & Sobra Líquida
@@ -362,26 +364,28 @@ export const AnalyticsView: React.FC = () => {
             <p className="text-[11px] text-slate-400">Capacidade de poupança mês a mês</p>
           </div>
 
-          <div className="h-44 flex items-end justify-between gap-3 px-2">
-            {monthlyTrends.map((m, idx) => (
-              <div key={idx} className="flex-1 flex flex-col items-center justify-end h-full">
-                <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold mb-1">
-                  +{formatCurrency(m.saved).replace('R$', '').trim()}
-                </span>
-                <div
-                  className="w-full bg-emerald-500/80 dark:bg-emerald-600 rounded-t-lg transition-all"
-                  style={{
-                    height: `${maxMonthlyVal > 0 ? Math.max(8, (m.saved / maxMonthlyVal) * 110) : 8}px`
-                  }}
-                />
-                <span className="text-[10px] font-mono text-slate-400 mt-2">{m.label}</span>
-              </div>
-            ))}
+          <div className="overflow-x-auto overscroll-x-contain">
+            <div className="min-w-[380px] sm:min-w-0 h-44 flex items-end justify-between gap-3 px-2">
+              {monthlyTrends.map((m, idx) => (
+                <div key={idx} className="flex-1 flex flex-col items-center justify-end h-full">
+                  <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold mb-1 whitespace-nowrap">
+                    +{formatCurrency(m.saved).replace('R$', '').trim()}
+                  </span>
+                  <div
+                    className="w-full bg-emerald-500/80 dark:bg-emerald-600 rounded-t-lg transition-all"
+                    style={{
+                      height: `${maxMonthlyVal > 0 ? Math.max(8, (m.saved / maxMonthlyVal) * 110) : 8}px`
+                    }}
+                  />
+                  <span className="text-[10px] font-mono text-slate-400 mt-2">{m.label}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* GRÁFICO 5: Evolução e Redução das Dívidas */}
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+        <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
           <div className="mb-3">
             <h3 className="font-bold text-slate-900 dark:text-white text-sm">
               5. Evolução da Redução das Dívidas
@@ -394,9 +398,9 @@ export const AnalyticsView: React.FC = () => {
               const paidPct = d.originalAmount > 0 ? ((d.totalPaid || 0) / d.originalAmount) * 100 : 0;
               return (
                 <div key={d.id} className="space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span className="font-medium text-slate-700 dark:text-slate-300">{d.name}</span>
-                    <span className="font-mono text-rose-600 dark:text-rose-400 tabular-nums font-semibold">
+                  <div className="flex flex-wrap justify-between gap-1 text-xs">
+                    <span className="font-medium text-slate-700 dark:text-slate-300 truncate min-w-0">{d.name}</span>
+                    <span className="font-mono text-rose-600 dark:text-rose-400 tabular-nums font-semibold shrink-0">
                       {formatCurrency(d.currentBalance)} restante
                     </span>
                   </div>
@@ -478,7 +482,7 @@ export const AnalyticsView: React.FC = () => {
 
           <div className="space-y-3">
             <div>
-              <div className="flex justify-between text-xs mb-1">
+              <div className="flex flex-wrap justify-between gap-1 text-xs mb-1">
                 <span className="text-slate-600 dark:text-slate-300">Renda Principal (Salário)</span>
                 <span className="font-mono font-bold tabular-nums">{formatCurrency(incomeDistribution.main)} ({incomeDistribution.mainPct.toFixed(0)}%)</span>
               </div>
@@ -488,7 +492,7 @@ export const AnalyticsView: React.FC = () => {
             </div>
 
             <div>
-              <div className="flex justify-between text-xs mb-1">
+              <div className="flex flex-wrap justify-between gap-1 text-xs mb-1">
                 <span className="text-slate-600 dark:text-slate-300">Benefícios & Adicionais</span>
                 <span className="font-mono font-bold tabular-nums">{formatCurrency(incomeDistribution.benefits)} ({incomeDistribution.benefitsPct.toFixed(0)}%)</span>
               </div>
@@ -498,7 +502,7 @@ export const AnalyticsView: React.FC = () => {
             </div>
 
             <div>
-              <div className="flex justify-between text-xs mb-1">
+              <div className="flex flex-wrap justify-between gap-1 text-xs mb-1">
                 <span className="text-slate-600 dark:text-slate-300">Entradas Extras (Freelances / Outros)</span>
                 <span className="font-mono font-bold tabular-nums">{formatCurrency(incomeDistribution.extras)} ({incomeDistribution.extrasPct.toFixed(0)}%)</span>
               </div>
@@ -510,7 +514,7 @@ export const AnalyticsView: React.FC = () => {
         </div>
 
         {/* GRÁFICO 9: Gastos com Cartões de Crédito */}
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+        <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
           <div className="mb-4">
             <h3 className="font-bold text-slate-900 dark:text-white text-sm">
               9. Utilização dos Cartões de Crédito
@@ -521,9 +525,9 @@ export const AnalyticsView: React.FC = () => {
           <div className="space-y-4">
             {cardSpending.map(({ card, total, usedPct }) => (
               <div key={card.id} className="space-y-1.5">
-                <div className="flex justify-between text-xs">
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">{card.name}</span>
-                  <span className="font-mono tabular-nums text-slate-900 dark:text-white font-bold">
+                <div className="flex flex-wrap justify-between gap-1 text-xs">
+                  <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">{card.name}</span>
+                  <span className="font-mono tabular-nums text-slate-900 dark:text-white font-bold shrink-0">
                     {formatCurrency(total)} / {formatCurrency(card.limitTotal)}
                   </span>
                 </div>
@@ -544,7 +548,7 @@ export const AnalyticsView: React.FC = () => {
         </div>
 
         {/* GRÁFICO 10: Ranking das Categorias com Maiores Gastos */}
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+        <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
           <div className="mb-4">
             <h3 className="font-bold text-slate-900 dark:text-white text-sm">
               10. Ranking de Maiores Despesas
@@ -554,14 +558,14 @@ export const AnalyticsView: React.FC = () => {
 
           <div className="space-y-2">
             {categoryStats.slice(0, 5).map((cat, idx) => (
-              <div key={cat.name} className="flex items-center justify-between text-xs p-2 rounded-xl bg-slate-50 dark:bg-slate-800/40">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-[10px] flex items-center justify-center">
+              <div key={cat.name} className="flex items-center justify-between gap-2 text-xs p-2 rounded-xl bg-slate-50 dark:bg-slate-800/40">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-[10px] flex items-center justify-center shrink-0">
                     {idx + 1}
                   </span>
-                  <span className="font-medium text-slate-800 dark:text-slate-200">{cat.name}</span>
+                  <span className="font-medium text-slate-800 dark:text-slate-200 truncate">{cat.name}</span>
                 </div>
-                <span className="font-mono font-bold text-rose-600 dark:text-rose-400 tabular-nums">
+                <span className="font-mono font-bold text-rose-600 dark:text-rose-400 tabular-nums shrink-0">
                   {formatCurrency(cat.total)}
                 </span>
               </div>
@@ -571,55 +575,40 @@ export const AnalyticsView: React.FC = () => {
       </div>
 
       {/* Drilldown Modal (When user clicks any category in Chart 2) */}
-      {selectedDrilldownCategory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                  Lançamentos em "{selectedDrilldownCategory}"
-                </h3>
-                <p className="text-xs text-slate-400">
-                  {drilldownTransactions.length} movimentação(ões) encontrada(s)
-                </p>
-              </div>
-              <button
-                onClick={() => setSelectedDrilldownCategory(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-5 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-              {drilldownTransactions.length === 0 ? (
-                <div className="text-center py-8 text-slate-400">Nenhum lançamento nesta categoria.</div>
-              ) : (
-                drilldownTransactions.map(t => (
-                  <div key={t.id} className="py-2.5 flex items-center justify-between gap-3">
-                    <div>
-                      <div className="font-semibold text-slate-900 dark:text-white">{t.description}</div>
-                      <div className="text-[11px] text-slate-400">
-                        {formatDateBR(t.date)} · {t.paymentMethod}
-                      </div>
-                    </div>
-                    <div className="font-mono font-bold text-rose-600 dark:text-rose-400 tabular-nums">
-                      {formatCurrency(t.amount)}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-xs">
-              <span className="text-slate-500 font-medium">Total Acumulado na Categoria:</span>
-              <span className="font-mono font-bold text-slate-900 dark:text-white text-sm">
-                {formatCurrency(drilldownTransactions.reduce((sum, t) => sum + t.amount, 0))}
-              </span>
-            </div>
+      <ResponsiveModal
+        isOpen={!!selectedDrilldownCategory}
+        onClose={() => setSelectedDrilldownCategory(null)}
+        title={`Lançamentos em "${selectedDrilldownCategory || ''}"`}
+        subtitle={`${drilldownTransactions.length} movimentação(ões) encontrada(s)`}
+        size="lg"
+        bodyClassName="divide-y divide-slate-100 dark:divide-slate-800 text-xs space-y-0"
+        footer={
+          <div className="flex flex-wrap justify-between items-center gap-2 text-xs">
+            <span className="text-slate-500 font-medium">Total Acumulado na Categoria:</span>
+            <span className="font-mono font-bold text-slate-900 dark:text-white text-sm">
+              {formatCurrency(drilldownTransactions.reduce((sum, t) => sum + t.amount, 0))}
+            </span>
           </div>
-        </div>
-      )}
+        }
+      >
+        {drilldownTransactions.length === 0 ? (
+          <div className="text-center py-8 text-slate-400">Nenhum lançamento nesta categoria.</div>
+        ) : (
+          drilldownTransactions.map(t => (
+            <div key={t.id} className="py-2.5 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-semibold text-slate-900 dark:text-white truncate">{t.description}</div>
+                <div className="text-[11px] text-slate-400">
+                  {formatDateBR(t.date)} · {t.paymentMethod}
+                </div>
+              </div>
+              <div className="font-mono font-bold text-rose-600 dark:text-rose-400 tabular-nums shrink-0">
+                {formatCurrency(t.amount)}
+              </div>
+            </div>
+          ))
+        )}
+      </ResponsiveModal>
     </div>
   );
 };

@@ -160,12 +160,12 @@ export const FutureProjectionCard: React.FC<FutureProjectionCardProps> = ({ onOp
       )}
 
       {/* Projeção Semestral: Próximos 6 Meses Lado a Lado */}
-      <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
+      <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-emerald-500" />
-              Projeção dos Próximos Meses: Quanto Você Estará Devendo
+              <Calendar className="w-4 h-4 text-emerald-500 shrink-0" />
+              <span>Projeção dos Próximos Meses: Quanto Você Estará Devendo</span>
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
               Planejamento mês a mês para você nunca ser surpreendido por contas futuras
@@ -180,14 +180,14 @@ export const FutureProjectionCard: React.FC<FutureProjectionCardProps> = ({ onOp
             return (
               <div
                 key={proj.label}
-                className="p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 hover:border-emerald-500/60 transition-all flex flex-col justify-between"
+                className="p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 hover:border-emerald-500/60 transition-all flex flex-col justify-between min-w-0"
               >
                 <div>
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2">
                     <span className="font-bold text-slate-900 dark:text-white text-xs">
                       {proj.label}
                     </span>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 shrink-0">
                       {idx === 0 ? 'Próximo Mês' : `Em ${idx + 1} meses`}
                     </span>
                   </div>
@@ -237,9 +237,9 @@ export const FutureProjectionCard: React.FC<FutureProjectionCardProps> = ({ onOp
                         Contas Programadas:
                       </span>
                       {proj.commitments.map(c => (
-                        <div key={c.id} className="flex justify-between text-slate-600 dark:text-slate-400 py-0.5 border-b border-slate-100 dark:border-slate-800/60 last:border-0">
-                          <span className="truncate max-w-[140px]">{c.description}</span>
-                          <span className="font-mono font-bold text-slate-900 dark:text-white tabular-nums">
+                        <div key={c.id} className="flex items-center justify-between gap-2 text-slate-600 dark:text-slate-400 py-0.5 border-b border-slate-100 dark:border-slate-800/60 last:border-0">
+                          <span className="truncate min-w-0 flex-1">{c.description}</span>
+                          <span className="font-mono font-bold text-slate-900 dark:text-white tabular-nums shrink-0">
                             {formatCurrency(c.amount)}
                           </span>
                         </div>

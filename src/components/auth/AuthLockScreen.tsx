@@ -314,13 +314,15 @@ export const AuthLockScreen: React.FC = () => {
     : '';
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-3 sm:p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100 font-sans selection:bg-emerald-500/20 selection:text-emerald-300 relative overflow-hidden max-w-full">
+    <div className="min-h-screen min-h-[100dvh] w-full flex flex-col p-3 sm:p-6 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100 font-sans selection:bg-emerald-500/20 selection:text-emerald-300 relative overflow-x-clip overflow-y-auto">
       {/* Ambient background glows */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[280px] sm:w-[500px] sm:h-[500px] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none max-w-full" />
-      <div className="absolute bottom-10 right-10 w-48 h-48 sm:w-80 sm:h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none max-w-full" />
+      <div className="fixed inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[280px] sm:w-[500px] sm:h-[500px] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-10 right-10 w-48 h-48 sm:w-80 sm:h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+      </div>
 
-      <div className="w-full max-w-md mx-auto relative z-10 animate-in fade-in zoom-in-95 duration-200">
-        <div className="p-5 sm:p-8 bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl shadow-2xl shadow-black/60 relative overflow-hidden">
+      <div className="w-full max-w-md m-auto relative z-10 animate-in fade-in zoom-in-95 duration-200">
+        <div className="p-4 sm:p-8 bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl shadow-2xl shadow-black/60 relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-500" />
 
           {/* Header & Logo */}
@@ -540,7 +542,7 @@ export const AuthLockScreen: React.FC = () => {
                 </div>
               )}
 
-              <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1 text-xs text-slate-300">
+              <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1 text-xs text-slate-300 break-words">
                 <div>
                   <span className="text-slate-500">Nome:</span>{' '}
                   <strong className="text-white">{confirmedRegistration.fullName}</strong>
@@ -551,7 +553,7 @@ export const AuthLockScreen: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-slate-500">E-mail:</span>{' '}
-                  <strong className="text-white">{confirmedRegistration.email}</strong>
+                  <strong className="text-white break-all">{confirmedRegistration.email}</strong>
                 </div>
                 <div>
                   <span className="text-slate-500">Plano solicitado:</span>{' '}
@@ -572,7 +574,7 @@ export const AuthLockScreen: React.FC = () => {
                     setConfirmedRegistration(updated);
                     savePendingRegistrationIntent(updated);
                   }}
-                  className="mt-0.5 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500"
+                  className="mt-0.5 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 shrink-0"
                 />
                 <span>
                   Autorizo compartilhar meu nome, WhatsApp, e-mail e plano solicitado com o atendimento oficial ({COMMERCIAL_WHATSAPP_NUMBER}) pelo WhatsApp para conclusão da contratação.
@@ -584,7 +586,7 @@ export const AuthLockScreen: React.FC = () => {
                   href={postSignupWhatsAppUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold rounded-xl shadow-lg shadow-emerald-950/50 transition-all flex items-center justify-center gap-2 text-center"
+                  className="w-full min-h-[44px] py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold rounded-xl shadow-lg shadow-emerald-950/50 transition-all flex items-center justify-center gap-2 text-center leading-snug"
                 >
                   <MessageCircle className="w-4 h-4 shrink-0" />
                   <span>CONCLUIR CONTRATAÇÃO PELO WHATSAPP</span>
@@ -598,7 +600,7 @@ export const AuthLockScreen: React.FC = () => {
                       'Marque a autorização de compartilhamento de dados cadastrais acima para abrir o WhatsApp.'
                     )
                   }
-                  className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs sm:text-sm font-bold rounded-xl border border-slate-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full min-h-[44px] py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs sm:text-sm font-bold rounded-xl border border-slate-700 transition-all flex items-center justify-center gap-2 text-center leading-snug cursor-pointer"
                 >
                   <MessageCircle className="w-4 h-4 text-emerald-400 shrink-0" />
                   <span>CONCLUIR CONTRATAÇÃO PELO WHATSAPP</span>

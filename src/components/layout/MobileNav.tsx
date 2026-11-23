@@ -23,39 +23,42 @@ export const MobileNav: React.FC<MobileNavProps> = ({ currentTab, setCurrentTab,
   const { openQuickEntry } = useFinance();
 
   return (
-    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 px-3 py-1.5 flex items-center justify-around shadow-lg">
+    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 px-1.5 sm:px-3 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] flex items-center justify-around shadow-lg">
       {/* 1. Início */}
       <button
+        type="button"
         onClick={() => setCurrentTab('dashboard')}
-        className={`flex flex-col items-center gap-0.5 min-w-[56px] py-1 transition-colors ${
+        className={`flex-1 min-w-0 min-h-[44px] flex flex-col items-center justify-center gap-0.5 px-0.5 py-1 transition-colors cursor-pointer ${
           currentTab === 'dashboard'
             ? 'text-emerald-600 dark:text-emerald-400 font-bold'
             : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
         }`}
       >
-        <LayoutDashboard className="w-5 h-5" />
-        <span className="text-[10px]">Início</span>
+        <LayoutDashboard className="w-5 h-5 shrink-0" />
+        <span className="text-[10px] truncate max-w-full">Início</span>
       </button>
 
       {/* 2. Extrato */}
       <button
+        type="button"
         onClick={() => setCurrentTab('transactions')}
-        className={`flex flex-col items-center gap-0.5 min-w-[56px] py-1 transition-colors ${
+        className={`flex-1 min-w-0 min-h-[44px] flex flex-col items-center justify-center gap-0.5 px-0.5 py-1 transition-colors cursor-pointer ${
           currentTab === 'transactions'
             ? 'text-emerald-600 dark:text-emerald-400 font-bold'
             : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
         }`}
       >
-        <Receipt className="w-5 h-5" />
-        <span className="text-[10px]">Extrato</span>
+        <Receipt className="w-5 h-5 shrink-0" />
+        <span className="text-[10px] truncate max-w-full">Extrato</span>
       </button>
 
       {/* 3. Floating Center + Quick Entry Button */}
-      <div className="-mt-6 flex flex-col items-center">
+      <div className="-mt-6 flex flex-col items-center shrink-0 px-1">
         <button
+          type="button"
           onClick={() => openQuickEntry('all')}
           aria-label="Adicionar lançamento rápido"
-          className="flex items-center justify-center w-12 h-12 rounded-full bg-slate-900 dark:bg-emerald-600 text-white shadow-xl hover:scale-105 active:scale-95 transition-all"
+          className="flex items-center justify-center w-12 h-12 rounded-full bg-slate-900 dark:bg-emerald-600 text-white shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
         >
           <Plus className="w-6 h-6" />
         </button>
@@ -64,29 +67,31 @@ export const MobileNav: React.FC<MobileNavProps> = ({ currentTab, setCurrentTab,
 
       {/* 4. Poder de Compra */}
       <button
+        type="button"
         onClick={() => setCurrentTab('power-of-purchase')}
-        className={`flex flex-col items-center gap-0.5 min-w-[56px] py-1 transition-colors ${
+        className={`flex-1 min-w-0 min-h-[44px] flex flex-col items-center justify-center gap-0.5 px-0.5 py-1 transition-colors cursor-pointer ${
           currentTab === 'power-of-purchase'
             ? 'text-emerald-600 dark:text-emerald-400 font-bold'
             : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
         }`}
       >
-        <Zap className="w-5 h-5" />
-        <span className="text-[10px]">Poder</span>
+        <Zap className="w-5 h-5 shrink-0" />
+        <span className="text-[10px] truncate max-w-full">Poder</span>
       </button>
 
       {/* 5. Todos os Módulos */}
       <button
+        type="button"
         onClick={openMobileMenu}
         aria-label="Abrir menu de todos os módulos"
-        className={`flex flex-col items-center gap-0.5 min-w-[56px] py-1 transition-colors ${
+        className={`flex-1 min-w-0 min-h-[44px] flex flex-col items-center justify-center gap-0.5 px-0.5 py-1 transition-colors cursor-pointer ${
           ['incomes', 'expenses', 'debts', 'cards', 'analytics', 'goals', 'calendar', 'reports', 'settings'].includes(currentTab)
             ? 'text-emerald-600 dark:text-emerald-400 font-bold'
             : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
         }`}
       >
-        <LayoutGrid className="w-5 h-5" />
-        <span className="text-[10px]">Módulos</span>
+        <LayoutGrid className="w-5 h-5 shrink-0" />
+        <span className="text-[10px] truncate max-w-full">Módulos</span>
       </button>
     </div>
   );

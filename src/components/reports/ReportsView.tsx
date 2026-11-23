@@ -181,7 +181,7 @@ export const ReportsView: React.FC = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-1.5 text-[11px] text-slate-600 dark:text-slate-400 font-medium">
+            <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-1.5 text-[11px] text-slate-600 dark:text-slate-400 font-medium">
               <span>1. Dashboard e Resumo</span>
               <span>2. Entradas</span>
               <span>3. Despesas</span>
@@ -196,9 +196,9 @@ export const ReportsView: React.FC = () => {
 
           <button
             onClick={handleExportExcel}
-            className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all active:scale-98"
+            className="w-full min-h-[44px] py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer text-center"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-4 h-4 shrink-0" />
             <span>Baixar Planilha Excel Completa (.xlsx)</span>
           </button>
         </div>
@@ -229,9 +229,9 @@ export const ReportsView: React.FC = () => {
 
           <button
             onClick={handleExportPDF}
-            className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-semibold text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all active:scale-98"
+            className="w-full min-h-[44px] py-3 px-4 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-semibold text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer text-center"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-4 h-4 shrink-0" />
             <span>Gerar e Baixar Relatório em PDF</span>
           </button>
         </div>

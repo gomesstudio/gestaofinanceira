@@ -17,9 +17,9 @@ import {
   CheckCircle2,
   AlertTriangle,
   Users,
-  X,
   Phone
 } from 'lucide-react';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 import {
   AdminSubscriptionAction,
   AdminSubscriptionListItem,
@@ -221,7 +221,7 @@ export const MasterClientsRequestsView: React.FC<MasterClientsRequestsViewProps>
   return (
     <div data-testid="master-clients-requests-view" className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
             Clientes e Solicitações de Acesso
           </h2>
@@ -234,9 +234,9 @@ export const MasterClientsRequestsView: React.FC<MasterClientsRequestsViewProps>
           type="button"
           onClick={() => onRefresh(search)}
           disabled={isLoading}
-          className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 inline-flex items-center gap-1.5 self-start sm:self-auto cursor-pointer whitespace-nowrap"
+          className="min-h-[38px] px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 inline-flex items-center justify-center gap-1.5 self-start sm:self-auto cursor-pointer"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${isLoading ? 'animate-spin' : ''}`} />
           <span>Atualizar Clientes</span>
         </button>
       </div>
@@ -244,7 +244,7 @@ export const MasterClientsRequestsView: React.FC<MasterClientsRequestsViewProps>
       {/* Barra de busca e filtros */}
       <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-3">
         <div className="flex flex-col sm:flex-row gap-2.5">
-          <div className="relative flex-1">
+          <div className="relative flex-1 min-w-0">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
@@ -263,7 +263,7 @@ export const MasterClientsRequestsView: React.FC<MasterClientsRequestsViewProps>
           <button
             type="button"
             onClick={() => onRefresh(search)}
-            className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-emerald-600 text-white text-xs font-semibold cursor-pointer whitespace-nowrap"
+            className="w-full sm:w-auto min-h-[38px] px-4 py-2 rounded-xl bg-slate-900 dark:bg-emerald-600 text-white text-xs font-semibold cursor-pointer"
           >
             Buscar
           </button>
@@ -412,9 +412,9 @@ export const MasterClientsRequestsView: React.FC<MasterClientsRequestsViewProps>
                   <button
                     type="button"
                     onClick={() => openHistoryModal(item)}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 inline-flex items-center gap-1.5 self-start shrink-0 cursor-pointer whitespace-nowrap"
+                    className="min-h-[36px] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 inline-flex items-center justify-center gap-1.5 self-start shrink-0 cursor-pointer leading-snug text-center"
                   >
-                    <Eye className="w-3.5 h-3.5" />
+                    <Eye className="w-3.5 h-3.5 shrink-0" />
                     <span>Analisar / Histórico</span>
                   </button>
                 </div>
@@ -432,9 +432,9 @@ export const MasterClientsRequestsView: React.FC<MasterClientsRequestsViewProps>
                           : 'activate_monthly'
                       )
                     }
-                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                    className="min-h-[36px] px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer leading-snug text-center"
                   >
-                    <Clock className="w-3.5 h-3.5" />
+                    <Clock className="w-3.5 h-3.5 shrink-0" />
                     <span>
                       {item.planType === 'monthly' && item.isEffectivelyActive
                         ? 'Renovar Mensal (+30d)'
@@ -453,9 +453,9 @@ export const MasterClientsRequestsView: React.FC<MasterClientsRequestsViewProps>
                           : 'activate_annual'
                       )
                     }
-                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                    className="min-h-[36px] px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer leading-snug text-center"
                   >
-                    <CalendarRange className="w-3.5 h-3.5" />
+                    <CalendarRange className="w-3.5 h-3.5 shrink-0" />
                     <span>
                       {item.planType === 'annual' && item.isEffectivelyActive
                         ? 'Renovar Anual (+12m)'
@@ -470,9 +470,9 @@ export const MasterClientsRequestsView: React.FC<MasterClientsRequestsViewProps>
                       setLifetimeTarget(item);
                       setLifetimeNote('');
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                    className="min-h-[36px] px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer leading-snug text-center"
                   >
-                    <Sparkles className="w-3.5 h-3.5" />
+                    <Sparkles className="w-3.5 h-3.5 shrink-0" />
                     <span>Conceder Vitalício Especial</span>
                   </button>
 
@@ -480,9 +480,9 @@ export const MasterClientsRequestsView: React.FC<MasterClientsRequestsViewProps>
                     type="button"
                     disabled={isBusy}
                     onClick={() => handleAction(item, 'suspend')}
-                    className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                    className="min-h-[36px] px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer leading-snug text-center"
                   >
-                    <PauseCircle className="w-3.5 h-3.5" />
+                    <PauseCircle className="w-3.5 h-3.5 shrink-0" />
                     <span>Suspender</span>
                   </button>
 
@@ -490,9 +490,9 @@ export const MasterClientsRequestsView: React.FC<MasterClientsRequestsViewProps>
                     type="button"
                     disabled={isBusy}
                     onClick={() => handleAction(item, 'cancel')}
-                    className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                    className="min-h-[36px] px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer leading-snug text-center"
                   >
-                    <XCircle className="w-3.5 h-3.5" />
+                    <XCircle className="w-3.5 h-3.5 shrink-0" />
                     <span>Cancelar</span>
                   </button>
 
@@ -501,9 +501,9 @@ export const MasterClientsRequestsView: React.FC<MasterClientsRequestsViewProps>
                       type="button"
                       disabled={isBusy}
                       onClick={() => handleAction(item, 'reject_request')}
-                      className="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                      className="min-h-[36px] px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer leading-snug text-center"
                     >
-                      <Ban className="w-3.5 h-3.5" />
+                      <Ban className="w-3.5 h-3.5 shrink-0" />
                       <span>Recusar Solicitação</span>
                     </button>
                   )}
@@ -515,30 +515,39 @@ export const MasterClientsRequestsView: React.FC<MasterClientsRequestsViewProps>
       )}
 
       {/* Modal de Confirmação para Concessão Vitalício Especial */}
-      {lifetimeTarget && (
-        <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="lifetime-modal-title"
-        >
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 space-y-4 shadow-2xl">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-violet-500 shrink-0" />
-                <h3 id="lifetime-modal-title" className="text-base font-bold text-slate-900 dark:text-white">
-                  Conceder Plano Vitalício Especial
-                </h3>
-              </div>
+      <ResponsiveModal
+        isOpen={!!lifetimeTarget}
+        onClose={() => setLifetimeTarget(null)}
+        size="md"
+        titleId="lifetime-modal-title"
+        icon={<Sparkles className="w-5 h-5 text-violet-500 shrink-0" />}
+        title="Conceder Plano Vitalício Especial"
+        footer={
+          lifetimeTarget && (
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setLifetimeTarget(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                className="min-h-[40px] px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={busyUserId === lifetimeTarget.userId}
+                onClick={() =>
+                  handleAction(lifetimeTarget, 'activate_lifetime', lifetimeNote)
+                }
+                className="min-h-[40px] px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-xs font-bold cursor-pointer"
+              >
+                Confirmar Concessão Vitalícia
               </button>
             </div>
-
+          )
+        }
+      >
+        {lifetimeTarget && (
+          <>
             <div className="text-xs text-slate-600 dark:text-slate-300 space-y-2 leading-relaxed">
               <p>
                 Você está concedendo acesso permanente (sem vencimento periódico) para{' '}
@@ -564,147 +573,126 @@ export const MasterClientsRequestsView: React.FC<MasterClientsRequestsViewProps>
                 className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
               />
             </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setLifetimeTarget(null)}
-                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={busyUserId === lifetimeTarget.userId}
-                onClick={() =>
-                  handleAction(lifetimeTarget, 'activate_lifetime', lifetimeNote)
-                }
-                className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-xs font-bold cursor-pointer"
-              >
-                Confirmar Concessão Vitalícia
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </ResponsiveModal>
 
       {/* Modal de Análise / Histórico Comercial */}
-      {historyTarget && (
-        <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="history-modal-title"
-        >
-          <div className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 space-y-5 shadow-2xl">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 id="history-modal-title" className="text-base font-bold text-slate-900 dark:text-white">
-                  Histórico Comercial — {historyTarget.fullName || historyTarget.email}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {historyTarget.email} {historyTarget.whatsapp ? `· ${historyTarget.whatsapp}` : ''}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setHistoryTarget(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
+      <ResponsiveModal
+        isOpen={!!historyTarget}
+        onClose={() => setHistoryTarget(null)}
+        size="2xl"
+        titleId="history-modal-title"
+        title={
+          historyTarget
+            ? `Histórico Comercial — ${historyTarget.fullName || historyTarget.email}`
+            : ''
+        }
+        subtitle={
+          historyTarget
+            ? `${historyTarget.email}${historyTarget.whatsapp ? ` · ${historyTarget.whatsapp}` : ''}`
+            : undefined
+        }
+        footer={
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setHistoryTarget(null)}
+              className="w-full sm:w-auto min-h-[40px] px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+            >
+              Fechar
+            </button>
+          </div>
+        }
+      >
+        {isLoadingHistory ? (
+          <div className="p-6 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+            <RefreshCw className="w-4 h-4 animate-spin" />
+            <span>Consultando histórico comercial...</span>
+          </div>
+        ) : historyError ? (
+          <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/30 text-xs text-rose-700 dark:text-rose-300">
+            {historyError}
+          </div>
+        ) : historyData ? (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Solicitações de Acesso ({historyData.requests.length})
+              </h4>
+              {historyData.requests.length === 0 ? (
+                <p className="text-xs text-slate-500">Nenhuma solicitação registrada.</p>
+              ) : (
+                <div className="space-y-2">
+                  {historyData.requests.map(req => (
+                    <div
+                      key={req.id}
+                      className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-800 text-xs flex flex-wrap items-center justify-between gap-2"
+                    >
+                      <span>
+                        Plano: <strong>{req.requested_plan === 'annual' ? 'Anual' : 'Mensal'}</strong> · Situação:{' '}
+                        <strong>{req.request_status}</strong>
+                      </span>
+                      <span className="text-slate-500 tabular-nums">
+                        {new Date(req.created_at).toLocaleString('pt-BR')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {isLoadingHistory ? (
-              <div className="p-6 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>Consultando histórico comercial...</span>
-              </div>
-            ) : historyError ? (
-              <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/30 text-xs text-rose-700 dark:text-rose-300">
-                {historyError}
-              </div>
-            ) : historyData ? (
-              <div className="space-y-4">
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Pagamentos Registrados ({historyData.payments.length})
+              </h4>
+              {historyData.payments.length === 0 ? (
+                <p className="text-xs text-slate-500">Nenhum pagamento comercial lançado para este cliente.</p>
+              ) : (
                 <div className="space-y-2">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Solicitações de Acesso ({historyData.requests.length})
-                  </h4>
-                  {historyData.requests.length === 0 ? (
-                    <p className="text-xs text-slate-500">Nenhuma solicitação registrada.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {historyData.requests.map(req => (
-                        <div
-                          key={req.id}
-                          className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-800 text-xs flex flex-wrap items-center justify-between gap-2"
-                        >
-                          <span>
-                            Plano: <strong>{req.requested_plan === 'annual' ? 'Anual' : 'Mensal'}</strong> · Situação:{' '}
-                            <strong>{req.request_status}</strong>
-                          </span>
-                          <span className="text-slate-500 tabular-nums">
-                            {new Date(req.created_at).toLocaleString('pt-BR')}
-                          </span>
-                        </div>
-                      ))}
+                  {historyData.payments.map(pay => (
+                    <div
+                      key={pay.id}
+                      className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-800 text-xs flex flex-wrap items-center justify-between gap-2 tabular-nums"
+                    >
+                      <span>
+                        <strong>{formatCentsToBRL(pay.amount_cents)}</strong> ({pay.subscription_plan}) ·{' '}
+                        {pay.payment_method} · Status: <strong>{pay.payment_status}</strong>
+                      </span>
+                      <span className="text-slate-500">{pay.payment_date}</span>
                     </div>
-                  )}
+                  ))}
                 </div>
+              )}
+            </div>
 
-                <div className="space-y-2">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Pagamentos Registrados ({historyData.payments.length})
-                  </h4>
-                  {historyData.payments.length === 0 ? (
-                    <p className="text-xs text-slate-500">Nenhum pagamento comercial lançado para este cliente.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {historyData.payments.map(pay => (
-                        <div
-                          key={pay.id}
-                          className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-800 text-xs flex flex-wrap items-center justify-between gap-2 tabular-nums"
-                        >
-                          <span>
-                            <strong>{formatCentsToBRL(pay.amount_cents)}</strong> ({pay.subscription_plan}) ·{' '}
-                            {pay.payment_method} · Status: <strong>{pay.payment_status}</strong>
-                          </span>
-                          <span className="text-slate-500">{pay.payment_date}</span>
-                        </div>
-                      ))}
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Auditoria Administrativa ({historyData.auditLogs.length})
+              </h4>
+              {historyData.auditLogs.length === 0 ? (
+                <p className="text-xs text-slate-500">Nenhum evento de auditoria registrado.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {historyData.auditLogs.map(log => (
+                    <div
+                      key={log.id}
+                      className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 text-[11px] flex flex-wrap items-center justify-between gap-2"
+                    >
+                      <span className="font-mono text-slate-700 dark:text-slate-300 break-all">
+                        {log.action} ({log.entity_type})
+                      </span>
+                      <span className="text-slate-500 tabular-nums shrink-0">
+                        {new Date(log.created_at).toLocaleString('pt-BR')}
+                      </span>
                     </div>
-                  )}
+                  ))}
                 </div>
-
-                <div className="space-y-2">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Auditoria Administrativa ({historyData.auditLogs.length})
-                  </h4>
-                  {historyData.auditLogs.length === 0 ? (
-                    <p className="text-xs text-slate-500">Nenhum evento de auditoria registrado.</p>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {historyData.auditLogs.map(log => (
-                        <div
-                          key={log.id}
-                          className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 text-[11px] flex items-center justify-between gap-2"
-                        >
-                          <span className="font-mono text-slate-700 dark:text-slate-300">
-                            {log.action} ({log.entity_type})
-                          </span>
-                          <span className="text-slate-500 tabular-nums">
-                            {new Date(log.created_at).toLocaleString('pt-BR')}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : null}
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        ) : null}
+      </ResponsiveModal>
     </div>
   );
 };

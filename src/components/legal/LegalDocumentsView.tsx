@@ -101,16 +101,16 @@ export const LegalDocumentsView: React.FC<LegalDocumentsViewProps> = ({
       data-legal-theme={isDark ? 'dark' : 'light'}
       className={isDark ? 'dark' : ''}
     >
-      <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors">
+      <div className="min-h-screen min-h-[100dvh] w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors">
         {/* Top Sticky Header */}
         <header className="sticky top-0 z-30 border-b border-slate-200/80 dark:border-slate-800/90 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
+          <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
               <button
                 type="button"
                 onClick={onClose}
                 data-testid="legal-back-button"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors cursor-pointer shrink-0"
+                className="inline-flex items-center gap-1.5 min-h-[38px] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors cursor-pointer shrink-0"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>{backLabel}</span>
@@ -131,16 +131,16 @@ export const LegalDocumentsView: React.FC<LegalDocumentsViewProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
               <nav
                 aria-label="Alternar documento legal"
-                className="inline-flex rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 p-1 text-xs"
+                className="inline-flex flex-wrap sm:flex-nowrap rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 p-1 text-xs max-w-full"
               >
                 <button
                   type="button"
                   onClick={() => onSelectDocument('terms_of_use')}
                   aria-current={documentId === 'terms_of_use' ? 'page' : undefined}
-                  className={`px-3 py-1.5 rounded-lg font-semibold transition-colors inline-flex items-center gap-1.5 cursor-pointer ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold transition-colors inline-flex items-center gap-1.5 cursor-pointer ${
                     documentId === 'terms_of_use'
                       ? 'bg-emerald-600 text-white shadow-xs'
                       : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
@@ -153,7 +153,7 @@ export const LegalDocumentsView: React.FC<LegalDocumentsViewProps> = ({
                   type="button"
                   onClick={() => onSelectDocument('privacy_policy')}
                   aria-current={documentId === 'privacy_policy' ? 'page' : undefined}
-                  className={`px-3 py-1.5 rounded-lg font-semibold transition-colors inline-flex items-center gap-1.5 cursor-pointer ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold transition-colors inline-flex items-center gap-1.5 cursor-pointer ${
                     documentId === 'privacy_policy'
                       ? 'bg-emerald-600 text-white shadow-xs'
                       : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
@@ -169,7 +169,7 @@ export const LegalDocumentsView: React.FC<LegalDocumentsViewProps> = ({
                 onClick={handleToggleTheme}
                 aria-label={isDark ? 'Ativar tema claro na leitura' : 'Ativar tema escuro na leitura'}
                 title={isDark ? 'Tema claro' : 'Tema escuro'}
-                className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer shrink-0"
+                className="p-2 min-w-[38px] min-h-[38px] flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer shrink-0"
               >
                 {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </button>
@@ -181,7 +181,7 @@ export const LegalDocumentsView: React.FC<LegalDocumentsViewProps> = ({
         <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
             {/* Sidebar Navigation (Desktop Sticky / Mobile Card) */}
-            <aside className="lg:col-span-4 lg:sticky lg:top-20 space-y-4">
+            <aside className="lg:col-span-4 lg:sticky lg:top-20 space-y-4 min-w-0">
               <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   <BookOpen className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -238,7 +238,7 @@ export const LegalDocumentsView: React.FC<LegalDocumentsViewProps> = ({
             </aside>
 
             {/* Document Body */}
-            <article className="lg:col-span-8 space-y-6">
+            <article className="lg:col-span-8 space-y-6 min-w-0">
               {/* Document Header Banner */}
               <div className="p-5 sm:p-8 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
                 <div className="flex flex-wrap items-center gap-2 text-xs">

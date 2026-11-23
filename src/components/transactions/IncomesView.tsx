@@ -16,13 +16,13 @@ import {
   Trash2,
   Copy,
   Edit2,
-  ArrowUpRight,
-  X
+  ArrowUpRight
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency, formatDateBR } from '../../utils/formatters';
 import { IncomeGroup, Transaction } from '../../types/finance';
 import { ActionFeedback, ActionFeedbackBanner, ConfirmDeleteModal } from '../common/ConfirmDeleteModal';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 
 export const IncomesView: React.FC = () => {
   const {
@@ -245,12 +245,12 @@ export const IncomesView: React.FC = () => {
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col min-[380px]:flex-row flex-wrap items-stretch min-[380px]:items-center gap-2">
           {/* Group Filter */}
           <select
             value={selectedGroup}
             onChange={e => setSelectedGroup(e.target.value as any)}
-            className="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden"
+            className="w-full min-[380px]:w-auto flex-1 px-2.5 py-2 text-xs bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden"
           >
             <option value="all">Todos os Grupos</option>
             <option value="main_income">Renda Principal</option>
@@ -262,7 +262,7 @@ export const IncomesView: React.FC = () => {
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value as any)}
-            className="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden"
+            className="w-full min-[380px]:w-auto flex-1 px-2.5 py-2 text-xs bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden"
           >
             <option value="all">Todas as Situações</option>
             <option value="paid">Recebido</option>
@@ -335,14 +335,14 @@ export const IncomesView: React.FC = () => {
                           <button
                             onClick={() => handleOpenEdit(tx)}
                             title="Editar entrada"
-                            className="p-1 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                            className="p-1.5 rounded-lg hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => duplicateTransaction(tx.id)}
                             title="Duplicar entrada"
-                            className="p-1 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                            className="p-1.5 rounded-lg hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
                           >
                             <Copy className="w-3.5 h-3.5" />
                           </button>
@@ -370,125 +370,107 @@ export const IncomesView: React.FC = () => {
       </div>
 
       {/* Modal Editar Entrada */}
-      {editingTx && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in"
-          onClick={() => setEditingTx(null)}
-        >
-          <div 
-            className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden"
-            onClick={e => e.stopPropagation()}
+      <ResponsiveModal
+        isOpen={!!editingTx}
+        onClose={() => setEditingTx(null)}
+        title="Editar Entrada Financeira"
+        size="md"
+        onSubmit={handleSaveEdit}
+        bodyClassName="text-xs"
+        footer={
+          <button
+            type="submit"
+            className="w-full min-h-[42px] py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition-all shadow-xs cursor-pointer"
           >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Editar Entrada Financeira
-              </h3>
-              <button
-                onClick={() => setEditingTx(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            Salvar Alterações
+          </button>
+        }
+      >
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Descrição</label>
+          <input
+            type="text"
+            required
+            value={editDesc}
+            onChange={e => setEditDesc(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          />
+        </div>
 
-            <form onSubmit={handleSaveEdit} className="p-5 space-y-4 text-xs">
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Descrição</label>
-                <input
-                  type="text"
-                  required
-                  value={editDesc}
-                  onChange={e => setEditDesc(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                />
-              </div>
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Valor (R$)</label>
+          <input
+            type="text"
+            required
+            value={editAmountStr}
+            onChange={e => setEditAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
+            className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          />
+        </div>
 
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Valor (R$)</label>
-                <input
-                  type="text"
-                  required
-                  value={editAmountStr}
-                  onChange={e => setEditAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
-                  className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                />
-              </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Categoria</label>
+            <select
+              value={editCat}
+              onChange={e => setEditCat(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            >
+              {categories.filter(c => c.type === 'income').map(c => (
+                <option key={c.id} value={c.name}>{c.name}</option>
+              ))}
+            </select>
+          </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Categoria</label>
-                  <select
-                    value={editCat}
-                    onChange={e => setEditCat(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  >
-                    {categories.filter(c => c.type === 'income').map(c => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Conta de Destino</label>
-                  <select
-                    value={editAccountId}
-                    onChange={e => setEditAccountId(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  >
-                    {accounts.map(acc => (
-                      <option key={acc.id} value={acc.id}>{acc.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Data</label>
-                  <input
-                    type="date"
-                    value={editDate}
-                    onChange={e => setEditDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Situação / Status</label>
-                  <select
-                    value={editStatus}
-                    onChange={e => setEditStatus(e.target.value as 'paid' | 'pending')}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  >
-                    <option value="paid">Recebido na Conta</option>
-                    <option value="pending">Previsto / Pendente</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Observações</label>
-                <input
-                  type="text"
-                  placeholder="Opcional..."
-                  value={editNotes}
-                  onChange={e => setEditNotes(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all shadow-xs"
-                >
-                  Salvar Alterações
-                </button>
-              </div>
-            </form>
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Conta de Destino</label>
+            <select
+              value={editAccountId}
+              onChange={e => setEditAccountId(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            >
+              {accounts.map(acc => (
+                <option key={acc.id} value={acc.id}>{acc.name}</option>
+              ))}
+            </select>
           </div>
         </div>
-      )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Data</label>
+            <input
+              type="date"
+              value={editDate}
+              onChange={e => setEditDate(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Situação / Status</label>
+            <select
+              value={editStatus}
+              onChange={e => setEditStatus(e.target.value as 'paid' | 'pending')}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            >
+              <option value="paid">Recebido na Conta</option>
+              <option value="pending">Previsto / Pendente</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Observações</label>
+          <input
+            type="text"
+            placeholder="Opcional..."
+            value={editNotes}
+            onChange={e => setEditNotes(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          />
+        </div>
+      </ResponsiveModal>
 
       <ConfirmDeleteModal
         isOpen={!!pendingDeleteTx}

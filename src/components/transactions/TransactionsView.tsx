@@ -18,13 +18,13 @@ import {
   AlertTriangle,
   CreditCard,
   Wallet,
-  X,
   Plus
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency, formatDateBR, getTodayISO } from '../../utils/formatters';
 import { Transaction, TransactionStatus, TransactionType } from '../../types/finance';
 import { ActionFeedback, ActionFeedbackBanner, ConfirmDeleteModal } from '../common/ConfirmDeleteModal';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 
 export const TransactionsView: React.FC = () => {
   const {
@@ -178,11 +178,11 @@ export const TransactionsView: React.FC = () => {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
             <select
               value={typeFilter}
               onChange={e => setTypeFilter(e.target.value)}
-              className="px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden"
+              className="w-full sm:w-auto flex-1 sm:flex-none px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden"
             >
               <option value="all">Todos os Tipos</option>
               <option value="income">Entradas (Receitas)</option>
@@ -196,7 +196,7 @@ export const TransactionsView: React.FC = () => {
             <select
               value={categoryFilter}
               onChange={e => setCategoryFilter(e.target.value)}
-              className="px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden"
+              className="w-full sm:w-auto flex-1 sm:flex-none px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden"
             >
               <option value="all">Todas as Categorias</option>
               {allCategories.map(c => (
@@ -207,7 +207,7 @@ export const TransactionsView: React.FC = () => {
             <select
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
-              className="px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden"
+              className="w-full sm:w-auto flex-1 sm:flex-none px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden"
             >
               <option value="all">Todos os Status</option>
               <option value="paid">Pagos / Recebidos</option>
@@ -218,14 +218,14 @@ export const TransactionsView: React.FC = () => {
         </div>
 
         {/* Secondary Row: Amount Range */}
-        <div className="flex items-center gap-2 text-xs text-slate-500 pt-1">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 pt-1">
           <span>Faixa de valor:</span>
           <input
             type="text"
             placeholder="Min (R$)"
             value={minAmountStr}
             onChange={e => setMinAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
-            className="w-24 px-2 py-1 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white font-mono text-[11px]"
+            className="w-24 px-2 py-1.5 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white font-mono text-[11px]"
           />
           <span>até</span>
           <input
@@ -233,7 +233,7 @@ export const TransactionsView: React.FC = () => {
             placeholder="Max (R$)"
             value={maxAmountStr}
             onChange={e => setMaxAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
-            className="w-24 px-2 py-1 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white font-mono text-[11px]"
+            className="w-24 px-2 py-1.5 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white font-mono text-[11px]"
           />
           {(minAmountStr || maxAmountStr || search || typeFilter !== 'all' || categoryFilter !== 'all' || statusFilter !== 'all') && (
             <button
@@ -343,14 +343,14 @@ export const TransactionsView: React.FC = () => {
                           <button
                             onClick={() => handleOpenEdit(tx)}
                             title="Editar lançamento"
-                            className="p-1 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                            className="p-1.5 rounded-lg hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => duplicateTransaction(tx.id)}
                             title="Duplicar lançamento"
-                            className="p-1 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                            className="p-1.5 rounded-lg hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
                           >
                             <Copy className="w-3.5 h-3.5" />
                           </button>
@@ -378,104 +378,92 @@ export const TransactionsView: React.FC = () => {
       </div>
 
       {/* Edit Transaction Modal */}
-      {editingTx && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Editar Lançamento
-              </h3>
-              <button
-                onClick={() => setEditingTx(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      <ResponsiveModal
+        isOpen={!!editingTx}
+        onClose={() => setEditingTx(null)}
+        title="Editar Lançamento"
+        size="md"
+        onSubmit={handleSaveEdit}
+        bodyClassName="text-xs"
+        footer={
+          <button
+            type="submit"
+            className="w-full min-h-[42px] py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition-all shadow-xs cursor-pointer"
+          >
+            Salvar Alterações
+          </button>
+        }
+      >
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Descrição</label>
+          <input
+            type="text"
+            required
+            value={editDesc}
+            onChange={e => setEditDesc(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          />
+        </div>
 
-            <form onSubmit={handleSaveEdit} className="p-5 space-y-4 text-xs">
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Descrição</label>
-                <input
-                  type="text"
-                  required
-                  value={editDesc}
-                  onChange={e => setEditDesc(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                />
-              </div>
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Valor (R$)</label>
+          <input
+            type="text"
+            required
+            value={editAmountStr}
+            onChange={e => setEditAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
+            className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          />
+        </div>
 
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Valor (R$)</label>
-                <input
-                  type="text"
-                  required
-                  value={editAmountStr}
-                  onChange={e => setEditAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
-                  className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Categoria</label>
-                  <select
-                    value={editCat}
-                    onChange={e => setEditCat(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  >
-                    {allCategories.map(c => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Situação / Status</label>
-                  <select
-                    value={editStatus}
-                    onChange={e => setEditStatus(e.target.value as TransactionStatus)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  >
-                    <option value="paid">Efetivado (Pago/Recebido)</option>
-                    <option value="pending">Pendente (A vencer)</option>
-                    <option value="overdue">Atrasado</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Data</label>
-                  <input
-                    type="date"
-                    value={editDate}
-                    onChange={e => setEditDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Vencimento</label>
-                  <input
-                    type="date"
-                    value={editDueDate}
-                    onChange={e => setEditDueDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all shadow-xs"
-                >
-                  Salvar Alterações
-                </button>
-              </div>
-            </form>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Categoria</label>
+            <select
+              value={editCat}
+              onChange={e => setEditCat(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            >
+              {allCategories.map(c => (
+                <option key={c.id} value={c.name}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Situação / Status</label>
+            <select
+              value={editStatus}
+              onChange={e => setEditStatus(e.target.value as TransactionStatus)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            >
+              <option value="paid">Efetivado (Pago/Recebido)</option>
+              <option value="pending">Pendente (A vencer)</option>
+              <option value="overdue">Atrasado</option>
+            </select>
           </div>
         </div>
-      )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Data</label>
+            <input
+              type="date"
+              value={editDate}
+              onChange={e => setEditDate(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Vencimento</label>
+            <input
+              type="date"
+              value={editDueDate}
+              onChange={e => setEditDueDate(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+        </div>
+      </ResponsiveModal>
 
       <ConfirmDeleteModal
         isOpen={!!pendingDeleteTx}

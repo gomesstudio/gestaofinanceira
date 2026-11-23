@@ -19,14 +19,14 @@ import {
   Percent,
   Trash2,
   Edit2,
-  History,
-  X
+  History
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency, formatDateBR, getTodayISO } from '../../utils/formatters';
 import { Debt, DebtPriority, DebtStatus } from '../../types/finance';
 import { ActionFeedback, ActionFeedbackBanner, ConfirmDeleteModal } from '../common/ConfirmDeleteModal';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 
 export const DebtsView: React.FC = () => {
   const {
@@ -350,20 +350,20 @@ export const DebtsView: React.FC = () => {
                 >
                   <div>
                     {/* Header line */}
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div>
-                        <span className="text-[11px] text-slate-400 font-medium">Credor: {debt.creditor}</span>
-                        <h4 className="text-base font-bold text-slate-900 dark:text-white">
+                    <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[11px] text-slate-400 font-medium block truncate">Credor: {debt.creditor}</span>
+                        <h4 className="text-base font-bold text-slate-900 dark:text-white break-words">
                           {debt.name}
                         </h4>
                       </div>
-                      <span className={`px-2.5 py-0.5 text-[11px] font-semibold rounded-lg border ${getStatusBadge(debt.status)}`}>
+                      <span className={`px-2.5 py-0.5 text-[11px] font-semibold rounded-lg border shrink-0 ${getStatusBadge(debt.status)}`}>
                         {getStatusLabel(debt.status)}
                       </span>
                     </div>
 
                     {/* Balances */}
-                    <div className="grid grid-cols-2 gap-2 my-3 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl">
+                    <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-2 my-3 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl">
                       <div>
                         <div className="text-[11px] text-slate-400">Saldo Devedor Atual</div>
                         <div className="text-base font-bold font-mono text-rose-600 dark:text-rose-400 tabular-nums">
@@ -395,7 +395,7 @@ export const DebtsView: React.FC = () => {
                     </div>
 
                     {/* Metadata details */}
-                    <div className="grid grid-cols-2 gap-y-1 text-xs text-slate-500 mb-3">
+                    <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-y-1 gap-x-2 text-xs text-slate-500 mb-3">
                       <div>
                         <span>Taxa de Juros: </span>
                         <span className="font-semibold text-slate-700 dark:text-slate-300">
@@ -431,11 +431,11 @@ export const DebtsView: React.FC = () => {
 
                   {/* Actions */}
                   <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2.5">
                       {debt.paymentsHistory && debt.paymentsHistory.length > 0 && (
                         <button
                           onClick={() => setHistoryModalDebt(debt)}
-                          className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1 transition-colors"
+                          className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1 transition-colors cursor-pointer"
                           title="Ver histórico de pagamentos"
                         >
                           <History className="w-3.5 h-3.5" />
@@ -493,440 +493,379 @@ export const DebtsView: React.FC = () => {
       </div>
 
       {/* Modal: Cadastrar Dívida */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Cadastrar Dívida ou Pendência
-              </h3>
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateDebt} className="p-5 space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
-                  <label className="block font-medium text-slate-500 mb-1">Nome da Dívida / Contrato *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ex: Empréstimo Caixa, Cartão de Loja em Atraso..."
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Credor / Banco</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: Caixa, Santander, Amigo..."
-                    value={creditor}
-                    onChange={e => setCreditor(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Prioridade</label>
-                  <select
-                    value={priority}
-                    onChange={e => setPriority(e.target.value as DebtPriority)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  >
-                    <option value="low">Baixa</option>
-                    <option value="medium">Média</option>
-                    <option value="high">Alta</option>
-                    <option value="urgent">Urgente</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Valor Original (R$) *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="0,00"
-                    value={originalAmountStr}
-                    onChange={e => setOriginalAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
-                    className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Saldo Devedor Atual (R$)</label>
-                  <input
-                    type="text"
-                    placeholder="Igual ao original se vazio"
-                    value={currentBalanceStr}
-                    onChange={e => setCurrentBalanceStr(e.target.value.replace(/[^0-9,]/g, ''))}
-                    className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Juros (% ao mês)</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: 2,5"
-                    value={interestRateStr}
-                    onChange={e => setInterestRateStr(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Parcela Mínima (R$)</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: 250,00"
-                    value={minPaymentStr}
-                    onChange={e => setMinPaymentStr(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Data de Vencimento</label>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={e => setDueDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Situação / Status</label>
-                  <select
-                    value={status}
-                    onChange={e => setStatus(e.target.value as DebtStatus)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  >
-                    <option value="in_payment">Em pagamento</option>
-                    <option value="in_negotiation">Em negociação</option>
-                    <option value="waiting_conditions">Aguardando condições</option>
-                    <option value="no_forecast">Sem previsão</option>
-                    <option value="settled">Já quitada</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Observações ou Termos de Acordo</label>
-                <textarea
-                  rows={2}
-                  placeholder="Detalhes adicionais, contato do credor, número de protocolo..."
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all"
-                >
-                  Salvar Dívida
-                </button>
-              </div>
-            </form>
+      <ResponsiveModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        title="Cadastrar Dívida ou Pendência"
+        size="lg"
+        onSubmit={handleCreateDebt}
+        bodyClassName="text-xs"
+        footer={
+          <button
+            type="submit"
+            className="w-full min-h-[42px] py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition-all cursor-pointer"
+          >
+            Salvar Dívida
+          </button>
+        }
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="sm:col-span-2">
+            <label className="block font-medium text-slate-500 mb-1">Nome da Dívida / Contrato *</label>
+            <input
+              type="text"
+              required
+              placeholder="Ex: Empréstimo Caixa, Cartão de Loja em Atraso..."
+              value={name}
+              onChange={e => setName(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Credor / Banco</label>
+            <input
+              type="text"
+              placeholder="Ex: Caixa, Santander, Amigo..."
+              value={creditor}
+              onChange={e => setCreditor(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Prioridade</label>
+            <select
+              value={priority}
+              onChange={e => setPriority(e.target.value as DebtPriority)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            >
+              <option value="low">Baixa</option>
+              <option value="medium">Média</option>
+              <option value="high">Alta</option>
+              <option value="urgent">Urgente</option>
+            </select>
           </div>
         </div>
-      )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Valor Original (R$) *</label>
+            <input
+              type="text"
+              required
+              placeholder="0,00"
+              value={originalAmountStr}
+              onChange={e => setOriginalAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
+              className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Saldo Devedor Atual (R$)</label>
+            <input
+              type="text"
+              placeholder="Igual ao original se vazio"
+              value={currentBalanceStr}
+              onChange={e => setCurrentBalanceStr(e.target.value.replace(/[^0-9,]/g, ''))}
+              className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Juros (% ao mês)</label>
+            <input
+              type="text"
+              placeholder="Ex: 2,5"
+              value={interestRateStr}
+              onChange={e => setInterestRateStr(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Parcela Mínima (R$)</label>
+            <input
+              type="text"
+              placeholder="Ex: 250,00"
+              value={minPaymentStr}
+              onChange={e => setMinPaymentStr(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Data de Vencimento</label>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={e => setDueDate(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Situação / Status</label>
+            <select
+              value={status}
+              onChange={e => setStatus(e.target.value as DebtStatus)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            >
+              <option value="in_payment">Em pagamento</option>
+              <option value="in_negotiation">Em negociação</option>
+              <option value="waiting_conditions">Aguardando condições</option>
+              <option value="no_forecast">Sem previsão</option>
+              <option value="settled">Já quitada</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Observações ou Termos de Acordo</label>
+          <textarea
+            rows={2}
+            placeholder="Detalhes adicionais, contato do credor, número de protocolo..."
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          />
+        </div>
+      </ResponsiveModal>
 
       {/* Modal: Amortizar / Pagar Parcela */}
-      {amortizeModalDebt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                  Registrar Pagamento de Dívida
-                </h3>
-                <p className="text-xs text-slate-400">{amortizeModalDebt.name}</p>
-              </div>
-              <button
-                onClick={() => setAmortizeModalDebt(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAmortizeSubmit} className="p-5 space-y-4 text-xs">
-              <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl flex justify-between items-center">
-                <span className="text-slate-500">Saldo Devedor Atual:</span>
-                <span className="font-mono font-bold text-rose-600 dark:text-rose-400 text-sm">
-                  {formatCurrency(amortizeModalDebt.currentBalance)}
-                </span>
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">
-                  Valor Pago nesta Amortização (R$) *
-                </label>
-                <input
-                  type="text"
-                  required
-                  autoFocus
-                  placeholder="0,00"
-                  value={amortizeAmountStr}
-                  onChange={e => setAmortizeAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
-                  className="w-full px-3 py-2 text-lg font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white tabular-nums"
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">
-                  Conta Bancária Debitada *
-                </label>
-                <select
-                  value={amortizeAccountId}
-                  onChange={e => setAmortizeAccountId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                >
-                  {accounts.map(acc => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name} ({formatCurrency(acc.balance)})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">
-                  Observações (Ex: Parcela 05/24)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Opcional..."
-                  value={amortizeNotes}
-                  onChange={e => setAmortizeNotes(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all shadow-xs"
-                >
-                  Confirmar Pagamento e Abater Saldo
-                </button>
-              </div>
-            </form>
-          </div>
+      <ResponsiveModal
+        isOpen={!!amortizeModalDebt}
+        onClose={() => setAmortizeModalDebt(null)}
+        title="Registrar Pagamento de Dívida"
+        subtitle={amortizeModalDebt?.name}
+        size="md"
+        onSubmit={handleAmortizeSubmit}
+        bodyClassName="text-xs"
+        footer={
+          <button
+            type="submit"
+            className="w-full min-h-[42px] py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition-all shadow-xs cursor-pointer"
+          >
+            Confirmar Pagamento e Abater Saldo
+          </button>
+        }
+      >
+        <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl flex flex-wrap justify-between items-center gap-2">
+          <span className="text-slate-500">Saldo Devedor Atual:</span>
+          <span className="font-mono font-bold text-rose-600 dark:text-rose-400 text-sm">
+            {amortizeModalDebt ? formatCurrency(amortizeModalDebt.currentBalance) : ''}
+          </span>
         </div>
-      )}
+
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">
+            Valor Pago nesta Amortização (R$) *
+          </label>
+          <input
+            type="text"
+            required
+            autoFocus
+            placeholder="0,00"
+            value={amortizeAmountStr}
+            onChange={e => setAmortizeAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
+            className="w-full px-3 py-2 text-lg font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white tabular-nums"
+          />
+        </div>
+
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">
+            Conta Bancária Debitada *
+          </label>
+          <select
+            value={amortizeAccountId}
+            onChange={e => setAmortizeAccountId(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          >
+            {accounts.map(acc => (
+              <option key={acc.id} value={acc.id}>
+                {acc.name} ({formatCurrency(acc.balance)})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">
+            Observações (Ex: Parcela 05/24)
+          </label>
+          <input
+            type="text"
+            placeholder="Opcional..."
+            value={amortizeNotes}
+            onChange={e => setAmortizeNotes(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          />
+        </div>
+      </ResponsiveModal>
 
       {/* Modal: Editar Dívida */}
-      {editingDebt && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in"
-          onClick={() => setEditingDebt(null)}
-        >
-          <div 
-            className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden"
-            onClick={e => e.stopPropagation()}
+      <ResponsiveModal
+        isOpen={!!editingDebt}
+        onClose={() => setEditingDebt(null)}
+        title="Editar Dívida / Pendência"
+        size="lg"
+        onSubmit={handleSaveEditDebt}
+        bodyClassName="text-xs"
+        footer={
+          <button
+            type="submit"
+            className="w-full min-h-[42px] py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition-all cursor-pointer"
           >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Editar Dívida / Pendência
-              </h3>
-              <button
-                onClick={() => setEditingDebt(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveEditDebt} className="p-5 space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
-                  <label className="block font-medium text-slate-500 mb-1">Nome da Dívida *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editDebtName}
-                    onChange={e => setEditDebtName(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Credor / Instituição</label>
-                  <input
-                    type="text"
-                    value={editCreditor}
-                    onChange={e => setEditCreditor(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Prioridade</label>
-                  <select
-                    value={editPriority}
-                    onChange={e => setEditPriority(e.target.value as DebtPriority)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  >
-                    <option value="low">Baixa</option>
-                    <option value="medium">Média</option>
-                    <option value="high">Alta</option>
-                    <option value="urgent">Urgente</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Saldo Devedor Atual (R$) *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editCurrentBalanceStr}
-                    onChange={e => setEditCurrentBalanceStr(e.target.value.replace(/[^0-9,]/g, ''))}
-                    className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Parcela Mínima Mensal (R$)</label>
-                  <input
-                    type="text"
-                    value={editMinPaymentStr}
-                    onChange={e => setEditMinPaymentStr(e.target.value.replace(/[^0-9,]/g, ''))}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Taxa de Juros (% a.m.)</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: 3,5"
-                    value={editInterestRateStr}
-                    onChange={e => setEditInterestRateStr(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Vencimento</label>
-                  <input
-                    type="date"
-                    value={editDueDate}
-                    onChange={e => setEditDueDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Situação / Status</label>
-                <select
-                  value={editStatus}
-                  onChange={e => setEditStatus(e.target.value as DebtStatus)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                >
-                  <option value="in_payment">Em pagamento</option>
-                  <option value="in_negotiation">Em negociação</option>
-                  <option value="waiting_conditions">Aguardando condições</option>
-                  <option value="no_forecast">Sem previsão</option>
-                  <option value="partially_settled">Parcialmente quitada</option>
-                  <option value="settled">Totalmente quitada</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Observações ou Condições de Acordo</label>
-                <textarea
-                  rows={2}
-                  value={editNotes}
-                  onChange={e => setEditNotes(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all"
-                >
-                  Salvar Alterações
-                </button>
-              </div>
-            </form>
+            Salvar Alterações
+          </button>
+        }
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="sm:col-span-2">
+            <label className="block font-medium text-slate-500 mb-1">Nome da Dívida *</label>
+            <input
+              type="text"
+              required
+              value={editDebtName}
+              onChange={e => setEditDebtName(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Credor / Instituição</label>
+            <input
+              type="text"
+              value={editCreditor}
+              onChange={e => setEditCreditor(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Prioridade</label>
+            <select
+              value={editPriority}
+              onChange={e => setEditPriority(e.target.value as DebtPriority)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            >
+              <option value="low">Baixa</option>
+              <option value="medium">Média</option>
+              <option value="high">Alta</option>
+              <option value="urgent">Urgente</option>
+            </select>
           </div>
         </div>
-      )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Saldo Devedor Atual (R$) *</label>
+            <input
+              type="text"
+              required
+              value={editCurrentBalanceStr}
+              onChange={e => setEditCurrentBalanceStr(e.target.value.replace(/[^0-9,]/g, ''))}
+              className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Parcela Mínima Mensal (R$)</label>
+            <input
+              type="text"
+              value={editMinPaymentStr}
+              onChange={e => setEditMinPaymentStr(e.target.value.replace(/[^0-9,]/g, ''))}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Taxa de Juros (% a.m.)</label>
+            <input
+              type="text"
+              placeholder="Ex: 3,5"
+              value={editInterestRateStr}
+              onChange={e => setEditInterestRateStr(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Vencimento</label>
+            <input
+              type="date"
+              value={editDueDate}
+              onChange={e => setEditDueDate(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Situação / Status</label>
+          <select
+            value={editStatus}
+            onChange={e => setEditStatus(e.target.value as DebtStatus)}
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          >
+            <option value="in_payment">Em pagamento</option>
+            <option value="in_negotiation">Em negociação</option>
+            <option value="waiting_conditions">Aguardando condições</option>
+            <option value="no_forecast">Sem previsão</option>
+            <option value="partially_settled">Parcialmente quitada</option>
+            <option value="settled">Totalmente quitada</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Observações ou Condições de Acordo</label>
+          <textarea
+            rows={2}
+            value={editNotes}
+            onChange={e => setEditNotes(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          />
+        </div>
+      </ResponsiveModal>
 
       {/* Modal: Histórico de Pagamentos de Dívida */}
-      {historyModalDebt && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in"
-          onClick={() => setHistoryModalDebt(null)}
-        >
-          <div 
-            className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                  Histórico de Amortizações
-                </h3>
-                <p className="text-xs text-slate-400">{historyModalDebt.name}</p>
-              </div>
-              <button
-                onClick={() => setHistoryModalDebt(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-5 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-              {!historyModalDebt.paymentsHistory || historyModalDebt.paymentsHistory.length === 0 ? (
-                <div className="text-center py-8 text-slate-400">
-                  Nenhuma amortização registrada ainda.
-                </div>
-              ) : (
-                historyModalDebt.paymentsHistory.map(p => (
-                  <div key={p.id} className="py-2.5 flex items-center justify-between">
-                    <div>
-                      <div className="font-semibold text-slate-800 dark:text-slate-200">
-                        {p.notes || 'Amortização realizada'}
-                      </div>
-                      <div className="text-[11px] text-slate-400">
-                        Data: {formatDateBR(p.date)}
-                      </div>
-                    </div>
-                    <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
-                      {formatCurrency(p.amount)}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-xs">
+      <ResponsiveModal
+        isOpen={!!historyModalDebt}
+        onClose={() => setHistoryModalDebt(null)}
+        title="Histórico de Amortizações"
+        subtitle={historyModalDebt?.name}
+        size="md"
+        bodyClassName="divide-y divide-slate-100 dark:divide-slate-800 text-xs space-y-0"
+        footer={
+          historyModalDebt ? (
+            <div className="flex flex-wrap justify-between items-center gap-2 text-xs">
               <span className="text-slate-500 font-medium">Total Pago até o Momento:</span>
               <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
                 {formatCurrency(historyModalDebt.totalPaid || 0)}
               </span>
             </div>
+          ) : undefined
+        }
+      >
+        {historyModalDebt && (!historyModalDebt.paymentsHistory || historyModalDebt.paymentsHistory.length === 0) ? (
+          <div className="text-center py-8 text-slate-400">
+            Nenhuma amortização registrada ainda.
           </div>
-        </div>
-      )}
+        ) : (
+          historyModalDebt?.paymentsHistory?.map(p => (
+            <div key={p.id} className="py-2.5 flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="font-semibold text-slate-800 dark:text-slate-200 truncate">
+                  {p.notes || 'Amortização realizada'}
+                </div>
+                <div className="text-[11px] text-slate-400">
+                  Data: {formatDateBR(p.date)}
+                </div>
+              </div>
+              <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400 tabular-nums shrink-0">
+                {formatCurrency(p.amount)}
+              </div>
+            </div>
+          ))
+        )}
+      </ResponsiveModal>
 
       <ConfirmDeleteModal
         isOpen={!!pendingDeleteDebt}

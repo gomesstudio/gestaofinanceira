@@ -47,10 +47,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab }) =
   ];
 
   return (
-    <aside className="hidden lg:flex flex-col w-64 shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 min-h-screen">
+    <aside className="hidden lg:flex lg:sticky lg:top-0 flex-col w-60 xl:w-64 shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 h-screen h-[100dvh] overflow-hidden">
       {/* Brand Wordmark (Zero-slop: clean, elegant typography) */}
-      <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-100 dark:border-slate-800">
-        <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-slate-900 dark:bg-emerald-600 text-white shadow-xs">
+      <div className="shrink-0 flex items-center gap-3 px-5 xl:px-6 py-4 xl:py-5 border-b border-slate-100 dark:border-slate-800">
+        <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-slate-900 dark:bg-emerald-600 text-white shadow-xs shrink-0">
           <ShieldCheck className="w-5 h-5 text-emerald-400 dark:text-white" />
         </div>
         <div className="min-w-0">
@@ -64,23 +64,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab }) =
       </div>
 
       {/* Mini Quick Summary Card in Sidebar */}
-      <div className="mx-4 mt-4 p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200/70 dark:border-slate-800">
+      <div className="shrink-0 mx-3.5 xl:mx-4 mt-3.5 p-3 xl:p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200/70 dark:border-slate-800">
         <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
           Saldo em Contas
         </div>
-        <div className="text-base font-bold text-slate-900 dark:text-white font-mono tabular-nums mt-0.5">
+        <div className="text-base font-bold text-slate-900 dark:text-white font-mono tabular-nums mt-0.5 truncate">
           {formatCurrency(totalBankBalance)}
         </div>
-        <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-200/60 dark:border-slate-700/60 text-xs">
-          <span className="text-slate-500">Livre p/ Gastar:</span>
-          <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
+        <div className="flex items-center justify-between gap-2 pt-2 mt-2 border-t border-slate-200/60 dark:border-slate-700/60 text-xs">
+          <span className="text-slate-500 shrink-0">Livre p/ Gastar:</span>
+          <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums truncate">
             {formatCurrency(freeMoneyAvailable)}
           </span>
         </div>
       </div>
 
       {/* Navigation Links */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 min-h-0 px-3 py-3 space-y-1 overflow-y-auto overscroll-contain">
         <div className="px-3 pb-1 text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
           Módulos
         </div>
@@ -91,7 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab }) =
             <button
               key={item.id}
               onClick={() => setCurrentTab(item.id)}
-              className={`w-full flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl transition-all ${
+              className={`w-full flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl transition-all cursor-pointer ${
                 isActive
                   ? 'bg-slate-900 text-white dark:bg-emerald-600 dark:text-white shadow-xs font-semibold'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
@@ -108,7 +108,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab }) =
       </nav>
 
       {/* Quiet Footer */}
-      <div className="p-4 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 dark:text-slate-500 flex items-center justify-between">
+      <div className="shrink-0 px-4 py-3 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 dark:text-slate-500 flex items-center justify-between">
         <span>Controle Pessoal</span>
         <span>v1.0</span>
       </div>

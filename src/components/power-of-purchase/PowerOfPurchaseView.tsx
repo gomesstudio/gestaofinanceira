@@ -108,8 +108,8 @@ export const PowerOfPurchaseView: React.FC = () => {
       </div>
 
       {/* Calculation Formula Transparency Breakdown */}
-      <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
-        <div className="flex items-center justify-between">
+      <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-1">
           <h3 className="font-bold text-slate-900 dark:text-white text-sm">
             Memória de Cálculo do Poder de Compra
           </h3>
@@ -118,76 +118,76 @@ export const PowerOfPurchaseView: React.FC = () => {
 
         <div className="space-y-2 text-xs">
           {/* Row 1: Saldo Bancário Atual */}
-          <div className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-emerald-600">(+)</span>
+          <div className="flex flex-col min-[420px]:flex-row min-[420px]:items-center justify-between gap-1 min-[420px]:gap-3 py-2 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-bold text-emerald-600 shrink-0">(+)</span>
               <span className="text-slate-700 dark:text-slate-300 font-medium">Saldo bancário atual (Soma das contas)</span>
             </div>
-            <span className="font-mono font-bold text-slate-900 dark:text-white tabular-nums">
+            <span className="font-mono font-bold text-slate-900 dark:text-white tabular-nums shrink-0 self-end min-[420px]:self-auto">
               {formatCurrency(totalBankBalance)}
             </span>
           </div>
 
           {/* Row 2: Despesas Fixas Pendentes */}
-          <div className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-rose-600">(-)</span>
+          <div className="flex flex-col min-[420px]:flex-row min-[420px]:items-center justify-between gap-1 min-[420px]:gap-3 py-2 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-bold text-rose-600 shrink-0">(-)</span>
               <span className="text-slate-700 dark:text-slate-300">Despesas fixas ainda não pagas no mês</span>
             </div>
-            <span className="font-mono font-semibold text-rose-600 dark:text-rose-400 tabular-nums">
+            <span className="font-mono font-semibold text-rose-600 dark:text-rose-400 tabular-nums shrink-0 self-end min-[420px]:self-auto">
               -{formatCurrency(totalPendingFixed)}
             </span>
           </div>
 
           {/* Row 3: Despesas Variáveis Pendentes */}
-          <div className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-rose-600">(-)</span>
+          <div className="flex flex-col min-[420px]:flex-row min-[420px]:items-center justify-between gap-1 min-[420px]:gap-3 py-2 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-bold text-rose-600 shrink-0">(-)</span>
               <span className="text-slate-700 dark:text-slate-300">Despesas variáveis pendentes no mês</span>
             </div>
-            <span className="font-mono font-semibold text-rose-600 dark:text-rose-400 tabular-nums">
+            <span className="font-mono font-semibold text-rose-600 dark:text-rose-400 tabular-nums shrink-0 self-end min-[420px]:self-auto">
               -{formatCurrency(totalPendingVariable)}
             </span>
           </div>
 
           {/* Row 4: Faturas de Cartão a Vencer */}
-          <div className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-rose-600">(-)</span>
+          <div className="flex flex-col min-[420px]:flex-row min-[420px]:items-center justify-between gap-1 min-[420px]:gap-3 py-2 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-bold text-rose-600 shrink-0">(-)</span>
               <span className="text-slate-700 dark:text-slate-300">Faturas de cartões a vencer no mês</span>
             </div>
-            <span className="font-mono font-semibold text-rose-600 dark:text-rose-400 tabular-nums">
+            <span className="font-mono font-semibold text-rose-600 dark:text-rose-400 tabular-nums shrink-0 self-end min-[420px]:self-auto">
               -{formatCurrency(totalCardsInvoices)}
             </span>
           </div>
 
           {/* Row 5: Compromissos de Dívidas */}
-          <div className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-rose-600">(-)</span>
+          <div className="flex flex-col min-[420px]:flex-row min-[420px]:items-center justify-between gap-1 min-[420px]:gap-3 py-2 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-bold text-rose-600 shrink-0">(-)</span>
               <span className="text-slate-700 dark:text-slate-300">Compromissos mínimos de dívidas no mês</span>
             </div>
-            <span className="font-mono font-semibold text-rose-600 dark:text-rose-400 tabular-nums">
+            <span className="font-mono font-semibold text-rose-600 dark:text-rose-400 tabular-nums shrink-0 self-end min-[420px]:self-auto">
               -{formatCurrency(totalDebtCommitments)}
             </span>
           </div>
 
           {/* Row 6: Reserva Financeira Preservada */}
-          <div className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-purple-600">(-)</span>
+          <div className="flex flex-col min-[420px]:flex-row min-[420px]:items-center justify-between gap-1.5 min-[420px]:gap-3 py-2 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
+              <span className="font-bold text-purple-600 shrink-0">(-)</span>
               <span className="text-slate-700 dark:text-slate-300">Reserva de emergência que desejo preservar</span>
               {isEditingReserve ? (
-                <div className="flex items-center gap-1.5 ml-2">
+                <div className="flex items-center gap-1.5">
                   <input
                     type="text"
                     value={reserveInputStr}
                     onChange={e => setReserveInputStr(e.target.value.replace(/[^0-9,]/g, ''))}
-                    className="w-24 px-2 py-0.5 font-mono text-xs border border-slate-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800"
+                    className="w-24 px-2 py-1 font-mono text-xs border border-slate-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800"
                   />
                   <button
                     onClick={handleSaveReserve}
-                    className="px-2 py-0.5 bg-emerald-600 text-white rounded-md text-[10px] font-bold"
+                    className="px-2.5 py-1 bg-emerald-600 text-white rounded-md text-[10px] font-bold cursor-pointer"
                   >
                     OK
                   </button>
@@ -195,24 +195,24 @@ export const PowerOfPurchaseView: React.FC = () => {
               ) : (
                 <button
                   onClick={() => setIsEditingReserve(true)}
-                  className="text-[11px] text-emerald-600 dark:text-emerald-400 underline font-semibold ml-2"
+                  className="text-[11px] text-emerald-600 dark:text-emerald-400 underline font-semibold cursor-pointer"
                 >
                   Alterar valor
                 </button>
               )}
             </div>
-            <span className="font-mono font-semibold text-purple-600 dark:text-purple-400 tabular-nums">
+            <span className="font-mono font-semibold text-purple-600 dark:text-purple-400 tabular-nums shrink-0 self-end min-[420px]:self-auto">
               -{formatCurrency(safetyReserveDesired)}
             </span>
           </div>
 
           {/* Final Equal Row */}
-          <div className="flex justify-between items-center pt-3 text-sm font-bold">
+          <div className="flex flex-wrap justify-between items-center gap-2 pt-3 text-sm font-bold">
             <div className="flex items-center gap-2">
               <span className="font-bold text-emerald-600">(=)</span>
               <span className="text-slate-900 dark:text-white">Dinheiro Efetivamente Livre</span>
             </div>
-            <span className="font-mono text-emerald-600 dark:text-emerald-400 text-base tabular-nums">
+            <span className="font-mono text-emerald-600 dark:text-emerald-400 text-base tabular-nums shrink-0">
               {formatCurrency(freeMoneyAvailable)}
             </span>
           </div>
@@ -302,7 +302,7 @@ export const PowerOfPurchaseView: React.FC = () => {
               {simulationResult.feedbackMessage}
             </p>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-3 border-t border-black/10 dark:border-white/10 text-xs">
+            <div className="grid grid-cols-1 min-[380px]:grid-cols-2 sm:grid-cols-3 gap-3 pt-3 border-t border-black/10 dark:border-white/10 text-xs">
               <div>
                 <span className="opacity-75">Sobrará após a compra:</span>
                 <div className="font-mono font-bold text-sm mt-0.5 tabular-nums">
@@ -315,7 +315,7 @@ export const PowerOfPurchaseView: React.FC = () => {
                   {formatPercent(simulationResult.percentCommitted)}
                 </div>
               </div>
-              <div className="col-span-2 sm:col-span-1">
+              <div className="min-[380px]:col-span-2 sm:col-span-1">
                 <span className="opacity-75">Cabe no orçamento?</span>
                 <div className="font-bold text-sm mt-0.5">
                   {simulationResult.canAfford ? 'Sim, permitido' : 'Não recomendado'}

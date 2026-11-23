@@ -194,20 +194,20 @@ export const SubscriptionGateScreen: React.FC<SubscriptionGateScreenProps> = ({
   );
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-4 sm:p-6 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100 font-sans">
-      <div className="w-full max-w-4xl space-y-5">
-        <div className="p-6 sm:p-8 bg-slate-900/95 border border-slate-800 rounded-3xl shadow-2xl space-y-6 relative overflow-hidden">
+    <div className="min-h-screen min-h-[100dvh] w-full flex flex-col p-3 sm:p-6 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100 font-sans overflow-x-clip overflow-y-auto">
+      <div className="w-full max-w-4xl m-auto space-y-5">
+        <div className="p-4 sm:p-8 bg-slate-900/95 border border-slate-800 rounded-3xl shadow-2xl space-y-6 relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-blue-500 to-emerald-400" />
 
           {/* Cabeçalho */}
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 min-w-0">
               <div className={`flex flex-wrap items-center gap-2 text-xs font-semibold ${statusMeta.textClass}`}>
                 {statusMeta.icon}
                 <span>{statusMeta.label}</span>
                 <span aria-hidden="true" className="text-slate-600">·</span>
-                <span className="text-slate-400 font-normal">
-                  Conta: <strong className="text-slate-200 font-semibold">{userEmail || displayName}</strong>
+                <span className="text-slate-400 font-normal break-words">
+                  Conta: <strong className="text-slate-200 font-semibold break-all">{userEmail || displayName}</strong>
                 </span>
               </div>
               <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight text-balance">
@@ -218,12 +218,12 @@ export const SubscriptionGateScreen: React.FC<SubscriptionGateScreenProps> = ({
               </p>
             </div>
 
-            <div className="flex items-center gap-2 self-start shrink-0">
+            <div className="flex flex-wrap items-center gap-2 self-start shrink-0">
               {accessState.isAdmin && onOpenMasterPortal && (
                 <button
                   type="button"
                   onClick={onOpenMasterPortal}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors cursor-pointer whitespace-nowrap"
+                  className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors cursor-pointer"
                 >
                   <LayoutDashboard className="w-3.5 h-3.5 shrink-0" />
                   <span>Gestão Comercial (Master)</span>
@@ -233,7 +233,7 @@ export const SubscriptionGateScreen: React.FC<SubscriptionGateScreenProps> = ({
               <button
                 type="button"
                 onClick={onLogout}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors cursor-pointer whitespace-nowrap"
+                className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5 shrink-0" />
                 <span>Sair da Conta</span>
@@ -279,7 +279,7 @@ export const SubscriptionGateScreen: React.FC<SubscriptionGateScreenProps> = ({
                         href={postSignupWhatsAppUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors inline-flex items-center justify-center gap-2 whitespace-nowrap"
+                        className="min-h-[44px] px-4 sm:px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors inline-flex items-center justify-center gap-2 text-center leading-tight"
                       >
                         <MessageCircle className="w-4 h-4 shrink-0" />
                         <span>CONCLUIR CONTRATAÇÃO PELO WHATSAPP</span>
@@ -294,7 +294,7 @@ export const SubscriptionGateScreen: React.FC<SubscriptionGateScreenProps> = ({
                             text: 'Marque a autorização acima antes de abrir a conversa no WhatsApp.'
                           })
                         }
-                        className="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-bold border border-slate-700 transition-colors inline-flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
+                        className="min-h-[44px] px-4 sm:px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-bold border border-slate-700 transition-colors inline-flex items-center justify-center gap-2 text-center leading-tight cursor-pointer"
                       >
                         <MessageCircle className="w-4 h-4 text-emerald-400 shrink-0" />
                         <span>CONCLUIR CONTRATAÇÃO PELO WHATSAPP</span>
@@ -434,7 +434,7 @@ export const SubscriptionGateScreen: React.FC<SubscriptionGateScreenProps> = ({
                   href={renewalUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition-colors inline-flex items-center gap-2 whitespace-nowrap shrink-0"
+                  className="min-h-[40px] px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition-colors inline-flex items-center justify-center gap-2 text-center shrink-0"
                 >
                   <MessageCircle className="w-3.5 h-3.5 shrink-0" />
                   <span>Renovar pelo WhatsApp</span>
@@ -446,7 +446,7 @@ export const SubscriptionGateScreen: React.FC<SubscriptionGateScreenProps> = ({
                 href={supportUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-semibold border border-slate-700 transition-colors inline-flex items-center gap-2 whitespace-nowrap shrink-0"
+                className="min-h-[40px] px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-semibold border border-slate-700 transition-colors inline-flex items-center justify-center gap-2 text-center shrink-0"
               >
                 <MessageCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 <span>Falar com o suporte</span>
@@ -479,7 +479,7 @@ export const SubscriptionGateScreen: React.FC<SubscriptionGateScreenProps> = ({
               type="button"
               onClick={handleExportBackup}
               disabled={isExporting}
-              className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
+              className="flex-1 min-h-[44px] py-3 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-2 text-center leading-tight cursor-pointer"
             >
               <Download className="w-4 h-4 shrink-0" />
               <span>
@@ -491,7 +491,7 @@ export const SubscriptionGateScreen: React.FC<SubscriptionGateScreenProps> = ({
               type="button"
               onClick={handleRetry}
               disabled={isChecking}
-              className="flex-1 py-3 px-4 bg-slate-800 hover:bg-slate-700 disabled:opacity-60 text-white text-xs font-bold rounded-xl border border-slate-700 transition-colors flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
+              className="flex-1 min-h-[44px] py-3 px-4 bg-slate-800 hover:bg-slate-700 disabled:opacity-60 text-white text-xs font-bold rounded-xl border border-slate-700 transition-colors flex items-center justify-center gap-2 text-center leading-tight cursor-pointer"
             >
               <RefreshCw className={`w-4 h-4 shrink-0 ${isChecking ? 'animate-spin' : ''}`} />
               <span>

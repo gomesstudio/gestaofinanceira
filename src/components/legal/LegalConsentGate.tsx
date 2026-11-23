@@ -176,21 +176,23 @@ export const LegalConsentGate: React.FC<LegalConsentGateProps> = ({
   return (
     <div
       data-testid="legal-consent-gate"
-      className="min-h-screen w-full flex items-center justify-center p-3 sm:p-6 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100 font-sans relative overflow-hidden"
+      className="min-h-screen min-h-[100dvh] w-full flex flex-col p-3 sm:p-6 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100 font-sans relative overflow-x-clip overflow-y-auto"
     >
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] sm:w-[540px] sm:h-[540px] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="fixed inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] sm:w-[540px] sm:h-[540px] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      </div>
 
-      <div className="w-full max-w-2xl mx-auto relative z-10">
-        <div className="p-5 sm:p-8 bg-slate-900/95 backdrop-blur-xl border border-slate-800 rounded-3xl shadow-2xl shadow-black/60 relative overflow-hidden space-y-5">
+      <div className="w-full max-w-2xl m-auto relative z-10">
+        <div className="p-4 sm:p-8 bg-slate-900/95 backdrop-blur-xl border border-slate-800 rounded-3xl shadow-2xl shadow-black/60 relative overflow-hidden space-y-5">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-500" />
 
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-slate-800/80 pb-5">
-            <div className="flex items-start gap-3.5">
+            <div className="flex items-start gap-3.5 min-w-0">
               <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 shrink-0">
                 <ShieldCheck className="w-7 h-7" />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 min-w-0">
                 <div className="text-[11px] font-semibold text-emerald-400 tracking-wide">
                   Gestão Financeira Pro · Registro de Versão e Privacidade
                 </div>
@@ -198,7 +200,7 @@ export const LegalConsentGate: React.FC<LegalConsentGateProps> = ({
                   Seus dados, sua privacidade.
                 </h1>
                 {(displayName || userEmail) && (
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-400 break-words">
                     Conta autenticada:{' '}
                     <strong className="text-slate-200">{displayName || userEmail}</strong>
                     {displayName && userEmail ? ` (${userEmail})` : ''}
@@ -424,7 +426,7 @@ export const LegalConsentGate: React.FC<LegalConsentGateProps> = ({
                     data-testid="consent-revoke-whatsapp-button"
                     disabled={isLoadingStatus || isSubmitting || isUpdatingWhatsapp || isSchemaMissingOrLoadError}
                     onClick={() => handleExplicitWhatsappAction('revoke')}
-                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-900/60 text-rose-200 border border-rose-500/30 text-[11px] font-semibold transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+                    className="min-h-[38px] px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-900/60 text-rose-200 border border-rose-500/30 text-[11px] font-semibold transition-colors cursor-pointer shrink-0 disabled:opacity-50"
                   >
                     {isUpdatingWhatsapp ? 'Revogando...' : 'Revogar consentimento WhatsApp'}
                   </button>

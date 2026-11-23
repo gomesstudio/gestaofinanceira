@@ -15,13 +15,13 @@ import {
   ArrowRight,
   Trash2,
   Edit2,
-  X,
   ShieldCheck
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency, formatDateBR, getTodayISO } from '../../utils/formatters';
 import { CreditCard, Transaction } from '../../types/finance';
 import { ActionFeedback, ActionFeedbackBanner, ConfirmDeleteModal } from '../common/ConfirmDeleteModal';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 
 export const CardsView: React.FC = () => {
   const {
@@ -233,7 +233,7 @@ export const CardsView: React.FC = () => {
 
                 {/* Limit Gauge & Stats */}
                 <div className="space-y-3 mb-4">
-                  <div className="flex justify-between items-center text-xs">
+                  <div className="flex flex-wrap justify-between items-center gap-2 text-xs">
                     <div>
                       <span className="text-slate-400">Fatura Atual: </span>
                       <span className="font-mono font-bold text-rose-600 dark:text-rose-400 tabular-nums">
@@ -278,11 +278,11 @@ export const CardsView: React.FC = () => {
                   ) : (
                     <div className="space-y-1.5">
                       {cardTxs.map(t => (
-                        <div key={t.id} className="flex justify-between text-xs py-1 border-b border-slate-50 dark:border-slate-800/60 last:border-0">
-                          <span className="text-slate-700 dark:text-slate-300 truncate max-w-[180px]">
+                        <div key={t.id} className="flex items-center justify-between gap-2 text-xs py-1 border-b border-slate-50 dark:border-slate-800/60 last:border-0">
+                          <span className="text-slate-700 dark:text-slate-300 truncate min-w-0 flex-1">
                             {t.description}
                           </span>
-                          <span className="font-mono font-medium text-slate-900 dark:text-white tabular-nums">
+                          <span className="font-mono font-medium text-slate-900 dark:text-white tabular-nums shrink-0">
                             {formatCurrency(t.amount)}
                           </span>
                         </div>
@@ -293,11 +293,11 @@ export const CardsView: React.FC = () => {
               </div>
 
               {/* Bottom Actions */}
-              <div className="flex items-center justify-between pt-4 mt-3 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-4 mt-3 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-3">
                   <button
                     onClick={() => handleOpenEditCard(card)}
-                    className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1 transition-colors"
+                    className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1 transition-colors cursor-pointer"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                     <span>Editar</span>
@@ -323,7 +323,7 @@ export const CardsView: React.FC = () => {
                     setPayModalCard(card);
                     setPayAmountStr(usedLimit.toFixed(2).replace('.', ','));
                   }}
-                  className="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-all shadow-xs flex items-center gap-1.5"
+                  className="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <DollarSign className="w-3.5 h-3.5" />
                   <span>Pagar Fatura</span>
@@ -335,277 +335,233 @@ export const CardsView: React.FC = () => {
       </div>
 
       {/* Modal: Cadastrar Novo Cartão */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Cadastrar Cartão de Crédito
-              </h3>
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      <ResponsiveModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        title="Cadastrar Cartão de Crédito"
+        size="md"
+        onSubmit={handleCreateCard}
+        bodyClassName="text-xs"
+        footer={
+          <button
+            type="submit"
+            className="w-full min-h-[42px] py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition-all cursor-pointer"
+          >
+            Salvar Cartão
+          </button>
+        }
+      >
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Nome do Cartão *</label>
+          <input
+            type="text"
+            required
+            placeholder="Ex: Nubank Ultravioleta, Itaú Click, Inter..."
+            value={name}
+            onChange={e => setName(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          />
+        </div>
 
-            <form onSubmit={handleCreateCard} className="p-5 space-y-4 text-xs">
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Nome do Cartão *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ex: Nubank Ultravioleta, Itaú Click, Inter..."
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                />
-              </div>
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Limite Total (R$) *</label>
+          <input
+            type="text"
+            required
+            placeholder="0,00"
+            value={limitTotalStr}
+            onChange={e => setLimitTotalStr(e.target.value.replace(/[^0-9,]/g, ''))}
+            className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          />
+        </div>
 
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Limite Total (R$) *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="0,00"
-                  value={limitTotalStr}
-                  onChange={e => setLimitTotalStr(e.target.value.replace(/[^0-9,]/g, ''))}
-                  className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Dia de Fechamento (1-31)</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={31}
-                    value={closingDay}
-                    onChange={e => setClosingDay(parseInt(e.target.value, 10))}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Dia de Vencimento (1-31)</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={31}
-                    value={dueDay}
-                    onChange={e => setDueDay(parseInt(e.target.value, 10))}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Cor do Cartão</label>
-                <div className="flex items-center gap-2">
-                  {['#820ad1', '#ec7000', '#0284c7', '#10b981', '#1e293b', '#e11d48'].map(c => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setColor(c)}
-                      className={`w-7 h-7 rounded-full transition-transform ${color === c ? 'scale-115 ring-2 ring-emerald-500 ring-offset-2' : ''}`}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all"
-                >
-                  Salvar Cartão
-                </button>
-              </div>
-            </form>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Dia de Fechamento (1-31)</label>
+            <input
+              type="number"
+              min={1}
+              max={31}
+              value={closingDay}
+              onChange={e => setClosingDay(parseInt(e.target.value, 10))}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Dia de Vencimento (1-31)</label>
+            <input
+              type="number"
+              min={1}
+              max={31}
+              value={dueDay}
+              onChange={e => setDueDay(parseInt(e.target.value, 10))}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
           </div>
         </div>
-      )}
+
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Cor do Cartão</label>
+          <div className="flex flex-wrap items-center gap-2">
+            {['#820ad1', '#ec7000', '#0284c7', '#10b981', '#1e293b', '#e11d48'].map(c => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setColor(c)}
+                className={`w-7 h-7 rounded-full transition-transform cursor-pointer ${color === c ? 'scale-115 ring-2 ring-emerald-500 ring-offset-2' : ''}`}
+                style={{ backgroundColor: c }}
+              />
+            ))}
+          </div>
+        </div>
+      </ResponsiveModal>
 
       {/* Modal: Pagar Fatura */}
-      {payModalCard && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                  Pagamento de Fatura
-                </h3>
-                <p className="text-xs text-slate-400">{payModalCard.name}</p>
-              </div>
-              <button
-                onClick={() => setPayModalCard(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handlePayInvoiceSubmit} className="p-5 space-y-4 text-xs">
-              <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-xl text-purple-900 dark:text-purple-300">
-                O pagamento de fatura quitará a obrigação do cartão debitando da sua conta bancária sem duplicar lançamentos de consumo.
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">
-                  Valor da Fatura a Pagar (R$) *
-                </label>
-                <input
-                  type="text"
-                  required
-                  autoFocus
-                  placeholder="0,00"
-                  value={payAmountStr}
-                  onChange={e => setPayAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
-                  className="w-full px-3 py-2 text-lg font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white tabular-nums"
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">
-                  Debitar da Conta Bancária *
-                </label>
-                <select
-                  value={payAccountId}
-                  onChange={e => setPayAccountId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                >
-                  {accounts.map(acc => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name} ({formatCurrency(acc.balance)})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">
-                  Mês de Referência da Fatura
-                </label>
-                <input
-                  type="month"
-                  value={invoiceMonth}
-                  onChange={e => setInvoiceMonth(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all shadow-xs"
-                >
-                  Confirmar Pagamento da Fatura
-                </button>
-              </div>
-            </form>
-          </div>
+      <ResponsiveModal
+        isOpen={!!payModalCard}
+        onClose={() => setPayModalCard(null)}
+        title="Pagamento de Fatura"
+        subtitle={payModalCard?.name}
+        size="md"
+        onSubmit={handlePayInvoiceSubmit}
+        bodyClassName="text-xs"
+        footer={
+          <button
+            type="submit"
+            className="w-full min-h-[42px] py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition-all shadow-xs cursor-pointer"
+          >
+            Confirmar Pagamento da Fatura
+          </button>
+        }
+      >
+        <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-xl text-purple-900 dark:text-purple-300">
+          O pagamento de fatura quitará a obrigação do cartão debitando da sua conta bancária sem duplicar lançamentos de consumo.
         </div>
-      )}
+
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">
+            Valor da Fatura a Pagar (R$) *
+          </label>
+          <input
+            type="text"
+            required
+            autoFocus
+            placeholder="0,00"
+            value={payAmountStr}
+            onChange={e => setPayAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
+            className="w-full px-3 py-2 text-lg font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white tabular-nums"
+          />
+        </div>
+
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">
+            Debitar da Conta Bancária *
+          </label>
+          <select
+            value={payAccountId}
+            onChange={e => setPayAccountId(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          >
+            {accounts.map(acc => (
+              <option key={acc.id} value={acc.id}>
+                {acc.name} ({formatCurrency(acc.balance)})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">
+            Mês de Referência da Fatura
+          </label>
+          <input
+            type="month"
+            value={invoiceMonth}
+            onChange={e => setInvoiceMonth(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          />
+        </div>
+      </ResponsiveModal>
 
       {/* Modal: Editar Cartão */}
-      {editingCard && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in"
-          onClick={() => setEditingCard(null)}
-        >
-          <div 
-            className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden"
-            onClick={e => e.stopPropagation()}
+      <ResponsiveModal
+        isOpen={!!editingCard}
+        onClose={() => setEditingCard(null)}
+        title="Editar Cartão de Crédito"
+        size="md"
+        onSubmit={handleSaveEditCard}
+        bodyClassName="text-xs"
+        footer={
+          <button
+            type="submit"
+            className="w-full min-h-[42px] py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition-all cursor-pointer"
           >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Editar Cartão de Crédito
-              </h3>
-              <button
-                onClick={() => setEditingCard(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            Salvar Alterações
+          </button>
+        }
+      >
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Nome do Cartão *</label>
+          <input
+            type="text"
+            required
+            value={editCardName}
+            onChange={e => setEditCardName(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          />
+        </div>
 
-            <form onSubmit={handleSaveEditCard} className="p-5 space-y-4 text-xs">
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Nome do Cartão *</label>
-                <input
-                  type="text"
-                  required
-                  value={editCardName}
-                  onChange={e => setEditCardName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                />
-              </div>
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Limite Total (R$) *</label>
+          <input
+            type="text"
+            required
+            value={editLimitTotalStr}
+            onChange={e => setEditLimitTotalStr(e.target.value.replace(/[^0-9,]/g, ''))}
+            className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          />
+        </div>
 
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Limite Total (R$) *</label>
-                <input
-                  type="text"
-                  required
-                  value={editLimitTotalStr}
-                  onChange={e => setEditLimitTotalStr(e.target.value.replace(/[^0-9,]/g, ''))}
-                  className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Dia de Fechamento (1-31)</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={31}
-                    value={editClosingDay}
-                    onChange={e => setEditClosingDay(parseInt(e.target.value, 10))}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Dia de Vencimento (1-31)</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={31}
-                    value={editDueDay}
-                    onChange={e => setEditDueDay(parseInt(e.target.value, 10))}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Cor do Cartão</label>
-                <div className="flex items-center gap-2">
-                  {['#820ad1', '#ec7000', '#0284c7', '#10b981', '#1e293b', '#e11d48'].map(c => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setEditColor(c)}
-                      className={`w-7 h-7 rounded-full transition-transform ${editColor === c ? 'scale-115 ring-2 ring-emerald-500 ring-offset-2' : ''}`}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all"
-                >
-                  Salvar Alterações
-                </button>
-              </div>
-            </form>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Dia de Fechamento (1-31)</label>
+            <input
+              type="number"
+              min={1}
+              max={31}
+              value={editClosingDay}
+              onChange={e => setEditClosingDay(parseInt(e.target.value, 10))}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Dia de Vencimento (1-31)</label>
+            <input
+              type="number"
+              min={1}
+              max={31}
+              value={editDueDay}
+              onChange={e => setEditDueDay(parseInt(e.target.value, 10))}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
           </div>
         </div>
-      )}
+
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Cor do Cartão</label>
+          <div className="flex flex-wrap items-center gap-2">
+            {['#820ad1', '#ec7000', '#0284c7', '#10b981', '#1e293b', '#e11d48'].map(c => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setEditColor(c)}
+                className={`w-7 h-7 rounded-full transition-transform cursor-pointer ${editColor === c ? 'scale-115 ring-2 ring-emerald-500 ring-offset-2' : ''}`}
+                style={{ backgroundColor: c }}
+              />
+            ))}
+          </div>
+        </div>
+      </ResponsiveModal>
 
       <ConfirmDeleteModal
         isOpen={!!pendingDeleteCard}

@@ -69,6 +69,7 @@ import {
 import { AdminSubscriptionsPanel } from './AdminSubscriptionsPanel';
 import { PrivacyCenterSection } from './PrivacyCenterSection';
 import { ActionFeedback, ActionFeedbackBanner, ConfirmDeleteModal } from '../common/ConfirmDeleteModal';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 
 export interface SettingsViewProps {
   recoveryHistoryOptions?: RecoveryDbRuntimeOptions;
@@ -764,11 +765,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       )}
 
       {/* Account & Session Security Card (Supabase Auth) */}
-      <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+      <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+              <span className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shrink-0">
                 <Lock className="w-4 h-4" />
               </span>
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
@@ -780,8 +781,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </p>
           </div>
 
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-800/70 self-start sm:self-auto">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-800/70 self-start sm:self-auto shrink-0">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
             <span>Sessão Autenticada</span>
           </span>
         </div>
@@ -808,10 +809,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {/* Change Password Button */}
           <button
             onClick={handleOpenSecurityModal}
-            className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition-colors flex items-center gap-3 cursor-pointer"
+            className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition-colors flex items-center gap-3 cursor-pointer min-w-0 min-h-[56px]"
           >
             <KeyRound className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <div>
+            <div className="min-w-0">
               <div className="text-xs font-semibold text-slate-900 dark:text-white">Alterar Senha</div>
               <div className="text-[11px] text-slate-400">Definir nova senha na conta</div>
             </div>
@@ -820,10 +821,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {/* Logout Button */}
           <button
             onClick={() => (requestSafeLogout ? requestSafeLogout() : logout())}
-            className="p-3.5 rounded-xl border border-rose-200/80 dark:border-rose-900/50 bg-rose-50/50 dark:bg-rose-950/20 hover:bg-rose-100 dark:hover:bg-rose-900/30 text-left transition-colors flex items-center gap-3 cursor-pointer"
+            className="p-3.5 rounded-xl border border-rose-200/80 dark:border-rose-900/50 bg-rose-50/50 dark:bg-rose-950/20 hover:bg-rose-100 dark:hover:bg-rose-900/30 text-left transition-colors flex items-center gap-3 cursor-pointer min-w-0 min-h-[56px] sm:col-span-2 lg:col-span-1"
           >
             <LogOut className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
-            <div>
+            <div className="min-w-0">
               <div className="text-xs font-semibold text-rose-700 dark:text-rose-300">Encerrar Sessão (Sair)</div>
               <div className="text-[11px] text-rose-500/80">Sair e limpar sessão ativa</div>
             </div>
@@ -833,11 +834,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* Subscription Plan & Admin Card */}
       {subscriptionAccess && (
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
+        <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="min-w-0">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
                 <span>Plano & Assinatura da Conta</span>
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -880,17 +881,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 href={getWhatsAppSupportUrl(subscriptionAccess.accessStatus)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 min-h-[34px]"
               >
                 <span>Falar com o suporte</span>
-                <ExternalLink className="w-3 h-3" />
+                <ExternalLink className="w-3 h-3 shrink-0" />
               </a>
 
               {onRefreshSubscription && (
                 <button
                   type="button"
                   onClick={onRefreshSubscription}
-                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-800 dark:hover:text-white cursor-pointer"
+                  className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-800 dark:hover:text-white cursor-pointer min-w-[34px] min-h-[34px] flex items-center justify-center"
                   title="Atualizar status da assinatura"
                   aria-label="Atualizar status da assinatura"
                 >
@@ -920,11 +921,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       )}
 
       {/* Supabase Cloud Sync Card */}
-      <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+      <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-blue-500/15 text-blue-600 dark:text-blue-400">
+              <span className="p-1.5 rounded-lg bg-blue-500/15 text-blue-600 dark:text-blue-400 shrink-0">
                 <Cloud className="w-4 h-4" />
               </span>
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
@@ -936,7 +937,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
             <span
               className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
                 cloudSyncStatus === 'connected' || cloudSyncStatus === 'synced'
@@ -1025,13 +1026,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           )}
 
           {/* Authenticated Account Card */}
-          <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-slate-400 font-medium">
+          <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 flex flex-col justify-between min-w-0">
+            <div className="min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] text-slate-400 font-medium truncate">
                   {canViewDevDiagnostics ? 'Usuário UUID (auth.users)' : 'Conta na Nuvem'}
                 </span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${isSupabaseAuthenticated ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0 ${isSupabaseAuthenticated ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
                   {isSupabaseAuthenticated ? 'Autenticado' : 'Pendente'}
                 </span>
               </div>
@@ -1068,11 +1069,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
 
           {/* Sync / Upload Actions */}
-          <div className="p-3.5 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/50 dark:bg-blue-950/20 flex flex-col justify-between gap-2">
-            <div>
+          <div className="p-3.5 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/50 dark:bg-blue-950/20 flex flex-col justify-between gap-2 min-w-0">
+            <div className="min-w-0">
               <div className="text-xs font-semibold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
-                <RefreshCw className={`w-3.5 h-3.5 text-blue-600 dark:text-blue-400 ${cloudSyncStatus === 'syncing' ? 'animate-spin' : ''}`} />
-                <span>Sincronização Direta</span>
+                <RefreshCw className={`w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0 ${cloudSyncStatus === 'syncing' ? 'animate-spin' : ''}`} />
+                <span className="truncate">Sincronização Direta</span>
               </div>
               <div className="text-[11px] text-blue-600/80 dark:text-blue-400/80 mt-0.5">
                 {lastCloudSyncDate ? `Última: ${lastCloudSyncDate.toLocaleTimeString()}` : 'Pronto para sincronizar'}
@@ -1084,9 +1085,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 onClick={handleForceUpload}
                 disabled={cloudSyncStatus === 'syncing'}
                 title="Verificar nuvem e enviar alterações locais mais recentes"
-                className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-[11px] font-semibold transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                className="flex-1 min-h-[34px] py-1.5 px-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-[11px] font-semibold transition-colors flex items-center justify-center gap-1 cursor-pointer"
               >
-                <Upload className="w-3 h-3" />
+                <Upload className="w-3 h-3 shrink-0" />
                 <span>Enviar</span>
               </button>
               <button
@@ -1094,9 +1095,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 onClick={forceDownloadFromCloud}
                 disabled={cloudSyncStatus === 'syncing'}
                 title="Baixar dados mais recentes da nuvem"
-                className="flex-1 py-1.5 px-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg text-[11px] font-semibold transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                className="flex-1 min-h-[34px] py-1.5 px-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg text-[11px] font-semibold transition-colors flex items-center justify-center gap-1 cursor-pointer"
               >
-                <Download className="w-3 h-3" />
+                <Download className="w-3 h-3 shrink-0" />
                 <span>Baixar</span>
               </button>
             </div>
@@ -1106,10 +1107,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {canViewDevDiagnostics && (
             <button
               onClick={() => setShowSqlScript(!showSqlScript)}
-              className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition-colors flex items-center gap-3 cursor-pointer"
+              className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition-colors flex items-center gap-3 cursor-pointer min-w-0"
             >
               <Database className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <div>
+              <div className="min-w-0">
                 <div className="text-xs font-semibold text-slate-900 dark:text-white">
                   {showSqlScript ? 'Ocultar Script SQL' : 'Script SQL com RLS'}
                 </div>
@@ -1123,9 +1124,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         {canViewDevDiagnostics && (
           <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-850/80 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-emerald-500" />
+                  <Activity className="w-4 h-4 text-emerald-500 shrink-0" />
                   <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                     Diagnóstico de Integridade e Gravação na Nuvem
                   </h4>
@@ -1139,16 +1140,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 type="button"
                 onClick={handleRunDiagnostic}
                 disabled={isRunningDiagnostic}
-                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer shrink-0"
+                className="w-full sm:w-auto px-3.5 py-2 min-h-[38px] bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer shrink-0"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isRunningDiagnostic ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${isRunningDiagnostic ? 'animate-spin' : ''}`} />
                 <span>{isRunningDiagnostic ? 'Testando Conexão...' : 'Testar Conexão e Gravação'}</span>
               </button>
             </div>
 
             {diagnosticResult && (
               <div className="space-y-2 pt-2 border-t border-slate-200/80 dark:border-slate-800 animate-in fade-in">
-                <div className="flex items-center justify-between text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                   <span className="font-semibold text-slate-700 dark:text-slate-300">
                     Resultado do Diagnóstico ({diagnosticResult.timestamp}):
                   </span>
@@ -1181,11 +1182,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         <XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                       )}
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-[11px] flex items-center justify-between">
+                        <div className="font-semibold text-[11px] flex flex-wrap items-center justify-between gap-1">
                           <span>{st.name}</span>
                           <span className="text-[10px] font-mono opacity-70 uppercase tracking-wider">{st.status}</span>
                         </div>
-                        <div className="text-[11px] mt-0.5 leading-snug">{st.message}</div>
+                        <div className="text-[11px] mt-0.5 leading-snug break-words">{st.message}</div>
                         {st.detail && (
                           <div className="text-[10px] font-mono opacity-80 mt-0.5 break-all">{st.detail}</div>
                         )}
@@ -1202,7 +1203,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         {canViewDevDiagnostics && (showSqlScript || cloudSyncStatus === 'table_missing') && (
           <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-950 text-slate-100 text-xs space-y-3 animate-in fade-in">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
-              <div>
+              <div className="min-w-0">
                 <span className="font-bold text-emerald-400">Script SQL para Criação da Tabela no Supabase:</span>
                 <p className="text-[11px] text-slate-400 mt-0.5">
                   No painel do Supabase, vá em <strong>SQL Editor</strong> &gt; <strong>New Query</strong>, cole este código e clique em <strong>Run</strong>.
@@ -1218,7 +1219,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </button>
             </div>
 
-            <pre className="font-mono text-[11px] text-emerald-300 bg-slate-900/90 p-3 rounded-lg overflow-x-auto leading-relaxed border border-slate-800">
+            <pre className="font-mono text-[11px] text-emerald-300 bg-slate-900/90 p-3 rounded-lg overflow-x-auto overscroll-x-contain leading-relaxed border border-slate-800">
               {SUPABASE_SQL_SETUP}
             </pre>
           </div>
@@ -1226,10 +1227,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       </div>
 
       {/* Backup and Data Storage Card */}
-      <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+      <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
         <div>
           <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Shield className="w-4 h-4 text-blue-500" />
+            <Shield className="w-4 h-4 text-blue-500 shrink-0" />
             Armazenamento Local, Backup e Restauração
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -1240,40 +1241,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         {manualUploadConflictMsg && (
           <div className="p-3.5 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 text-xs space-y-2 animate-in fade-in">
             <div className="flex items-start justify-between gap-2">
-              <div className="flex items-start gap-2">
+              <div className="flex items-start gap-2 min-w-0">
                 <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                <div className="space-y-1">
+                <div className="space-y-1 min-w-0">
                   <div className="font-bold">Envio manual bloqueado por conflito com a nuvem</div>
-                  <p className="leading-relaxed opacity-95">{manualUploadConflictMsg}</p>
+                  <p className="leading-relaxed opacity-95 break-words">{manualUploadConflictMsg}</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setManualUploadConflictMsg(null)}
                 aria-label="Fechar aviso de conflito"
-                className="p-1 rounded-lg opacity-70 hover:opacity-100 cursor-pointer shrink-0"
+                className="p-1.5 rounded-lg opacity-70 hover:opacity-100 cursor-pointer shrink-0"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
-            <div className="flex flex-wrap gap-2 pl-6">
+            <div className="flex flex-wrap gap-2 sm:pl-6">
               <button
                 type="button"
                 onClick={async () => {
                   await forceDownloadFromCloud();
                   setManualUploadConflictMsg(null);
                 }}
-                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                className="px-3 py-1.5 min-h-[36px] rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold inline-flex items-center gap-1.5 cursor-pointer"
               >
-                <Download className="w-3.5 h-3.5" />
+                <Download className="w-3.5 h-3.5 shrink-0" />
                 <span>Baixar Versão da Nuvem</span>
               </button>
               <button
                 type="button"
                 onClick={handleExportJson}
-                className="px-3 py-1.5 rounded-lg border border-amber-400/70 dark:border-amber-700 text-amber-900 dark:text-amber-200 hover:bg-amber-100/70 dark:hover:bg-amber-900/40 font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                className="px-3 py-1.5 min-h-[36px] rounded-lg border border-amber-400/70 dark:border-amber-700 text-amber-900 dark:text-amber-200 hover:bg-amber-100/70 dark:hover:bg-amber-900/40 font-semibold inline-flex items-center gap-1.5 cursor-pointer"
               >
-                <Download className="w-3.5 h-3.5" />
+                <Download className="w-3.5 h-3.5 shrink-0" />
                 <span>Exportar Backup Local Primeiro</span>
               </button>
             </div>
@@ -1285,19 +1286,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <button
             type="button"
             onClick={handleExportJson}
-            className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition-colors flex items-center gap-3 cursor-pointer"
+            className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition-colors flex items-center gap-3 cursor-pointer min-w-0 min-h-[56px]"
           >
             <Download className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <div>
+            <div className="min-w-0">
               <div className="text-xs font-semibold text-slate-900 dark:text-white">Fazer Backup Completo</div>
               <div className="text-[11px] text-slate-400">Baixar arquivo .json com tudo</div>
             </div>
           </button>
 
           {/* Restore Backup (Prévia + Validação antes de restaurar) */}
-          <label className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition-colors flex items-center gap-3 cursor-pointer">
+          <label className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition-colors flex items-center gap-3 cursor-pointer min-w-0 min-h-[56px]">
             <Upload className={`w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 ${isInspectingBackup ? 'animate-pulse' : ''}`} />
-            <div>
+            <div className="min-w-0">
               <div className="text-xs font-semibold text-slate-900 dark:text-white">
                 {isInspectingBackup ? 'Validando Backup...' : 'Restaurar de Arquivo'}
               </div>
@@ -1325,14 +1326,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               }
               setPendingDestructiveAction('sample');
             }}
-            className={`p-3.5 rounded-xl border text-left transition-colors flex items-center gap-3 cursor-pointer ${
+            className={`p-3.5 rounded-xl border text-left transition-colors flex items-center gap-3 cursor-pointer min-w-0 min-h-[56px] sm:col-span-2 lg:col-span-1 ${
               hasRealData
                 ? 'border-slate-200/70 dark:border-slate-800 bg-slate-100/60 dark:bg-slate-900/40 opacity-75'
                 : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
             <Sparkles className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
-            <div>
+            <div className="min-w-0">
               <div className="text-xs font-semibold text-slate-900 dark:text-white">Carregar Dados Demonstrativos</div>
               <div className="text-[11px] text-slate-400">
                 {hasRealData ? 'Bloqueado: dados reais ativos' : 'Preencher localmente para testes'}
@@ -1602,22 +1603,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0">
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
                     <button
                       type="button"
                       onClick={() => setSelectedRecoveryItem(item)}
-                      className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors cursor-pointer"
+                      className="px-3 py-1.5 min-h-[36px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold inline-flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
                     >
-                      <Eye className="w-3.5 h-3.5" />
+                      <Eye className="w-3.5 h-3.5 shrink-0" />
                       <span>Visualizar Detalhes</span>
                     </button>
                     <button
                       type="button"
                       disabled={downloadingRecoveryId === item.id}
                       onClick={() => handleDownloadRecoverySnapshot(item)}
-                      className="px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors cursor-pointer"
+                      className="px-3 py-1.5 min-h-[36px] rounded-xl bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
                     >
-                      <Download className="w-3.5 h-3.5" />
+                      <Download className="w-3.5 h-3.5 shrink-0" />
                       <span>
                         {downloadingRecoveryId === item.id ? 'Preparando...' : 'Baixar Cópia'}
                       </span>
@@ -1660,22 +1661,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       </div>
 
       {/* Accounts Management */}
-      <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
+      <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="min-w-0">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Wallet className="w-4 h-4 text-emerald-500" />
-              Contas Bancárias, Carteiras e Dinheiro Vivo
+              <Wallet className="w-4 h-4 text-emerald-500 shrink-0" />
+              <span>Contas Bancárias, Carteiras e Dinheiro Vivo</span>
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 mt-0.5">
               Personalize suas contas correntes, contas salário, poupanças e dinheiro em espécie
             </p>
           </div>
           <button
             onClick={() => setIsAccModalOpen(true)}
-            className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-900 dark:bg-emerald-600 text-white flex items-center gap-1.5"
+            className="w-full sm:w-auto px-3.5 py-2 min-h-[38px] text-xs font-semibold rounded-xl bg-slate-900 dark:bg-emerald-600 text-white flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-3.5 h-3.5 shrink-0" />
             <span>Adicionar Conta</span>
           </button>
         </div>
@@ -1685,15 +1686,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           onClose={() => setAccountDeleteFeedback(null)}
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {accounts.map(acc => (
             <div
               key={acc.id}
-              className="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex flex-col justify-between"
+              className="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex flex-col justify-between min-w-0"
             >
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2 truncate">
+              <div className="min-w-0">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: acc.color }} />
                     <span className="font-semibold text-slate-900 dark:text-white text-xs truncate">
                       {acc.name}
@@ -1708,7 +1709,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       }}
                       title="Excluir conta"
                       aria-label={`Excluir conta ${acc.name}`}
-                      className="text-slate-400 hover:text-rose-600 p-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                      className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -1719,7 +1720,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
               </div>
 
-              <div className="mt-3 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex justify-between items-baseline">
+              <div className="mt-3 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex justify-between items-baseline gap-2">
                 <span className="text-[11px] text-slate-400">Saldo:</span>
                 <span className="font-mono font-bold text-slate-900 dark:text-white tabular-nums text-sm">
                   {formatCurrency(acc.balance)}
@@ -1731,22 +1732,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       </div>
 
       {/* Categories Management */}
-      <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
+      <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="min-w-0">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <FolderPlus className="w-4 h-4 text-purple-500" />
-              Categorias de Entradas e Despesas
+              <FolderPlus className="w-4 h-4 text-purple-500 shrink-0" />
+              <span>Categorias de Entradas e Despesas</span>
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 mt-0.5">
               Crie, edite e personalize suas próprias categorias com total liberdade
             </p>
           </div>
           <button
             onClick={() => handleOpenCatModal()}
-            className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-900 dark:bg-emerald-600 text-white flex items-center gap-1.5"
+            className="w-full sm:w-auto px-3.5 py-2 min-h-[38px] text-xs font-semibold rounded-xl bg-slate-900 dark:bg-emerald-600 text-white flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-3.5 h-3.5 shrink-0" />
             <span>Nova Categoria</span>
           </button>
         </div>
@@ -1754,23 +1755,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         {/* Categories list divided into Entradas and Despesas */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
           {/* Entradas */}
-          <div>
+          <div className="min-w-0">
             <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-2 pb-1 border-b border-slate-100 dark:border-slate-800">
               Categorias de Entradas ({categories.filter(c => c.type === 'income').length})
             </h4>
-            <div className="space-y-1.5 max-h-72 overflow-y-auto">
+            <div className="space-y-1.5 max-h-72 overflow-y-auto overscroll-contain">
               {categories.filter(c => c.type === 'income').map(cat => (
-                <div key={cat.id} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100 transition-colors">
-                  <div className="flex items-center gap-2 truncate">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
+                <div key={cat.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors min-w-0">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
                     <span className="font-medium text-slate-800 dark:text-slate-200 truncate">{cat.name}</span>
                   </div>
-                  <div className="flex items-center gap-1 text-slate-400">
-                    <button onClick={() => handleOpenCatModal(cat)} className="p-1 hover:text-slate-600">
-                      <Edit2 className="w-3 h-3" />
+                  <div className="flex items-center gap-1 text-slate-400 shrink-0">
+                    <button onClick={() => handleOpenCatModal(cat)} className="p-1.5 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer" aria-label={`Editar categoria ${cat.name}`}>
+                      <Edit2 className="w-3.5 h-3.5" />
                     </button>
-                    <button onClick={() => handleDeleteCategory(cat)} className="p-1 hover:text-rose-600">
-                      <Trash2 className="w-3 h-3" />
+                    <button onClick={() => handleDeleteCategory(cat)} className="p-1.5 hover:text-rose-600 cursor-pointer" aria-label={`Excluir categoria ${cat.name}`}>
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -1779,26 +1780,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
 
           {/* Despesas */}
-          <div>
+          <div className="min-w-0">
             <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-2 pb-1 border-b border-slate-100 dark:border-slate-800">
               Categorias de Despesas ({categories.filter(c => c.type === 'expense').length})
             </h4>
-            <div className="space-y-1.5 max-h-72 overflow-y-auto">
+            <div className="space-y-1.5 max-h-72 overflow-y-auto overscroll-contain">
               {categories.filter(c => c.type === 'expense').map(cat => (
-                <div key={cat.id} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100 transition-colors">
-                  <div className="flex items-center gap-2 truncate">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
+                <div key={cat.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors min-w-0">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
                     <span className="font-medium text-slate-800 dark:text-slate-200 truncate">{cat.name}</span>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-[10px] text-slate-400 shrink-0">
                       ({cat.expenseType === 'fixed' ? 'Fixa' : 'Variável'})
                     </span>
                   </div>
-                  <div className="flex items-center gap-1 text-slate-400">
-                    <button onClick={() => handleOpenCatModal(cat)} className="p-1 hover:text-slate-600">
-                      <Edit2 className="w-3 h-3" />
+                  <div className="flex items-center gap-1 text-slate-400 shrink-0">
+                    <button onClick={() => handleOpenCatModal(cat)} className="p-1.5 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer" aria-label={`Editar categoria ${cat.name}`}>
+                      <Edit2 className="w-3.5 h-3.5" />
                     </button>
-                    <button onClick={() => handleDeleteCategory(cat)} className="p-1 hover:text-rose-600">
-                      <Trash2 className="w-3 h-3" />
+                    <button onClick={() => handleDeleteCategory(cat)} className="p-1.5 hover:text-rose-600 cursor-pointer" aria-label={`Excluir categoria ${cat.name}`}>
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -1827,436 +1828,319 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       />
 
       {/* Modal: Category */}
-      {isCatModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-5 text-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                {editingCategory ? 'Editar Categoria' : 'Nova Categoria'}
-              </h3>
-              <button onClick={() => setIsCatModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      <ResponsiveModal
+        isOpen={isCatModalOpen}
+        onClose={() => setIsCatModalOpen(false)}
+        title={editingCategory ? 'Editar Categoria' : 'Nova Categoria'}
+        size="sm"
+        bodyClassName="text-xs space-y-3"
+        onSubmit={handleSaveCat}
+        footer={
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setIsCatModalOpen(false)}
+              className="px-4 py-2.5 min-h-[42px] rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2.5 min-h-[42px] bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs cursor-pointer"
+            >
+              Salvar Categoria
+            </button>
+          </div>
+        }
+      >
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Nome da Categoria *</label>
+          <input
+            type="text"
+            required
+            placeholder="Ex: Assinaturas, Cursos, Pets..."
+            value={catName}
+            onChange={e => setCatName(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          />
+        </div>
 
-            <form onSubmit={handleSaveCat} className="space-y-3">
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Nome da Categoria *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ex: Assinaturas, Cursos, Pets..."
-                  value={catName}
-                  onChange={e => setCatName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                />
-              </div>
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Tipo Principal</label>
+          <select
+            value={catType}
+            onChange={e => setCatType(e.target.value as any)}
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          >
+            <option value="expense">Despesa (Saída)</option>
+            <option value="income">Entrada (Receita)</option>
+          </select>
+        </div>
 
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Tipo Principal</label>
-                <select
-                  value={catType}
-                  onChange={e => setCatType(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                >
-                  <option value="expense">Despesa (Saída)</option>
-                  <option value="income">Entrada (Receita)</option>
-                </select>
-              </div>
+        {catType === 'expense' && (
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Classificação de Despesa</label>
+            <select
+              value={catExpenseType}
+              onChange={e => setCatExpenseType(e.target.value as any)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            >
+              <option value="variable">Despesa Variável</option>
+              <option value="fixed">Despesa Fixa</option>
+            </select>
+          </div>
+        )}
 
-              {catType === 'expense' && (
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Classificação de Despesa</label>
-                  <select
-                    value={catExpenseType}
-                    onChange={e => setCatExpenseType(e.target.value as any)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  >
-                    <option value="variable">Despesa Variável</option>
-                    <option value="fixed">Despesa Fixa</option>
-                  </select>
-                </div>
-              )}
-
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Cor</label>
-                <div className="flex items-center gap-2">
-                  {['#10b981', '#0284c7', '#8b5cf6', '#ec4899', '#f59e0b', '#e11d48', '#64748b'].map(c => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setCatColor(c)}
-                      className={`w-6 h-6 rounded-full ${catColor === c ? 'ring-2 ring-emerald-500 ring-offset-2' : ''}`}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl"
-                >
-                  Salvar Categoria
-                </button>
-              </div>
-            </form>
+        <div>
+          <label className="block font-medium text-slate-500 mb-1.5">Cor</label>
+          <div className="flex flex-wrap items-center gap-2">
+            {['#10b981', '#0284c7', '#8b5cf6', '#ec4899', '#f59e0b', '#e11d48', '#64748b'].map(c => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setCatColor(c)}
+                aria-label={`Cor ${c}`}
+                className={`w-7 h-7 rounded-full cursor-pointer ${catColor === c ? 'ring-2 ring-emerald-500 ring-offset-2' : ''}`}
+                style={{ backgroundColor: c }}
+              />
+            ))}
           </div>
         </div>
-      )}
+      </ResponsiveModal>
 
       {/* Modal: Account */}
-      {isAccModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-5 text-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                Cadastrar Nova Conta
-              </h3>
-              <button onClick={() => setIsAccModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveAccount} className="space-y-3">
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Nome da Conta *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ex: Inter, C6, Poupança Caixa..."
-                  value={accName}
-                  onChange={e => setAccName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Saldo Atual Inicial (R$)</label>
-                <input
-                  type="text"
-                  value={accBalanceStr}
-                  onChange={e => setAccBalanceStr(e.target.value.replace(/[^0-9,]/g, ''))}
-                  className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Tipo de Conta</label>
-                <select
-                  value={accType}
-                  onChange={e => setAccType(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                >
-                  <option value="checking">Conta Corrente</option>
-                  <option value="savings">Poupança / Reserva</option>
-                  <option value="cash">Dinheiro em Espécie (Carteira)</option>
-                  <option value="investment">Investimento</option>
-                </select>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl"
-                >
-                  Cadastrar Conta
-                </button>
-              </div>
-            </form>
+      <ResponsiveModal
+        isOpen={isAccModalOpen}
+        onClose={() => setIsAccModalOpen(false)}
+        title="Cadastrar Nova Conta"
+        size="sm"
+        bodyClassName="text-xs space-y-3"
+        onSubmit={handleSaveAccount}
+        footer={
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setIsAccModalOpen(false)}
+              className="px-4 py-2.5 min-h-[42px] rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2.5 min-h-[42px] bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs cursor-pointer"
+            >
+              Cadastrar Conta
+            </button>
           </div>
+        }
+      >
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Nome da Conta *</label>
+          <input
+            type="text"
+            required
+            placeholder="Ex: Inter, C6, Poupança Caixa..."
+            value={accName}
+            onChange={e => setAccName(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          />
         </div>
-      )}
+
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Saldo Atual Inicial (R$)</label>
+          <input
+            type="text"
+            value={accBalanceStr}
+            onChange={e => setAccBalanceStr(e.target.value.replace(/[^0-9,]/g, ''))}
+            className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          />
+        </div>
+
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Tipo de Conta</label>
+          <select
+            value={accType}
+            onChange={e => setAccType(e.target.value as any)}
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          >
+            <option value="checking">Conta Corrente</option>
+            <option value="savings">Poupança / Reserva</option>
+            <option value="cash">Dinheiro em Espécie (Carteira)</option>
+            <option value="investment">Investimento</option>
+          </select>
+        </div>
+      </ResponsiveModal>
 
       {/* Modal: Update Account Password (Supabase Auth) */}
-      {isSecurityModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-5 text-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                  <KeyRound className="w-4 h-4" />
-                </div>
-                <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                  Alterar Senha da Conta
-                </h3>
-              </div>
-              <button
-                onClick={() => setIsSecurityModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      <ResponsiveModal
+        isOpen={isSecurityModalOpen}
+        onClose={() => setIsSecurityModalOpen(false)}
+        title="Alterar Senha da Conta"
+        size="sm"
+        disableClose={securityLoading}
+        icon={
+          <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <KeyRound className="w-4 h-4" />
+          </div>
+        }
+        bodyClassName="text-xs space-y-3"
+        onSubmit={handleSaveSecurity}
+        footer={
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
+            <button
+              type="button"
+              disabled={securityLoading}
+              onClick={() => setIsSecurityModalOpen(false)}
+              className="sm:flex-1 py-2.5 px-4 min-h-[42px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-xl text-xs cursor-pointer disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={securityLoading}
+              className="sm:flex-1 py-2.5 px-4 min-h-[42px] bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-semibold rounded-xl text-xs shadow-xs cursor-pointer"
+            >
+              {securityLoading ? 'Salvando...' : 'Atualizar Senha'}
+            </button>
+          </div>
+        }
+      >
+        {securityError && (
+          <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 text-xs flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>{securityError}</span>
+          </div>
+        )}
 
-            {securityError && (
-              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 text-xs flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0" />
-                <span>{securityError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSaveSecurity} className="space-y-3">
-              <div>
-                <label className="block font-medium text-slate-600 dark:text-slate-400 mb-1">
-                  Conta Autenticada
-                </label>
-                <div className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 font-mono truncate">
-                  {supabaseUserEmail || supabaseUserDisplayName}
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-600 dark:text-slate-400 mb-1">
-                  Nova Senha (mínimo 6 caracteres) *
-                </label>
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  placeholder="Digite a nova senha"
-                  value={securityPass}
-                  onChange={e => setSecurityPass(e.target.value)}
-                  autoComplete="new-password"
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-600 dark:text-slate-400 mb-1">
-                  Confirmar Nova Senha *
-                </label>
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  placeholder="Repita a nova senha"
-                  value={securityConfirmPass}
-                  onChange={e => setSecurityConfirmPass(e.target.value)}
-                  autoComplete="new-password"
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div className="pt-2 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsSecurityModalOpen(false)}
-                  className="w-1/2 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-xl"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={securityLoading}
-                  className="w-1/2 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-semibold rounded-xl shadow-xs"
-                >
-                  {securityLoading ? 'Salvando...' : 'Atualizar Senha'}
-                </button>
-              </div>
-            </form>
+        <div>
+          <label className="block font-medium text-slate-600 dark:text-slate-400 mb-1">
+            Conta Autenticada
+          </label>
+          <div className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 font-mono truncate">
+            {supabaseUserEmail || supabaseUserDisplayName}
           </div>
         </div>
-      )}
+
+        <div>
+          <label className="block font-medium text-slate-600 dark:text-slate-400 mb-1">
+            Nova Senha (mínimo 6 caracteres) *
+          </label>
+          <input
+            type="password"
+            required
+            minLength={6}
+            placeholder="Digite a nova senha"
+            value={securityPass}
+            onChange={e => setSecurityPass(e.target.value)}
+            autoComplete="new-password"
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          />
+        </div>
+
+        <div>
+          <label className="block font-medium text-slate-600 dark:text-slate-400 mb-1">
+            Confirmar Nova Senha *
+          </label>
+          <input
+            type="password"
+            required
+            minLength={6}
+            placeholder="Repita a nova senha"
+            value={securityConfirmPass}
+            onChange={e => setSecurityConfirmPass(e.target.value)}
+            autoComplete="new-password"
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          />
+        </div>
+      </ResponsiveModal>
 
       {/* Supabase Auth Connection Modal */}
-      {isSbModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <Cloud className="w-5 h-5 text-blue-500" />
-                <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                  Conectar Conta na Nuvem
-                </h3>
+      <ResponsiveModal
+        isOpen={isSbModalOpen}
+        onClose={() => {
+          setIsSbModalOpen(false);
+          setSbError(null);
+          setSbSuccess(null);
+          setSbOtpSent(false);
+        }}
+        title="Conectar Conta na Nuvem"
+        icon={<Cloud className="w-5 h-5 text-blue-500" />}
+        size="md"
+        bodyClassName="space-y-4"
+      >
+        <p className="text-xs text-slate-500">
+          Conecte sua conta para sincronizar e proteger seus dados financeiros na nuvem com isolamento individual.
+        </p>
+
+        {/* Auth Method Navigation Tabs */}
+        <div className="flex rounded-xl bg-slate-100 dark:bg-slate-800 p-1 text-xs">
+          <button
+            type="button"
+            onClick={() => {
+              setSbAuthTab('otp');
+              setSbError(null);
+              setSbSuccess(null);
+            }}
+            className={`flex-1 py-2 font-semibold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              sbAuthTab === 'otp'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            <Mail className="w-3.5 h-3.5 shrink-0" />
+            <span>Código E-mail</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSbAuthTab('password');
+              setSbError(null);
+              setSbSuccess(null);
+            }}
+            className={`flex-1 py-2 font-semibold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              sbAuthTab === 'password'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            <KeyRound className="w-3.5 h-3.5 shrink-0" />
+            <span>Senha</span>
+          </button>
+        </div>
+
+        {sbError && (
+          <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 text-xs flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span className="min-w-0 break-words">{sbError}</span>
+          </div>
+        )}
+
+        {sbSuccess && (
+          <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span className="min-w-0 break-words">{sbSuccess}</span>
+          </div>
+        )}
+
+        {/* TAB 1: Link de Acesso por E-mail (Magic Link / OTP) */}
+        {sbAuthTab === 'otp' && (
+          <div className="space-y-3">
+            <div className="p-2.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 text-[11px] text-emerald-800 dark:text-emerald-300 space-y-1">
+              <div className="font-semibold flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span>Como funciona a conexão por e-mail:</span>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSbModalOpen(false);
-                  setSbError(null);
-                  setSbSuccess(null);
-                  setSbOtpSent(false);
-                }}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-[11px]">
+                Enviamos um e-mail com um botão <strong>"Log In"</strong> (Link de Acesso).
+                Basta clicar nele para conectar este app diretamente à nuvem!
+              </p>
             </div>
 
-            <p className="text-xs text-slate-500">
-              Conecte sua conta para sincronizar e proteger seus dados financeiros na nuvem com isolamento individual.
-            </p>
-
-            {/* Auth Method Navigation Tabs */}
-            <div className="flex rounded-xl bg-slate-100 dark:bg-slate-800 p-1 text-xs">
-              <button
-                type="button"
-                onClick={() => {
-                  setSbAuthTab('otp');
-                  setSbError(null);
-                  setSbSuccess(null);
-                }}
-                className={`flex-1 py-1.5 font-semibold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  sbAuthTab === 'otp'
-                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                }`}
-              >
-                <Mail className="w-3.5 h-3.5" />
-                <span>Código E-mail</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSbAuthTab('password');
-                  setSbError(null);
-                  setSbSuccess(null);
-                }}
-                className={`flex-1 py-1.5 font-semibold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  sbAuthTab === 'password'
-                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                }`}
-              >
-                <KeyRound className="w-3.5 h-3.5" />
-                <span>Senha</span>
-              </button>
-            </div>
-
-            {sbError && (
-              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 text-xs flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0" />
-                <span>{sbError}</span>
-              </div>
-            )}
-
-            {sbSuccess && (
-              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>{sbSuccess}</span>
-              </div>
-            )}
-
-            {/* TAB 1: Link de Acesso por E-mail (Magic Link / OTP) */}
-            {sbAuthTab === 'otp' && (
-              <div className="space-y-3">
-                <div className="p-2.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 text-[11px] text-emerald-800 dark:text-emerald-300 space-y-1">
-                  <div className="font-semibold flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>Como funciona a conexão por e-mail:</span>
-                  </div>
-                  <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-[11px]">
-                    Enviamos um e-mail com um botão <strong>"Log In"</strong> (Link de Acesso).
-                    Basta clicar nele para conectar este app diretamente à nuvem!
-                  </p>
-                </div>
-
-                {!sbOtpSent ? (
-                  <form onSubmit={handleSbSendOtp} className="space-y-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                        Seu E-mail *
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        value={sbEmail}
-                        onChange={e => setSbEmail(e.target.value)}
-                        placeholder="seu@email.com"
-                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white text-sm font-mono"
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={sbOtpLoading}
-                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                    >
-                      {sbOtpLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
-                      <span>{sbOtpLoading ? 'Enviando Link...' : 'Enviar Link de Acesso por E-mail'}</span>
-                    </button>
-                  </form>
-                ) : (
-                  <div className="space-y-3 animate-in fade-in">
-                    {/* Instruções do Link Mágico */}
-                    <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-emerald-500/40 text-xs space-y-2">
-                      <div className="flex items-center gap-1.5 font-semibold text-emerald-600 dark:text-emerald-400">
-                        <CheckCircle2 className="w-4 h-4 shrink-0" />
-                        <span>Link enviado para {sbEmail}!</span>
-                      </div>
-                      <p className="text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed">
-                        Abra seu e-mail e clique no botão <strong>"Log In"</strong>. Sua conta será conectada automaticamente.
-                      </p>
-                      <button
-                        type="button"
-                        disabled={sbLoading}
-                        onClick={async () => {
-                          setSbLoading(true);
-                          await checkSessionStatus();
-                          setSbLoading(false);
-                        }}
-                        className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        {sbLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                        <span>Já cliquei no link do e-mail (Verificar)</span>
-                      </button>
-                    </div>
-
-                    {/* Opção secundária se houver código numérico de 6 dígitos */}
-                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-xs space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-semibold text-slate-500">
-                          (Opcional) Código numérico recebido:
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setSbOtpSent(false)}
-                          className="text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 underline cursor-pointer"
-                        >
-                          Trocar e-mail
-                        </button>
-                      </div>
-                      <form onSubmit={handleSbVerifyOtp} className="space-y-2">
-                        <input
-                          type="text"
-                          maxLength={8}
-                          value={sbOtpCode}
-                          onChange={e => setSbOtpCode(e.target.value)}
-                          placeholder="123456"
-                          className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white text-center font-mono text-sm tracking-widest"
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={handleSbSendOtp}
-                            disabled={sbOtpLoading}
-                            className="w-1/3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold rounded-xl text-xs cursor-pointer"
-                          >
-                            Reenviar
-                          </button>
-                          <button
-                            type="submit"
-                            disabled={sbOtpLoading || !sbOtpCode.trim()}
-                            className="w-2/3 py-2 bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-50 text-white font-semibold rounded-xl text-xs transition-colors cursor-pointer"
-                          >
-                            <span>Validar Código</span>
-                          </button>
-                        </div>
-                      </form>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* TAB 2: Email + Password */}
-            {sbAuthTab === 'password' && (
-              <form onSubmit={handleSupabaseLoginSubmit} className="space-y-3">
+            {!sbOtpSent ? (
+              <form onSubmit={handleSbSendOtp} className="space-y-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                    E-mail da Conta *
+                    Seu E-mail *
                   </label>
                   <input
                     type="email"
@@ -2268,52 +2152,149 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   />
                 </div>
 
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                      Senha da Conta *
-                    </label>
-                    <button
-                      type="button"
-                      disabled={sbResetLoading}
-                      onClick={handleSbResetPassword}
-                      className="text-[11px] text-blue-500 hover:text-blue-400 underline underline-offset-2 cursor-pointer"
-                    >
-                      {sbResetLoading ? 'Enviando link...' : 'Criar/Redefinir Senha'}
-                    </button>
+                <button
+                  type="submit"
+                  disabled={sbOtpLoading}
+                  className="w-full py-2.5 min-h-[42px] bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                >
+                  {sbOtpLoading ? <RefreshCw className="w-4 h-4 animate-spin shrink-0" /> : <Mail className="w-4 h-4 shrink-0" />}
+                  <span>{sbOtpLoading ? 'Enviando Link...' : 'Enviar Link de Acesso por E-mail'}</span>
+                </button>
+              </form>
+            ) : (
+              <div className="space-y-3 animate-in fade-in">
+                {/* Instruções do Link Mágico */}
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-emerald-500/40 text-xs space-y-2">
+                  <div className="flex items-center gap-1.5 font-semibold text-emerald-600 dark:text-emerald-400 min-w-0">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span className="truncate">Link enviado para {sbEmail}!</span>
                   </div>
-                  <input
-                    type="password"
-                    required
-                    value={sbPass}
-                    onChange={e => setSbPass(e.target.value)}
-                    placeholder="Sua senha"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white text-sm"
-                  />
-                </div>
-
-                <div className="pt-2 flex gap-2">
+                  <p className="text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed">
+                    Abra seu e-mail e clique no botão <strong>"Log In"</strong>. Sua conta será conectada automaticamente.
+                  </p>
                   <button
                     type="button"
-                    onClick={() => setIsSbModalOpen(false)}
-                    className="w-1/2 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-xl text-xs cursor-pointer"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
                     disabled={sbLoading}
-                    className="w-1/2 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold rounded-xl text-xs shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                    onClick={async () => {
+                      setSbLoading(true);
+                      await checkSessionStatus();
+                      setSbLoading(false);
+                    }}
+                    className="w-full py-2.5 min-h-[40px] bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
-                    {sbLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Cloud className="w-4 h-4" />}
-                    <span>Entrar com Senha</span>
+                    {sbLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" /> : <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
+                    <span>Já cliquei no link do e-mail (Verificar)</span>
                   </button>
                 </div>
-              </form>
+
+                {/* Opção secundária se houver código numérico de 6 dígitos */}
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-xs space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[11px] font-semibold text-slate-500">
+                      (Opcional) Código numérico recebido:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSbOtpSent(false)}
+                      className="text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 underline cursor-pointer"
+                    >
+                      Trocar e-mail
+                    </button>
+                  </div>
+                  <form onSubmit={handleSbVerifyOtp} className="space-y-2">
+                    <input
+                      type="text"
+                      maxLength={8}
+                      value={sbOtpCode}
+                      onChange={e => setSbOtpCode(e.target.value)}
+                      placeholder="123456"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white text-center font-mono text-sm tracking-widest"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSbSendOtp}
+                        disabled={sbOtpLoading}
+                        className="w-1/3 py-2 min-h-[38px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold rounded-xl text-xs cursor-pointer"
+                      >
+                        Reenviar
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={sbOtpLoading || !sbOtpCode.trim()}
+                        className="w-2/3 py-2 min-h-[38px] bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 disabled:opacity-50 text-white font-semibold rounded-xl text-xs transition-colors cursor-pointer"
+                      >
+                        <span>Validar Código</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
             )}
           </div>
-        </div>
-      )}
+        )}
+
+        {/* TAB 2: Email + Password */}
+        {sbAuthTab === 'password' && (
+          <form onSubmit={handleSupabaseLoginSubmit} className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                E-mail da Conta *
+              </label>
+              <input
+                type="email"
+                required
+                value={sbEmail}
+                onChange={e => setSbEmail(e.target.value)}
+                placeholder="seu@email.com"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white text-sm font-mono"
+              />
+            </div>
+
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                  Senha da Conta *
+                </label>
+                <button
+                  type="button"
+                  disabled={sbResetLoading}
+                  onClick={handleSbResetPassword}
+                  className="text-[11px] text-blue-500 hover:text-blue-400 underline underline-offset-2 cursor-pointer"
+                >
+                  {sbResetLoading ? 'Enviando link...' : 'Criar/Redefinir Senha'}
+                </button>
+              </div>
+              <input
+                type="password"
+                required
+                value={sbPass}
+                onChange={e => setSbPass(e.target.value)}
+                placeholder="Sua senha"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white text-sm"
+              />
+            </div>
+
+            <div className="pt-2 flex flex-col-reverse sm:flex-row gap-2">
+              <button
+                type="button"
+                onClick={() => setIsSbModalOpen(false)}
+                className="sm:w-1/2 py-2.5 min-h-[42px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-xl text-xs cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={sbLoading}
+                className="sm:w-1/2 py-2.5 min-h-[42px] bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold rounded-xl text-xs shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                {sbLoading ? <RefreshCw className="w-4 h-4 animate-spin shrink-0" /> : <Cloud className="w-4 h-4 shrink-0" />}
+                <span>Entrar com Senha</span>
+              </button>
+            </div>
+          </form>
+        )}
+      </ResponsiveModal>
 
       <ConfirmDeleteModal
         isOpen={!!pendingDeleteAccount}
@@ -2339,50 +2320,39 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         onCancel={() => setPendingDestructiveAction(null)}
       />
 
-      {pendingBackupReview && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="backup-preview-modal-title"
-          onClick={() => {
-            if (!isApplyingBackupRestore) {
-              setPendingBackupReview(null);
-              setConfirmBackupReplaceChecked(false);
-            }
-          }}
-        >
+      <ResponsiveModal
+        isOpen={!!pendingBackupReview}
+        onClose={() => {
+          if (!isApplyingBackupRestore) {
+            setPendingBackupReview(null);
+            setConfirmBackupReplaceChecked(false);
+          }
+        }}
+        disableClose={isApplyingBackupRestore}
+        size="lg"
+        titleId="backup-preview-modal-title"
+        closeAriaLabel="Fechar prévia de backup"
+        icon={
           <div
-            className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden"
-            onClick={e => e.stopPropagation()}
+            className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+              pendingBackupReview?.outcome.canRestore
+                ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400'
+                : 'bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400'
+            }`}
           >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                    pendingBackupReview.outcome.canRestore
-                      ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400'
-                      : 'bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400'
-                  }`}
-                >
-                  {pendingBackupReview.outcome.canRestore ? (
-                    <ShieldCheck className="w-4 h-4" />
-                  ) : (
-                    <AlertTriangle className="w-4 h-4" />
-                  )}
-                </div>
-                <div>
-                  <h3
-                    id="backup-preview-modal-title"
-                    className="font-bold text-slate-900 dark:text-white text-sm sm:text-base"
-                  >
-                    Prévia da Restauração de Backup
-                  </h3>
-                  <p className="text-[11px] text-slate-500 truncate max-w-[260px] sm:max-w-xs">
-                    {pendingBackupReview.fileName}
-                  </p>
-                </div>
-              </div>
+            {pendingBackupReview?.outcome.canRestore ? (
+              <ShieldCheck className="w-4 h-4" />
+            ) : (
+              <AlertTriangle className="w-4 h-4" />
+            )}
+          </div>
+        }
+        title="Prévia da Restauração de Backup"
+        subtitle={pendingBackupReview?.fileName}
+        bodyClassName="text-xs"
+        footer={
+          pendingBackupReview && (
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 text-xs">
               <button
                 type="button"
                 disabled={isApplyingBackupRestore}
@@ -2390,330 +2360,296 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   setPendingBackupReview(null);
                   setConfirmBackupReplaceChecked(false);
                 }}
-                aria-label="Fechar prévia de backup"
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 disabled:opacity-50 cursor-pointer"
+                className="min-h-[40px] px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold transition-colors disabled:opacity-50 cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                {pendingBackupReview.outcome.canRestore ? 'Cancelar' : 'Fechar'}
               </button>
+              {pendingBackupReview.outcome.canRestore && (
+                <button
+                  type="button"
+                  disabled={isApplyingBackupRestore || !confirmBackupReplaceChecked}
+                  onClick={handleConfirmBackupRestore}
+                  className="min-h-[40px] px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-colors inline-flex items-center justify-center gap-2 shadow-xs disabled:opacity-50 cursor-pointer"
+                >
+                  {isApplyingBackupRestore ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                      <span>Restaurando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Confirmar Restauração</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
+          )
+        }
+      >
+        {pendingBackupReview && (
+          <>
+            {!pendingBackupReview.outcome.valid || !pendingBackupReview.outcome.prepared ? (
+              <div className="p-3.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300 space-y-1">
+                <div className="font-bold flex items-center gap-1.5">
+                  <XCircle className="w-4 h-4 shrink-0" />
+                  <span>Arquivo Rejeitado na Validação</span>
+                </div>
+                <p className="leading-relaxed">{pendingBackupReview.outcome.message}</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
+                    <div className="text-[10px] text-slate-500">Lançamentos</div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
+                      {pendingBackupReview.outcome.prepared.counts.transactions}
+                    </div>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
+                    <div className="text-[10px] text-slate-500">Contas</div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
+                      {pendingBackupReview.outcome.prepared.counts.accounts}
+                    </div>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
+                    <div className="text-[10px] text-slate-500">Cartões</div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
+                      {pendingBackupReview.outcome.prepared.counts.creditCards}
+                    </div>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
+                    <div className="text-[10px] text-slate-500">Dívidas</div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
+                      {pendingBackupReview.outcome.prepared.counts.debts}
+                    </div>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
+                    <div className="text-[10px] text-slate-500">Objetivos</div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
+                      {pendingBackupReview.outcome.prepared.counts.goals}
+                    </div>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
+                    <div className="text-[10px] text-slate-500">Categorias</div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
+                      {pendingBackupReview.outcome.prepared.counts.categories}
+                    </div>
+                  </div>
+                </div>
 
-            <div className="p-5 space-y-4 text-xs">
-              {!pendingBackupReview.outcome.valid || !pendingBackupReview.outcome.prepared ? (
-                <div className="p-3.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300 space-y-1">
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700 space-y-1.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-slate-500">Formato do Arquivo:</span>
+                    <span className="font-semibold text-slate-900 dark:text-white text-right">
+                      {pendingBackupReview.outcome.prepared.sourceFormat === 'recovery_snapshot'
+                        ? 'Ponto de Recuperação (.json)'
+                        : 'Backup Completo (.json)'}
+                    </span>
+                  </div>
+                  {pendingBackupReview.outcome.prepared.sourceFormat === 'recovery_snapshot' &&
+                    pendingBackupReview.outcome.prepared.snapshotReason && (
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-slate-500">Origem do Ponto:</span>
+                        <span className="font-medium text-slate-700 dark:text-slate-200 text-right">
+                          {formatRecoveryReason(pendingBackupReview.outcome.prepared.snapshotReason).label}
+                        </span>
+                      </div>
+                    )}
+                  {pendingBackupReview.outcome.prepared.sourceFormat === 'recovery_snapshot' &&
+                    pendingBackupReview.outcome.prepared.snapshotSavedAt && (
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-slate-500">Capturado em:</span>
+                        <span className="font-mono font-medium text-slate-700 dark:text-slate-200 tabular-nums">
+                          {new Date(pendingBackupReview.outcome.prepared.snapshotSavedAt).toLocaleString('pt-BR')}
+                        </span>
+                      </div>
+                    )}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-slate-500">Versão do Backup:</span>
+                    <span className="font-mono font-bold text-slate-900 dark:text-white">
+                      v{pendingBackupReview.outcome.prepared.version}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-slate-500">Data do Backup:</span>
+                    <span className="font-mono font-semibold text-slate-800 dark:text-slate-200 tabular-nums">
+                      {pendingBackupReview.outcome.prepared.lastModified > 0
+                        ? new Date(pendingBackupReview.outcome.prepared.lastModified).toLocaleString('pt-BR')
+                        : 'Sem registro de edição'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-slate-500">Proprietário (UUID):</span>
+                    <span className="font-mono text-[11px] text-emerald-600 dark:text-emerald-400">
+                      Confirmado ({pendingBackupReview.outcome.prepared.ownerUserId.slice(0, 8)}...)
+                    </span>
+                  </div>
+                </div>
+
+                <div
+                  className={`p-3.5 rounded-xl border space-y-1 ${
+                    pendingBackupReview.outcome.canRestore
+                      ? 'border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200'
+                      : 'border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300'
+                  }`}
+                >
                   <div className="font-bold flex items-center gap-1.5">
-                    <XCircle className="w-4 h-4 shrink-0" />
-                    <span>Arquivo Rejeitado na Validação</span>
+                    {pendingBackupReview.outcome.canRestore ? (
+                      <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
+                    )}
+                    <span>
+                      {pendingBackupReview.outcome.canRestore
+                        ? 'Verificação na Nuvem Aprovada'
+                        : 'Restauração Bloqueada por Segurança'}
+                    </span>
                   </div>
                   <p className="leading-relaxed">{pendingBackupReview.outcome.message}</p>
                 </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
-                      <div className="text-[10px] text-slate-500">Lançamentos</div>
-                      <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
-                        {pendingBackupReview.outcome.prepared.counts.transactions}
-                      </div>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
-                      <div className="text-[10px] text-slate-500">Contas</div>
-                      <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
-                        {pendingBackupReview.outcome.prepared.counts.accounts}
-                      </div>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
-                      <div className="text-[10px] text-slate-500">Cartões</div>
-                      <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
-                        {pendingBackupReview.outcome.prepared.counts.creditCards}
-                      </div>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
-                      <div className="text-[10px] text-slate-500">Dívidas</div>
-                      <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
-                        {pendingBackupReview.outcome.prepared.counts.debts}
-                      </div>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
-                      <div className="text-[10px] text-slate-500">Objetivos</div>
-                      <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
-                        {pendingBackupReview.outcome.prepared.counts.goals}
-                      </div>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
-                      <div className="text-[10px] text-slate-500">Categorias</div>
-                      <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
-                        {pendingBackupReview.outcome.prepared.counts.categories}
-                      </div>
-                    </div>
-                  </div>
 
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700 space-y-1.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-slate-500">Formato do Arquivo:</span>
-                      <span className="font-semibold text-slate-900 dark:text-white">
-                        {pendingBackupReview.outcome.prepared.sourceFormat === 'recovery_snapshot'
-                          ? 'Ponto de Recuperação (.json)'
-                          : 'Backup Completo (.json)'}
-                      </span>
-                    </div>
-                    {pendingBackupReview.outcome.prepared.sourceFormat === 'recovery_snapshot' &&
-                      pendingBackupReview.outcome.prepared.snapshotReason && (
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-slate-500">Origem do Ponto:</span>
-                          <span className="font-medium text-slate-700 dark:text-slate-200 text-right">
-                            {formatRecoveryReason(pendingBackupReview.outcome.prepared.snapshotReason).label}
-                          </span>
-                        </div>
-                      )}
-                    {pendingBackupReview.outcome.prepared.sourceFormat === 'recovery_snapshot' &&
-                      pendingBackupReview.outcome.prepared.snapshotSavedAt && (
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-slate-500">Capturado em:</span>
-                          <span className="font-mono font-medium text-slate-700 dark:text-slate-200">
-                            {new Date(pendingBackupReview.outcome.prepared.snapshotSavedAt).toLocaleString('pt-BR')}
-                          </span>
-                        </div>
-                      )}
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Versão do Backup:</span>
-                      <span className="font-mono font-bold text-slate-900 dark:text-white">
-                        v{pendingBackupReview.outcome.prepared.version}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Data do Backup:</span>
-                      <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
-                        {pendingBackupReview.outcome.prepared.lastModified > 0
-                          ? new Date(pendingBackupReview.outcome.prepared.lastModified).toLocaleString('pt-BR')
-                          : 'Sem registro de edição'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Proprietário (UUID):</span>
-                      <span className="font-mono text-[11px] text-emerald-600 dark:text-emerald-400">
-                        Confirmado ({pendingBackupReview.outcome.prepared.ownerUserId.slice(0, 8)}...)
-                      </span>
-                    </div>
-                  </div>
-
-                  <div
-                    className={`p-3.5 rounded-xl border space-y-1 ${
-                      pendingBackupReview.outcome.canRestore
-                        ? 'border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200'
-                        : 'border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300'
-                    }`}
-                  >
-                    <div className="font-bold flex items-center gap-1.5">
-                      {pendingBackupReview.outcome.canRestore ? (
-                        <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                      ) : (
-                        <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
-                      )}
-                      <span>
-                        {pendingBackupReview.outcome.canRestore
-                          ? 'Verificação na Nuvem Aprovada'
-                          : 'Restauração Bloqueada por Segurança'}
-                      </span>
-                    </div>
-                    <p className="leading-relaxed">{pendingBackupReview.outcome.message}</p>
-                  </div>
-
-                  {pendingBackupReview.outcome.canRestore && (
-                    <label className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={confirmBackupReplaceChecked}
-                        onChange={e => setConfirmBackupReplaceChecked(e.target.checked)}
-                        disabled={isApplyingBackupRestore}
-                        className="mt-0.5 rounded border-amber-400 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="leading-snug font-medium">
-                        Confirmo que desejo substituir os dados atuais desta conta pelo conteúdo deste arquivo (o aplicativo tentará salvar uma cópia preventiva local antes).
-                      </span>
-                    </label>
-                  )}
-                </>
-              )}
-
-              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-1">
-                <button
-                  type="button"
-                  disabled={isApplyingBackupRestore}
-                  onClick={() => {
-                    setPendingBackupReview(null);
-                    setConfirmBackupReplaceChecked(false);
-                  }}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  {pendingBackupReview.outcome.canRestore ? 'Cancelar' : 'Fechar'}
-                </button>
                 {pendingBackupReview.outcome.canRestore && (
-                  <button
-                    type="button"
-                    disabled={isApplyingBackupRestore || !confirmBackupReplaceChecked}
-                    onClick={handleConfirmBackupRestore}
-                    className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-colors inline-flex items-center justify-center gap-2 shadow-xs disabled:opacity-50 cursor-pointer"
-                  >
-                    {isApplyingBackupRestore ? (
-                      <>
-                        <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                        <span>Restaurando...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>Confirmar Restauração</span>
-                      </>
-                    )}
-                  </button>
+                  <label className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={confirmBackupReplaceChecked}
+                      onChange={e => setConfirmBackupReplaceChecked(e.target.checked)}
+                      disabled={isApplyingBackupRestore}
+                      className="mt-0.5 rounded border-amber-400 text-blue-600 focus:ring-blue-500 shrink-0"
+                    />
+                    <span className="leading-snug font-medium">
+                      Confirmo que desejo substituir os dados atuais desta conta pelo conteúdo deste arquivo (o aplicativo tentará salvar uma cópia preventiva local antes).
+                    </span>
+                  </label>
                 )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+              </>
+            )}
+          </>
+        )}
+      </ResponsiveModal>
 
-      {selectedRecoveryItem && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="recovery-details-modal-title"
-          onClick={() => setSelectedRecoveryItem(null)}
-        >
-          <div
-            className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0">
-                  <History className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3
-                    id="recovery-details-modal-title"
-                    className="font-bold text-slate-900 dark:text-white text-sm sm:text-base"
-                  >
-                    Detalhes do Ponto de Recuperação
-                  </h3>
-                  <p className="text-[11px] text-slate-500">
-                    Consulta preventiva somente leitura
-                  </p>
-                </div>
-              </div>
+      <ResponsiveModal
+        isOpen={!!selectedRecoveryItem}
+        onClose={() => setSelectedRecoveryItem(null)}
+        size="md"
+        titleId="recovery-details-modal-title"
+        closeAriaLabel="Fechar detalhes do ponto de recuperação"
+        icon={
+          <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0">
+            <History className="w-4 h-4" />
+          </div>
+        }
+        title="Detalhes do Ponto de Recuperação"
+        subtitle="Consulta preventiva somente leitura"
+        bodyClassName="text-xs"
+        footer={
+          selectedRecoveryItem && (
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 text-xs">
               <button
                 type="button"
                 onClick={() => setSelectedRecoveryItem(null)}
-                aria-label="Fechar detalhes do ponto de recuperação"
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                className="min-h-[40px] px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold transition-colors cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                Fechar
+              </button>
+              <button
+                type="button"
+                disabled={downloadingRecoveryId === selectedRecoveryItem.id}
+                onClick={() => handleDownloadRecoverySnapshot(selectedRecoveryItem)}
+                className="min-h-[40px] px-4 py-2 rounded-xl bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 disabled:opacity-60 text-white font-semibold transition-colors inline-flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>
+                  {downloadingRecoveryId === selectedRecoveryItem.id
+                    ? 'Preparando...'
+                    : 'Baixar Cópia'}
+                </span>
               </button>
             </div>
-
-            <div className="p-5 space-y-4 text-xs">
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-slate-500">Data e horário:</span>
-                  <span className="font-semibold text-slate-900 dark:text-white tabular-nums">
-                    {selectedRecoveryItem.formattedSavedAt}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-slate-500">Versão capturada:</span>
-                  <span className="font-mono font-bold text-slate-900 dark:text-white">
-                    v{selectedRecoveryItem.version}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-slate-500">Origem local:</span>
-                  <span className="font-medium text-slate-700 dark:text-slate-200">
-                    {selectedRecoveryItem.source === 'legacy_localstorage'
-                      ? 'Cópia local anterior'
-                      : 'Histórico local (IndexedDB)'}
-                  </span>
-                </div>
-                <div className="pt-1 border-t border-slate-200/70 dark:border-slate-700/70 space-y-1">
-                  <div className="text-slate-500">Motivo da criação:</div>
-                  <div className="font-semibold text-slate-900 dark:text-white">
-                    {selectedRecoveryItem.reason.label}
-                  </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                    {selectedRecoveryItem.reason.description}
-                  </p>
-                </div>
+          )
+        }
+      >
+        {selectedRecoveryItem && (
+          <>
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-slate-500">Data e horário:</span>
+                <span className="font-semibold text-slate-900 dark:text-white tabular-nums">
+                  {selectedRecoveryItem.formattedSavedAt}
+                </span>
               </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
-                  <div className="text-[10px] text-slate-500">Lançamentos</div>
-                  <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
-                    {selectedRecoveryItem.counts.transactions}
-                  </div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
-                  <div className="text-[10px] text-slate-500">Contas</div>
-                  <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
-                    {selectedRecoveryItem.counts.accounts}
-                  </div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
-                  <div className="text-[10px] text-slate-500">Cartões</div>
-                  <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
-                    {selectedRecoveryItem.counts.creditCards}
-                  </div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
-                  <div className="text-[10px] text-slate-500">Dívidas</div>
-                  <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
-                    {selectedRecoveryItem.counts.debts}
-                  </div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
-                  <div className="text-[10px] text-slate-500">Objetivos</div>
-                  <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
-                    {selectedRecoveryItem.counts.goals}
-                  </div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
-                  <div className="text-[10px] text-slate-500">Categorias</div>
-                  <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
-                    {selectedRecoveryItem.counts.categories}
-                  </div>
-                </div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-slate-500">Versão capturada:</span>
+                <span className="font-mono font-bold text-slate-900 dark:text-white">
+                  v{selectedRecoveryItem.version}
+                </span>
               </div>
-
-              <div className="p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/70 dark:border-blue-900/60 text-blue-900 dark:text-blue-200 text-[11px] leading-relaxed">
-                Este ponto de recuperação é exclusivo da conta autenticada neste navegador. A visualização e o download não modificam seus dados atuais nem sincronizam alterações com a nuvem.
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-slate-500">Origem local:</span>
+                <span className="font-medium text-slate-700 dark:text-slate-200 text-right">
+                  {selectedRecoveryItem.source === 'legacy_localstorage'
+                    ? 'Cópia local anterior'
+                    : 'Histórico local (IndexedDB)'}
+                </span>
               </div>
-
-              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setSelectedRecoveryItem(null)}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold transition-colors cursor-pointer"
-                >
-                  Fechar
-                </button>
-                <button
-                  type="button"
-                  disabled={downloadingRecoveryId === selectedRecoveryItem.id}
-                  onClick={() => handleDownloadRecoverySnapshot(selectedRecoveryItem)}
-                  className="px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 disabled:opacity-60 text-white font-semibold transition-colors inline-flex items-center justify-center gap-2 shadow-xs cursor-pointer"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>
-                    {downloadingRecoveryId === selectedRecoveryItem.id
-                      ? 'Preparando...'
-                      : 'Baixar Cópia'}
-                  </span>
-                </button>
+              <div className="pt-1 border-t border-slate-200/70 dark:border-slate-700/70 space-y-1">
+                <div className="text-slate-500">Motivo da criação:</div>
+                <div className="font-semibold text-slate-900 dark:text-white">
+                  {selectedRecoveryItem.reason.label}
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  {selectedRecoveryItem.reason.description}
+                </p>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
+                <div className="text-[10px] text-slate-500">Lançamentos</div>
+                <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
+                  {selectedRecoveryItem.counts.transactions}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
+                <div className="text-[10px] text-slate-500">Contas</div>
+                <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
+                  {selectedRecoveryItem.counts.accounts}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
+                <div className="text-[10px] text-slate-500">Cartões</div>
+                <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
+                  {selectedRecoveryItem.counts.creditCards}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
+                <div className="text-[10px] text-slate-500">Dívidas</div>
+                <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
+                  {selectedRecoveryItem.counts.debts}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
+                <div className="text-[10px] text-slate-500">Objetivos</div>
+                <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
+                  {selectedRecoveryItem.counts.goals}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700">
+                <div className="text-[10px] text-slate-500">Categorias</div>
+                <div className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
+                  {selectedRecoveryItem.counts.categories}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/70 dark:border-blue-900/60 text-blue-900 dark:text-blue-200 text-[11px] leading-relaxed">
+              Este ponto de recuperação é exclusivo da conta autenticada neste navegador. A visualização e o download não modificam seus dados atuais nem sincronizam alterações com a nuvem.
+            </div>
+          </>
+        )}
+      </ResponsiveModal>
     </div>
   );
 };

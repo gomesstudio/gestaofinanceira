@@ -14,7 +14,6 @@ import {
   Shield,
   Trash2,
   Edit2,
-  X,
   Sparkles,
   Info
 } from 'lucide-react';
@@ -23,6 +22,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency, formatDateBR, getTodayISO } from '../../utils/formatters';
 import { FinancialGoal } from '../../types/finance';
 import { ActionFeedback, ActionFeedbackBanner, ConfirmDeleteModal } from '../common/ConfirmDeleteModal';
+import { ResponsiveModal } from '../common/ResponsiveModal';
 
 export const GoalsView: React.FC = () => {
   const {
@@ -239,7 +239,7 @@ export const GoalsView: React.FC = () => {
       </div>
 
       {/* Goals Cards List */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {goals.map(goal => {
           const progressPct = goal.targetAmount > 0
             ? Math.min(100, Math.max(0, (goal.currentAmount / goal.targetAmount) * 100))
@@ -300,19 +300,19 @@ export const GoalsView: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex justify-between text-[11px] text-slate-400 mb-3">
+                <div className="flex flex-wrap justify-between gap-1.5 text-[11px] text-slate-400 mb-3">
                   <span>Aporte Mensal: {formatCurrency(goal.monthlyPlannedContribution)}</span>
                   <span>Prazo: {formatDateBR(goal.deadlineDate)}</span>
                 </div>
               </div>
 
               {/* Bottom Actions */}
-              <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleOpenEditGoal(goal)}
                     title="Editar objetivo"
-                    className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1"
+                    className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1.5 rounded-lg cursor-pointer"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
@@ -336,7 +336,7 @@ export const GoalsView: React.FC = () => {
                     setContributeGoal(goal);
                     setContributionAmountStr(goal.monthlyPlannedContribution ? goal.monthlyPlannedContribution.toFixed(2).replace('.', ',') : '');
                   }}
-                  className="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-all shadow-xs flex items-center gap-1.5"
+                  className="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <DollarSign className="w-3.5 h-3.5" />
                   <span>Aportar Valor</span>
@@ -442,288 +442,244 @@ export const GoalsView: React.FC = () => {
       </div>
 
       {/* Modal: Criar Objetivo */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Novo Objetivo Financeiro
-              </h3>
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      <ResponsiveModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        title="Novo Objetivo Financeiro"
+        size="md"
+        onSubmit={handleCreateGoal}
+        bodyClassName="text-xs"
+        footer={
+          <button
+            type="submit"
+            className="w-full min-h-[42px] py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition-all cursor-pointer"
+          >
+            Salvar Objetivo
+          </button>
+        }
+      >
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Nome do Objetivo *</label>
+          <input
+            type="text"
+            required
+            placeholder="Ex: Reserva de Emergência, Celular Novo, Viagem..."
+            value={name}
+            onChange={e => setName(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          />
+        </div>
 
-            <form onSubmit={handleCreateGoal} className="p-5 space-y-4 text-xs">
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Nome do Objetivo *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ex: Reserva de Emergência, Celular Novo, Viagem..."
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Valor Alvo (R$) *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="0,00"
-                    value={targetAmountStr}
-                    onChange={e => setTargetAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
-                    className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Aporte Mensal Planejado</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: 300,00"
-                    value={monthlyContributionStr}
-                    onChange={e => setMonthlyContributionStr(e.target.value.replace(/[^0-9,]/g, ''))}
-                    className="w-full px-3 py-2 font-mono bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Data Limite / Prazo</label>
-                  <input
-                    type="date"
-                    value={deadlineDate}
-                    onChange={e => setDeadlineDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Categoria</label>
-                  <select
-                    value={category}
-                    onChange={e => setCategory(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  >
-                    <option value="Reserva">Reserva & Segurança</option>
-                    <option value="Bens">Bens Materiais / Veículo</option>
-                    <option value="Viagem">Viagem & Lazer</option>
-                    <option value="Educação">Educação / Carreira</option>
-                    <option value="Dívidas">Quitar Dívidas</option>
-                    <option value="Investimentos">Investimentos Futuros</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Cor de Destaque</label>
-                <div className="flex items-center gap-2">
-                  {['#10b981', '#0284c7', '#8b5cf6', '#ec4899', '#f59e0b', '#64748b'].map(c => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setColor(c)}
-                      className={`w-7 h-7 rounded-full transition-transform ${color === c ? 'scale-115 ring-2 ring-emerald-500 ring-offset-2' : ''}`}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all"
-                >
-                  Salvar Objetivo
-                </button>
-              </div>
-            </form>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Valor Alvo (R$) *</label>
+            <input
+              type="text"
+              required
+              placeholder="0,00"
+              value={targetAmountStr}
+              onChange={e => setTargetAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
+              className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Aporte Mensal Planejado</label>
+            <input
+              type="text"
+              placeholder="Ex: 300,00"
+              value={monthlyContributionStr}
+              onChange={e => setMonthlyContributionStr(e.target.value.replace(/[^0-9,]/g, ''))}
+              className="w-full px-3 py-2 font-mono bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
           </div>
         </div>
-      )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Data Limite / Prazo</label>
+            <input
+              type="date"
+              value={deadlineDate}
+              onChange={e => setDeadlineDate(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Categoria</label>
+            <select
+              value={category}
+              onChange={e => setCategory(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            >
+              <option value="Reserva">Reserva & Segurança</option>
+              <option value="Bens">Bens Materiais / Veículo</option>
+              <option value="Viagem">Viagem & Lazer</option>
+              <option value="Educação">Educação / Carreira</option>
+              <option value="Dívidas">Quitar Dívidas</option>
+              <option value="Investimentos">Investimentos Futuros</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Cor de Destaque</label>
+          <div className="flex flex-wrap items-center gap-2">
+            {['#10b981', '#0284c7', '#8b5cf6', '#ec4899', '#f59e0b', '#64748b'].map(c => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setColor(c)}
+                className={`w-7 h-7 rounded-full transition-transform cursor-pointer ${color === c ? 'scale-115 ring-2 ring-emerald-500 ring-offset-2' : ''}`}
+                style={{ backgroundColor: c }}
+              />
+            ))}
+          </div>
+        </div>
+      </ResponsiveModal>
 
       {/* Modal: Aportar Valor em Objetivo */}
-      {contributeGoal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                  Registrar Aporte
-                </h3>
-                <p className="text-xs text-slate-400">{contributeGoal.name}</p>
-              </div>
-              <button
-                onClick={() => setContributeGoal(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleContributeSubmit} className="p-5 space-y-4 text-xs">
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">
-                  Valor do Aporte (R$) *
-                </label>
-                <input
-                  type="text"
-                  required
-                  autoFocus
-                  placeholder="0,00"
-                  value={contributionAmountStr}
-                  onChange={e => setContributionAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
-                  className="w-full px-3 py-2 text-lg font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white tabular-nums"
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">
-                  Debitar da Conta Bancária *
-                </label>
-                <select
-                  value={contributeAccountId}
-                  onChange={e => setContributeAccountId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                >
-                  {accounts.map(acc => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name} ({formatCurrency(acc.balance)})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all shadow-xs"
-                >
-                  Confirmar Aporte
-                </button>
-              </div>
-            </form>
-          </div>
+      <ResponsiveModal
+        isOpen={!!contributeGoal}
+        onClose={() => setContributeGoal(null)}
+        title="Registrar Aporte"
+        subtitle={contributeGoal?.name}
+        size="md"
+        onSubmit={handleContributeSubmit}
+        bodyClassName="text-xs"
+        footer={
+          <button
+            type="submit"
+            className="w-full min-h-[42px] py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition-all shadow-xs cursor-pointer"
+          >
+            Confirmar Aporte
+          </button>
+        }
+      >
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">
+            Valor do Aporte (R$) *
+          </label>
+          <input
+            type="text"
+            required
+            autoFocus
+            placeholder="0,00"
+            value={contributionAmountStr}
+            onChange={e => setContributionAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
+            className="w-full px-3 py-2 text-lg font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white tabular-nums"
+          />
         </div>
-      )}
+
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">
+            Debitar da Conta Bancária *
+          </label>
+          <select
+            value={contributeAccountId}
+            onChange={e => setContributeAccountId(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          >
+            {accounts.map(acc => (
+              <option key={acc.id} value={acc.id}>
+                {acc.name} ({formatCurrency(acc.balance)})
+              </option>
+            ))}
+          </select>
+        </div>
+      </ResponsiveModal>
 
       {/* Modal: Editar Objetivo */}
-      {editingGoal && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in"
-          onClick={() => setEditingGoal(null)}
-        >
-          <div 
-            className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden"
-            onClick={e => e.stopPropagation()}
+      <ResponsiveModal
+        isOpen={!!editingGoal}
+        onClose={() => setEditingGoal(null)}
+        title="Editar Objetivo Financeiro"
+        size="md"
+        onSubmit={handleSaveEditGoal}
+        bodyClassName="text-xs"
+        footer={
+          <button
+            type="submit"
+            className="w-full min-h-[42px] py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition-all cursor-pointer"
           >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Editar Objetivo Financeiro
-              </h3>
-              <button
-                onClick={() => setEditingGoal(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            Salvar Alterações
+          </button>
+        }
+      >
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Nome do Objetivo *</label>
+          <input
+            type="text"
+            required
+            value={editName}
+            onChange={e => setEditName(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+          />
+        </div>
 
-            <form onSubmit={handleSaveEditGoal} className="p-5 space-y-4 text-xs">
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Nome do Objetivo *</label>
-                <input
-                  type="text"
-                  required
-                  value={editName}
-                  onChange={e => setEditName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Valor Alvo (R$) *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editTargetAmountStr}
-                    onChange={e => setEditTargetAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
-                    className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Aporte Mensal Planejado</label>
-                  <input
-                    type="text"
-                    value={editMonthlyContributionStr}
-                    onChange={e => setEditMonthlyContributionStr(e.target.value.replace(/[^0-9,]/g, ''))}
-                    className="w-full px-3 py-2 font-mono bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Data Limite / Prazo</label>
-                  <input
-                    type="date"
-                    value={editDeadlineDate}
-                    onChange={e => setEditDeadlineDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-500 mb-1">Categoria</label>
-                  <select
-                    value={editCategory}
-                    onChange={e => setEditCategory(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  >
-                    <option value="Reserva">Reserva & Segurança</option>
-                    <option value="Bens">Bens Materiais / Veículo</option>
-                    <option value="Viagem">Viagem & Lazer</option>
-                    <option value="Educação">Educação / Carreira</option>
-                    <option value="Dívidas">Quitar Dívidas</option>
-                    <option value="Investimentos">Investimentos Futuros</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-500 mb-1">Cor de Destaque</label>
-                <div className="flex items-center gap-2">
-                  {['#10b981', '#0284c7', '#8b5cf6', '#ec4899', '#f59e0b', '#64748b'].map(c => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setEditColor(c)}
-                      className={`w-7 h-7 rounded-full transition-transform ${editColor === c ? 'scale-115 ring-2 ring-emerald-500 ring-offset-2' : ''}`}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all"
-                >
-                  Salvar Alterações
-                </button>
-              </div>
-            </form>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Valor Alvo (R$) *</label>
+            <input
+              type="text"
+              required
+              value={editTargetAmountStr}
+              onChange={e => setEditTargetAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
+              className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Aporte Mensal Planejado</label>
+            <input
+              type="text"
+              value={editMonthlyContributionStr}
+              onChange={e => setEditMonthlyContributionStr(e.target.value.replace(/[^0-9,]/g, ''))}
+              className="w-full px-3 py-2 font-mono bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
           </div>
         </div>
-      )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Data Limite / Prazo</label>
+            <input
+              type="date"
+              value={editDeadlineDate}
+              onChange={e => setEditDeadlineDate(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-slate-500 mb-1">Categoria</label>
+            <select
+              value={editCategory}
+              onChange={e => setEditCategory(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            >
+              <option value="Reserva">Reserva & Segurança</option>
+              <option value="Bens">Bens Materiais / Veículo</option>
+              <option value="Viagem">Viagem & Lazer</option>
+              <option value="Educação">Educação / Carreira</option>
+              <option value="Dívidas">Quitar Dívidas</option>
+              <option value="Investimentos">Investimentos Futuros</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="block font-medium text-slate-500 mb-1">Cor de Destaque</label>
+          <div className="flex flex-wrap items-center gap-2">
+            {['#10b981', '#0284c7', '#8b5cf6', '#ec4899', '#f59e0b', '#64748b'].map(c => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setEditColor(c)}
+                className={`w-7 h-7 rounded-full transition-transform cursor-pointer ${editColor === c ? 'scale-115 ring-2 ring-emerald-500 ring-offset-2' : ''}`}
+                style={{ backgroundColor: c }}
+              />
+            ))}
+          </div>
+        </div>
+      </ResponsiveModal>
 
       <ConfirmDeleteModal
         isOpen={!!pendingDeleteGoal}

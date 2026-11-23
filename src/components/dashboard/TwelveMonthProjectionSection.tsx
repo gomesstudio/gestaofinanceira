@@ -218,7 +218,7 @@ export const TwelveMonthProjectionSection: React.FC = () => {
 
             {/* Quick Period Badge */}
             {simulatedProjections.length > 0 && (
-              <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl p-3 backdrop-blur-xs shrink-0">
+              <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl p-3 backdrop-blur-xs shrink-0 self-start lg:self-auto">
                 <div className="p-2.5 rounded-xl bg-white/10 text-white">
                   <Calendar className="w-5 h-5 text-emerald-400" />
                 </div>
@@ -374,38 +374,38 @@ export const TwelveMonthProjectionSection: React.FC = () => {
           </div>
 
           {/* Mode Switcher */}
-          <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-medium self-start sm:self-auto">
+          <div className="flex flex-wrap sm:inline-flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-medium self-start sm:self-auto max-w-full gap-1">
             <button
               onClick={() => setChartMode('balance_obligations')}
-              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
                 chartMode === 'balance_obligations'
                   ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-semibold'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              <BarChart3 className="w-3.5 h-3.5 text-emerald-600" />
+              <BarChart3 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span>Receitas vs Obrigações</span>
             </button>
             <button
               onClick={() => setChartMode('cumulative_balance')}
-              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
                 chartMode === 'cumulative_balance'
                   ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-semibold'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              <LineChart className="w-3.5 h-3.5 text-blue-600" />
+              <LineChart className="w-3.5 h-3.5 text-blue-600 shrink-0" />
               <span>Saldo Acumulado</span>
             </button>
             <button
               onClick={() => setChartMode('obligations_breakdown')}
-              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
                 chartMode === 'obligations_breakdown'
                   ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-semibold'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              <Layers className="w-3.5 h-3.5 text-amber-600" />
+              <Layers className="w-3.5 h-3.5 text-amber-600 shrink-0" />
               <span>Composição</span>
             </button>
           </div>
@@ -466,7 +466,10 @@ export const TwelveMonthProjectionSection: React.FC = () => {
         </div>
 
         {/* SVG Responsive Container */}
-        <div className="relative w-full overflow-x-auto">
+        <div className="sm:hidden text-[11px] text-slate-400 flex items-center justify-end">
+          <span>Deslize o gráfico horizontalmente →</span>
+        </div>
+        <div className="relative w-full overflow-x-auto overscroll-x-contain">
           <div className="min-w-[680px]">
             <svg
               viewBox={`0 0 ${chartWidth} ${chartHeight}`}
@@ -799,7 +802,7 @@ export const TwelveMonthProjectionSection: React.FC = () => {
           </div>
 
           {/* 4 Mini Cards for the Inspected Month */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 min-[380px]:grid-cols-2 md:grid-cols-4 gap-3">
             <div className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800">
               <span className="text-xs text-slate-500 dark:text-slate-400">Receita Prevista</span>
               <div className="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400 tabular-nums mt-0.5">
@@ -839,7 +842,7 @@ export const TwelveMonthProjectionSection: React.FC = () => {
 
           {/* Detailed Commitments List for this Month */}
           <div className="space-y-2 pt-2">
-            <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 font-medium">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400 font-medium">
               <span>Compromissos e Obrigações a Quitar ({inspectedMonth.commitments.length})</span>
               <span>Vencimento Programado</span>
             </div>
@@ -853,9 +856,9 @@ export const TwelveMonthProjectionSection: React.FC = () => {
                 {inspectedMonth.commitments.map((c, i) => (
                   <div
                     key={c.id || i}
-                    className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/70 dark:border-slate-800 flex items-center justify-between text-xs hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
+                    className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/70 dark:border-slate-800 flex items-center justify-between gap-2 text-xs hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <div className={`p-1.5 rounded-lg shrink-0 ${
                         c.type === 'debt_commitment'
                           ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400'
@@ -872,11 +875,11 @@ export const TwelveMonthProjectionSection: React.FC = () => {
                         )}
                       </div>
 
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="font-semibold text-slate-900 dark:text-white truncate">
                           {c.description}
                         </div>
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 flex flex-wrap items-center gap-1.5">
                           <span>{c.category}</span>
                           {c.originName && <span>• {c.originName}</span>}
                           {c.installmentLabel && (
@@ -906,12 +909,12 @@ export const TwelveMonthProjectionSection: React.FC = () => {
 
       {/* Scenario / Stress-Test Simulator ("E se?") */}
       <div className="p-5 sm:p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-xl">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="p-2 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-xl shrink-0">
               <Sliders className="w-4 h-4" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
                 Simulador de Cenários em Tempo Real
               </h3>
@@ -927,7 +930,7 @@ export const TwelveMonthProjectionSection: React.FC = () => {
                 setExtraMonthlyIncome(0);
                 setMonthlyExpenseReduction(0);
               }}
-              className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline"
+              className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline shrink-0 cursor-pointer"
             >
               Resetar Simulação
             </button>
@@ -991,8 +994,8 @@ export const TwelveMonthProjectionSection: React.FC = () => {
 
       {/* Month-by-Month Analytical Table */}
       <div className="p-5 sm:p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="min-w-0">
             <h3 className="text-base font-bold text-slate-900 dark:text-white">
               Tabela Analítica Completa (12 Meses)
             </h3>
@@ -1003,7 +1006,7 @@ export const TwelveMonthProjectionSection: React.FC = () => {
 
           <button
             onClick={() => setShowFullTable(!showFullTable)}
-            className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center gap-1.5 transition-all"
+            className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center gap-1.5 self-start sm:self-auto shrink-0 transition-all cursor-pointer"
           >
             {showFullTable ? (
               <>
@@ -1020,10 +1023,10 @@ export const TwelveMonthProjectionSection: React.FC = () => {
         </div>
 
         {showFullTable && (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overscroll-x-contain">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold">
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold whitespace-nowrap">
                   <th className="py-2.5 px-3">Mês</th>
                   <th className="py-2.5 px-3 text-right">Receitas</th>
                   <th className="py-2.5 px-3 text-right">Despesas Fixas</th>
@@ -1035,7 +1038,7 @@ export const TwelveMonthProjectionSection: React.FC = () => {
                   <th className="py-2.5 px-3 text-center">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono whitespace-nowrap">
                 {simulatedProjections.map((p, idx) => {
                   const net = p.totalIncomeProjected - p.totalOwedTotal;
                   const isSelected = selectedMonthIdx === idx;
@@ -1094,7 +1097,7 @@ export const TwelveMonthProjectionSection: React.FC = () => {
                       <td className="py-3 px-3 text-center">
                         <button
                           onClick={() => setSelectedMonthIdx(idx)}
-                          className="px-2 py-1 text-[11px] font-sans font-medium rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors"
+                          className="px-2 py-1 text-[11px] font-sans font-medium rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer"
                         >
                           Ver Detalhes
                         </button>

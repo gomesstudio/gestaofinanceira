@@ -98,26 +98,28 @@ export const FinancialCalendarView: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleGoToday}
-            className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors"
+            className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors cursor-pointer"
           >
             Hoje
           </button>
           <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-0.5 shadow-xs">
             <button
               onClick={handlePrevMonth}
-              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              aria-label="Mês anterior"
+              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="px-3 text-xs font-bold font-mono text-slate-900 dark:text-white min-w-[120px] text-center">
+            <span className="px-2 sm:px-3 text-xs font-bold font-mono text-slate-900 dark:text-white min-w-[105px] sm:min-w-[120px] text-center">
               {getMonthNamePT(month)} {year}
             </span>
             <button
               onClick={handleNextMonth}
-              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              aria-label="Próximo mês"
+              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -165,9 +167,9 @@ export const FinancialCalendarView: React.FC = () => {
               return (
                 <div
                   key={`prev-${i}`}
-                  className="min-h-[72px] sm:min-h-[85px] p-1.5 sm:p-2 border-b border-r border-slate-100 dark:border-slate-800/60 bg-slate-50/40 dark:bg-slate-950/20 text-slate-300 dark:text-slate-600 text-xs select-none"
+                  className="min-h-[54px] sm:min-h-[85px] p-1 sm:p-2 border-b border-r border-slate-100 dark:border-slate-800/60 bg-slate-50/40 dark:bg-slate-950/20 text-slate-300 dark:text-slate-600 text-xs select-none"
                 >
-                  <span className="font-mono text-[11px]">{dayNum}</span>
+                  <span className="font-mono text-[10px] sm:text-[11px]">{dayNum}</span>
                 </div>
               );
             })}
@@ -190,17 +192,17 @@ export const FinancialCalendarView: React.FC = () => {
                 <div
                   key={dayNum}
                   onClick={() => setSelectedDayISO(dateStr)}
-                  className={`min-h-[72px] sm:min-h-[85px] p-1.5 sm:p-2 border-b border-r border-slate-100 dark:border-slate-800/60 cursor-pointer transition-all flex flex-col justify-between ${
+                  className={`min-h-[54px] sm:min-h-[85px] p-1 sm:p-2 border-b border-r border-slate-100 dark:border-slate-800/60 cursor-pointer transition-all flex flex-col justify-between ${
                     isSelected
                       ? 'bg-emerald-50/80 dark:bg-emerald-950/40 ring-2 ring-emerald-500 ring-inset z-10'
                       : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-0.5">
                     <span
-                      className={`font-mono text-xs font-semibold ${
+                      className={`font-mono text-[11px] sm:text-xs font-semibold ${
                         isToday
-                          ? 'w-6 h-6 rounded-full bg-slate-900 text-white dark:bg-emerald-600 flex items-center justify-center font-bold'
+                          ? 'w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-slate-900 text-white dark:bg-emerald-600 flex items-center justify-center font-bold'
                           : 'text-slate-700 dark:text-slate-300'
                       }`}
                     >
@@ -208,7 +210,7 @@ export const FinancialCalendarView: React.FC = () => {
                     </span>
 
                     {/* Status dot pills */}
-                    <div className="flex items-center gap-1">
+                    <div className="hidden sm:flex items-center gap-1">
                       {hasOverdue && <span className="w-2 h-2 rounded-full bg-rose-500" title="Contas atrasadas" />}
                       {hasPending && <span className="w-2 h-2 rounded-full bg-amber-500" title="Contas pendentes" />}
                       {hasPaid && <span className="w-2 h-2 rounded-full bg-blue-500" title="Contas pagas" />}
@@ -216,9 +218,24 @@ export const FinancialCalendarView: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Summary badges inside cell */}
+                  {/* Mobile compact dots + counter */}
                   {dayItems.length > 0 && (
-                    <div className="mt-1 space-y-0.5">
+                    <div className="flex sm:hidden items-center justify-between gap-0.5 mt-1">
+                      <div className="flex items-center gap-0.5">
+                        {hasOverdue && <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />}
+                        {hasPending && <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
+                        {hasPaid && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
+                        {hasIncome && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
+                      </div>
+                      <span className="text-[9px] font-mono text-slate-400 leading-none">
+                        {dayItems.length}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Summary badges inside cell (tablet/desktop) */}
+                  {dayItems.length > 0 && (
+                    <div className="hidden sm:block mt-1 space-y-0.5">
                       {dayItems.slice(0, 2).map(t => (
                         <div
                           key={t.id}
@@ -299,10 +316,10 @@ export const FinancialCalendarView: React.FC = () => {
                       key={t.id}
                       className="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30 text-xs space-y-1"
                     >
-                      <div className="flex items-center justify-between font-medium">
-                        <span className="text-slate-800 dark:text-slate-200 truncate">{t.description}</span>
+                      <div className="flex items-center justify-between gap-2 font-medium">
+                        <span className="text-slate-800 dark:text-slate-200 truncate min-w-0">{t.description}</span>
                         <span
-                          className={`font-mono font-bold tabular-nums ${
+                          className={`font-mono font-bold tabular-nums shrink-0 ${
                             isInc ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white'
                           }`}
                         >
