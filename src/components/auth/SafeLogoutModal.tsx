@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -24,6 +24,8 @@ export const SafeLogoutModal: React.FC = () => {
     exportBackupForPendingLogout
   } = useFinance();
 
+  const fieldIdPrefix = useId();
+  const deleteRecoveryId = `${fieldIdPrefix}-also-delete-recovery-backups`;
   const [backupDownloaded, setBackupDownloaded] = useState(false);
   const [alsoDeleteRecoveryBackups, setAlsoDeleteRecoveryBackups] = useState(false);
 
@@ -146,8 +148,13 @@ export const SafeLogoutModal: React.FC = () => {
             )}
           </div>
 
-          <label className="flex items-start gap-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-850 cursor-pointer select-none">
+          <label
+            htmlFor={deleteRecoveryId}
+            className="flex items-start gap-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-850 cursor-pointer select-none"
+          >
             <input
+              id={deleteRecoveryId}
+              name="also_delete_recovery_backups"
               type="checkbox"
               checked={alsoDeleteRecoveryBackups}
               disabled={isProcessing}

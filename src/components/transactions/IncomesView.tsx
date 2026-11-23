@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import {
   Plus,
   Briefcase,
@@ -35,6 +35,7 @@ export const IncomesView: React.FC = () => {
     updateTransaction
   } = useFinance();
 
+  const fieldIdPrefix = useId();
   const [search, setSearch] = useState('');
   const [selectedGroup, setSelectedGroup] = useState<IncomeGroup | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending'>('all');
@@ -237,7 +238,11 @@ export const IncomesView: React.FC = () => {
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
+            id={`${fieldIdPrefix}-search`}
+            name="incomes_search"
             type="text"
+            autoComplete="off"
+            aria-label="Buscar entradas financeiras"
             placeholder="Buscar por descrição ou categoria..."
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -248,6 +253,9 @@ export const IncomesView: React.FC = () => {
         <div className="flex flex-col min-[380px]:flex-row flex-wrap items-stretch min-[380px]:items-center gap-2">
           {/* Group Filter */}
           <select
+            id={`${fieldIdPrefix}-group-filter`}
+            name="incomes_group_filter"
+            aria-label="Filtrar por grupo de renda"
             value={selectedGroup}
             onChange={e => setSelectedGroup(e.target.value as any)}
             className="w-full min-[380px]:w-auto flex-1 px-2.5 py-2 text-xs bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden"
@@ -260,6 +268,9 @@ export const IncomesView: React.FC = () => {
 
           {/* Status Filter */}
           <select
+            id={`${fieldIdPrefix}-status-filter`}
+            name="incomes_status_filter"
+            aria-label="Filtrar por situação"
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value as any)}
             className="w-full min-[380px]:w-auto flex-1 px-2.5 py-2 text-xs bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden"
@@ -387,9 +398,12 @@ export const IncomesView: React.FC = () => {
         }
       >
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Descrição</label>
+          <label htmlFor={`${fieldIdPrefix}-edit-desc`} className="block font-medium text-slate-500 mb-1">Descrição</label>
           <input
+            id={`${fieldIdPrefix}-edit-desc`}
+            name="description"
             type="text"
+            autoComplete="off"
             required
             value={editDesc}
             onChange={e => setEditDesc(e.target.value)}
@@ -398,9 +412,12 @@ export const IncomesView: React.FC = () => {
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Valor (R$)</label>
+          <label htmlFor={`${fieldIdPrefix}-edit-amount`} className="block font-medium text-slate-500 mb-1">Valor (R$)</label>
           <input
+            id={`${fieldIdPrefix}-edit-amount`}
+            name="amount"
             type="text"
+            autoComplete="off"
             required
             value={editAmountStr}
             onChange={e => setEditAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
@@ -410,8 +427,10 @@ export const IncomesView: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Categoria</label>
+            <label htmlFor={`${fieldIdPrefix}-edit-cat`} className="block font-medium text-slate-500 mb-1">Categoria</label>
             <select
+              id={`${fieldIdPrefix}-edit-cat`}
+              name="category"
               value={editCat}
               onChange={e => setEditCat(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -423,8 +442,10 @@ export const IncomesView: React.FC = () => {
           </div>
 
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Conta de Destino</label>
+            <label htmlFor={`${fieldIdPrefix}-edit-account`} className="block font-medium text-slate-500 mb-1">Conta de Destino</label>
             <select
+              id={`${fieldIdPrefix}-edit-account`}
+              name="account_id"
               value={editAccountId}
               onChange={e => setEditAccountId(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -438,8 +459,10 @@ export const IncomesView: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Data</label>
+            <label htmlFor={`${fieldIdPrefix}-edit-date`} className="block font-medium text-slate-500 mb-1">Data</label>
             <input
+              id={`${fieldIdPrefix}-edit-date`}
+              name="date"
               type="date"
               value={editDate}
               onChange={e => setEditDate(e.target.value)}
@@ -448,8 +471,10 @@ export const IncomesView: React.FC = () => {
           </div>
 
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Situação / Status</label>
+            <label htmlFor={`${fieldIdPrefix}-edit-status`} className="block font-medium text-slate-500 mb-1">Situação / Status</label>
             <select
+              id={`${fieldIdPrefix}-edit-status`}
+              name="status"
               value={editStatus}
               onChange={e => setEditStatus(e.target.value as 'paid' | 'pending')}
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -461,9 +486,12 @@ export const IncomesView: React.FC = () => {
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Observações</label>
+          <label htmlFor={`${fieldIdPrefix}-edit-notes`} className="block font-medium text-slate-500 mb-1">Observações</label>
           <input
+            id={`${fieldIdPrefix}-edit-notes`}
+            name="notes"
             type="text"
+            autoComplete="off"
             placeholder="Opcional..."
             value={editNotes}
             onChange={e => setEditNotes(e.target.value)}

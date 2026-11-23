@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useId, useState, useMemo } from 'react';
 import {
   TrendingUp,
   TrendingDown,
@@ -50,6 +50,9 @@ export const TwelveMonthProjectionSection: React.FC = () => {
   const [showFullTable, setShowFullTable] = useState<boolean>(true);
 
   // Scenario Simulator states
+  const fieldIdPrefix = useId();
+  const extraIncomeSliderId = `${fieldIdPrefix}-extra-monthly-income`;
+  const expenseReductionSliderId = `${fieldIdPrefix}-monthly-expense-reduction`;
   const [extraMonthlyIncome, setExtraMonthlyIncome] = useState<number>(0);
   const [monthlyExpenseReduction, setMonthlyExpenseReduction] = useState<number>(0);
 
@@ -941,14 +944,16 @@ export const TwelveMonthProjectionSection: React.FC = () => {
           {/* Income slider */}
           <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/70 dark:border-slate-800 space-y-2">
             <div className="flex justify-between items-center text-xs">
-              <span className="font-semibold text-slate-700 dark:text-slate-300">
+              <label htmlFor={extraIncomeSliderId} className="font-semibold text-slate-700 dark:text-slate-300">
                 Aumento Mensal de Renda (+R$)
-              </span>
+              </label>
               <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
                 {formatCurrency(extraMonthlyIncome)}
               </span>
             </div>
             <input
+              id={extraIncomeSliderId}
+              name="extra_monthly_income"
               type="range"
               min="0"
               max="5000"
@@ -967,14 +972,16 @@ export const TwelveMonthProjectionSection: React.FC = () => {
           {/* Expense reduction slider */}
           <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/70 dark:border-slate-800 space-y-2">
             <div className="flex justify-between items-center text-xs">
-              <span className="font-semibold text-slate-700 dark:text-slate-300">
+              <label htmlFor={expenseReductionSliderId} className="font-semibold text-slate-700 dark:text-slate-300">
                 Corte de Despesas Fixas (-R$)
-              </span>
+              </label>
               <span className="font-mono font-bold text-rose-600 dark:text-rose-400">
                 {formatCurrency(monthlyExpenseReduction)}
               </span>
             </div>
             <input
+              id={expenseReductionSliderId}
+              name="monthly_expense_reduction"
               type="range"
               min="0"
               max="3000"

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import {
   Plus,
   Layers,
@@ -38,6 +38,7 @@ export const ExpensesView: React.FC = () => {
     updateTransaction
   } = useFinance();
 
+  const fieldIdPrefix = useId();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'fixed' | 'variable'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending' | 'overdue'>('all');
@@ -239,7 +240,11 @@ export const ExpensesView: React.FC = () => {
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
+            id={`${fieldIdPrefix}-search`}
+            name="expenses_search"
             type="text"
+            autoComplete="off"
+            aria-label="Buscar despesa"
             placeholder="Buscar despesa..."
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -250,6 +255,9 @@ export const ExpensesView: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           {/* Type Filter */}
           <select
+            id={`${fieldIdPrefix}-type-filter`}
+            name="expenses_type_filter"
+            aria-label="Filtrar por tipo de despesa"
             value={typeFilter}
             onChange={e => setTypeFilter(e.target.value as any)}
             className="w-full sm:w-auto flex-1 sm:flex-none px-2.5 py-2 text-xs bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden"
@@ -261,6 +269,9 @@ export const ExpensesView: React.FC = () => {
 
           {/* Category Filter */}
           <select
+            id={`${fieldIdPrefix}-category-filter`}
+            name="expenses_category_filter"
+            aria-label="Filtrar por categoria"
             value={categoryFilter}
             onChange={e => setCategoryFilter(e.target.value)}
             className="w-full sm:w-auto flex-1 sm:flex-none px-2.5 py-2 text-xs bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden"
@@ -273,6 +284,9 @@ export const ExpensesView: React.FC = () => {
 
           {/* Status Filter */}
           <select
+            id={`${fieldIdPrefix}-status-filter`}
+            name="expenses_status_filter"
+            aria-label="Filtrar por status"
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value as any)}
             className="w-full sm:w-auto flex-1 sm:flex-none px-2.5 py-2 text-xs bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden"
@@ -435,9 +449,12 @@ export const ExpensesView: React.FC = () => {
         }
       >
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Descrição</label>
+          <label htmlFor={`${fieldIdPrefix}-edit-desc`} className="block font-medium text-slate-500 mb-1">Descrição</label>
           <input
+            id={`${fieldIdPrefix}-edit-desc`}
+            name="description"
             type="text"
+            autoComplete="off"
             required
             value={editDesc}
             onChange={e => setEditDesc(e.target.value)}
@@ -446,9 +463,12 @@ export const ExpensesView: React.FC = () => {
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Valor (R$)</label>
+          <label htmlFor={`${fieldIdPrefix}-edit-amount`} className="block font-medium text-slate-500 mb-1">Valor (R$)</label>
           <input
+            id={`${fieldIdPrefix}-edit-amount`}
+            name="amount"
             type="text"
+            autoComplete="off"
             required
             value={editAmountStr}
             onChange={e => setEditAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
@@ -458,8 +478,10 @@ export const ExpensesView: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Categoria</label>
+            <label htmlFor={`${fieldIdPrefix}-edit-cat`} className="block font-medium text-slate-500 mb-1">Categoria</label>
             <select
+              id={`${fieldIdPrefix}-edit-cat`}
+              name="category"
               value={editCat}
               onChange={e => setEditCat(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -471,8 +493,10 @@ export const ExpensesView: React.FC = () => {
           </div>
 
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Tipo de Despesa</label>
+            <label htmlFor={`${fieldIdPrefix}-edit-type`} className="block font-medium text-slate-500 mb-1">Tipo de Despesa</label>
             <select
+              id={`${fieldIdPrefix}-edit-type`}
+              name="expense_type"
               value={editType}
               onChange={e => setEditType(e.target.value as 'expense_fixed' | 'expense_variable')}
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -485,8 +509,10 @@ export const ExpensesView: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Data</label>
+            <label htmlFor={`${fieldIdPrefix}-edit-date`} className="block font-medium text-slate-500 mb-1">Data</label>
             <input
+              id={`${fieldIdPrefix}-edit-date`}
+              name="date"
               type="date"
               value={editDate}
               onChange={e => setEditDate(e.target.value)}
@@ -495,8 +521,10 @@ export const ExpensesView: React.FC = () => {
           </div>
 
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Data de Vencimento</label>
+            <label htmlFor={`${fieldIdPrefix}-edit-due-date`} className="block font-medium text-slate-500 mb-1">Data de Vencimento</label>
             <input
+              id={`${fieldIdPrefix}-edit-due-date`}
+              name="due_date"
               type="date"
               value={editDueDate}
               onChange={e => setEditDueDate(e.target.value)}
@@ -506,8 +534,10 @@ export const ExpensesView: React.FC = () => {
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Situação / Status</label>
+          <label htmlFor={`${fieldIdPrefix}-edit-status`} className="block font-medium text-slate-500 mb-1">Situação / Status</label>
           <select
+            id={`${fieldIdPrefix}-edit-status`}
+            name="status"
             value={editStatus}
             onChange={e => setEditStatus(e.target.value as 'paid' | 'pending')}
             className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -518,9 +548,12 @@ export const ExpensesView: React.FC = () => {
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Observações</label>
+          <label htmlFor={`${fieldIdPrefix}-edit-notes`} className="block font-medium text-slate-500 mb-1">Observações</label>
           <input
+            id={`${fieldIdPrefix}-edit-notes`}
+            name="notes"
             type="text"
+            autoComplete="off"
             placeholder="Opcional..."
             value={editNotes}
             onChange={e => setEditNotes(e.target.value)}

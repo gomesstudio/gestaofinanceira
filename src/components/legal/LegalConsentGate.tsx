@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useId, useState } from 'react';
 import {
   AlertCircle,
   ArrowRight,
@@ -49,6 +49,9 @@ export const LegalConsentGate: React.FC<LegalConsentGateProps> = ({
   onOpenDocument
 }) => {
   const { openLegalDocument } = useLegalNavigation();
+  const fieldIdPrefix = useId();
+  const mandatoryConsentId = `${fieldIdPrefix}-mandatory-consent`;
+  const optionalWhatsappConsentId = `${fieldIdPrefix}-optional-whatsapp-consent`;
 
   const [consentState, setConsentState] = useState<UserLegalConsentState | null>(
     initialConsentState
@@ -381,8 +384,13 @@ export const LegalConsentGate: React.FC<LegalConsentGateProps> = ({
           {/* Formulário de confirmação com distinção jurídica clara */}
           <form onSubmit={handleContinue} className="space-y-3.5">
             {/* Checkbox 1: Obrigatório — Aceite Contratual + Ciência da Política */}
-            <label className="flex items-start gap-3 p-4 rounded-2xl bg-slate-950/80 border border-slate-700/80 hover:border-emerald-500/50 transition-colors cursor-pointer">
+            <label
+              htmlFor={mandatoryConsentId}
+              className="flex items-start gap-3 p-4 rounded-2xl bg-slate-950/80 border border-slate-700/80 hover:border-emerald-500/50 transition-colors cursor-pointer"
+            >
               <input
+                id={mandatoryConsentId}
+                name="mandatory_legal_consent"
                 type="checkbox"
                 data-testid="consent-mandatory-checkbox"
                 checked={isMandatoryChecked}
@@ -433,8 +441,13 @@ export const LegalConsentGate: React.FC<LegalConsentGateProps> = ({
                 </div>
               </div>
             ) : (
-              <label className="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-950/50 border border-slate-800 hover:border-slate-700 transition-colors cursor-pointer">
+              <label
+                htmlFor={optionalWhatsappConsentId}
+                className="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-950/50 border border-slate-800 hover:border-slate-700 transition-colors cursor-pointer"
+              >
                 <input
+                  id={optionalWhatsappConsentId}
+                  name="optional_whatsapp_consent"
                   type="checkbox"
                   data-testid="consent-optional-whatsapp-checkbox"
                   checked={whatsappDecision === 'grant'}

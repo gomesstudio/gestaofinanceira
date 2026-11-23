@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import {
   Zap,
   ShieldCheck,
@@ -38,6 +38,9 @@ export const PowerOfPurchaseView: React.FC = () => {
   } = useFinance();
 
   // Simulation states
+  const fieldIdPrefix = useId();
+  const safetyReserveId = `${fieldIdPrefix}-safety-reserve`;
+  const simulationAmountId = `${fieldIdPrefix}-simulation-amount`;
   const [simulationAmountStr, setSimulationAmountStr] = useState('600');
   const [reserveInputStr, setReserveInputStr] = useState(safetyReserveDesired.toString());
   const [isEditingReserve, setIsEditingReserve] = useState(false);
@@ -180,7 +183,11 @@ export const PowerOfPurchaseView: React.FC = () => {
               {isEditingReserve ? (
                 <div className="flex items-center gap-1.5">
                   <input
+                    id={safetyReserveId}
+                    name="safety_reserve"
                     type="text"
+                    autoComplete="off"
+                    aria-label="Reserva de emergência que desejo preservar (R$)"
                     value={reserveInputStr}
                     onChange={e => setReserveInputStr(e.target.value.replace(/[^0-9,]/g, ''))}
                     className="w-24 px-2 py-1 font-mono text-xs border border-slate-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800"
@@ -236,7 +243,7 @@ export const PowerOfPurchaseView: React.FC = () => {
 
         {/* Input & Presets */}
         <div className="space-y-3">
-          <label className="block text-xs font-medium text-slate-500 dark:text-slate-400">
+          <label htmlFor={simulationAmountId} className="block text-xs font-medium text-slate-500 dark:text-slate-400">
             Quero comprar algo no valor de:
           </label>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -245,7 +252,10 @@ export const PowerOfPurchaseView: React.FC = () => {
                 R$
               </span>
               <input
+                id={simulationAmountId}
+                name="simulation_amount"
                 type="text"
+                autoComplete="off"
                 value={simulationAmountStr}
                 onChange={e => setSimulationAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
                 className="w-full pl-12 pr-4 py-2.5 font-mono text-xl font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white tabular-nums"

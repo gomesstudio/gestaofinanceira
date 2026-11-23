@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import {
   FileSpreadsheet,
   FileText,
@@ -38,6 +38,7 @@ export const ReportsView: React.FC = () => {
     filter
   } = useFinance();
 
+  const scopeLabelId = useId();
   const [exportScope, setExportScope] = useState<'current_filter' | 'all_history'>('current_filter');
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
 
@@ -127,10 +128,10 @@ export const ReportsView: React.FC = () => {
 
       {/* Scope Selector */}
       <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3">
-        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+        <span id={scopeLabelId} className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
           Selecione a abrangência dos dados a exportar:
-        </label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        </span>
+        <div role="group" aria-labelledby={scopeLabelId} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
             type="button"
             onClick={() => setExportScope('current_filter')}

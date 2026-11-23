@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useId, useMemo, useState } from 'react';
 import {
   Search,
   RefreshCw,
@@ -46,6 +46,7 @@ export const MasterClientsRequestsView: React.FC<MasterClientsRequestsViewProps>
   onRefresh,
   onActionCompleted
 }) => {
+  const fieldIdPrefix = useId();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
@@ -247,7 +248,11 @@ export const MasterClientsRequestsView: React.FC<MasterClientsRequestsViewProps>
           <div className="relative flex-1 min-w-0">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
+              id={`${fieldIdPrefix}-search`}
+              name="clients_search"
               type="text"
+              autoComplete="off"
+              aria-label="Buscar clientes por nome, e-mail, WhatsApp ou UUID"
               value={search}
               onChange={e => setSearch(e.target.value)}
               onKeyDown={e => {
@@ -562,11 +567,17 @@ export const MasterClientsRequestsView: React.FC<MasterClientsRequestsViewProps>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
+              <label
+                htmlFor={`${fieldIdPrefix}-lifetime-note`}
+                className="text-xs font-semibold text-slate-700 dark:text-slate-300 block"
+              >
                 Observação administrativa (opcional)
               </label>
               <input
+                id={`${fieldIdPrefix}-lifetime-note`}
+                name="lifetime_note"
                 type="text"
+                autoComplete="off"
                 value={lifetimeNote}
                 onChange={e => setLifetimeNote(e.target.value)}
                 placeholder="Ex.: Cortesia de fundador / Parceiro oficial"

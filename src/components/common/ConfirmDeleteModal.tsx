@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import { AlertTriangle, CheckCircle2, RotateCcw, ShieldAlert, Trash2, X } from 'lucide-react';
 import { ResponsiveModal } from './ResponsiveModal';
 
@@ -36,6 +36,8 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
   onConfirm,
   onCancel
 }) => {
+  const fieldIdPrefix = useId();
+  const confirmCheckboxId = `${fieldIdPrefix}-confirm-checkbox`;
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
@@ -130,8 +132,13 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
       )}
 
       {requireCheckboxLabel && (
-        <label className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 cursor-pointer select-none">
+        <label
+          htmlFor={confirmCheckboxId}
+          className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 cursor-pointer select-none"
+        >
           <input
+            id={confirmCheckboxId}
+            name="confirm_destructive_action"
             type="checkbox"
             checked={checked}
             onChange={e => setChecked(e.target.checked)}

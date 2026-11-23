@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useId, useState } from 'react';
 import {
   ShieldCheck,
   Search,
@@ -37,6 +37,7 @@ export const AdminSubscriptionsPanel: React.FC<AdminSubscriptionsPanelProps> = (
   onSubscriptionUpdated,
   onOpenMasterPortal
 }) => {
+  const fieldIdPrefix = useId();
   const [search, setSearch] = useState('');
   const [items, setItems] = useState<AdminSubscriptionListItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -184,7 +185,11 @@ export const AdminSubscriptionsPanel: React.FC<AdminSubscriptionsPanelProps> = (
         <div className="relative flex-1 min-w-0">
           <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
+            id={`${fieldIdPrefix}-search`}
+            name="admin_subscriptions_search"
             type="text"
+            autoComplete="off"
+            aria-label="Filtrar assinaturas por nome, e-mail, WhatsApp ou UUID"
             value={search}
             onChange={e => setSearch(e.target.value)}
             onKeyDown={e => {

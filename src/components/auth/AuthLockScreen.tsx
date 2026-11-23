@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useId } from 'react';
 import {
   ShieldCheck,
   Lock,
@@ -60,6 +60,20 @@ export const AuthLockScreen: React.FC = () => {
   } = useAuth();
 
   const { openLegalDocument } = useLegalNavigation();
+  const fieldIdPrefix = useId();
+  const recoveryNewPasswordId = `${fieldIdPrefix}-recovery-new-password`;
+  const recoveryConfirmPasswordId = `${fieldIdPrefix}-recovery-confirm-password`;
+  const confirmedWhatsappConsentId = `${fieldIdPrefix}-confirmed-whatsapp-consent`;
+  const loginEmailId = `${fieldIdPrefix}-login-email`;
+  const loginPasswordId = `${fieldIdPrefix}-login-password`;
+  const signupNameId = `${fieldIdPrefix}-signup-name`;
+  const signupWhatsappId = `${fieldIdPrefix}-signup-whatsapp`;
+  const signupEmailId = `${fieldIdPrefix}-signup-email`;
+  const signupPasswordId = `${fieldIdPrefix}-signup-password`;
+  const signupConfirmPasswordId = `${fieldIdPrefix}-signup-confirm-password`;
+  const forgotEmailId = `${fieldIdPrefix}-forgot-email`;
+  const otpEmailId = `${fieldIdPrefix}-otp-email`;
+  const otpCodeId = `${fieldIdPrefix}-otp-code`;
   const [mode, setMode] = useState<AuthViewMode>('login');
 
   // Campos de autenticação comercial
@@ -386,7 +400,7 @@ export const AuthLockScreen: React.FC = () => {
           {isPasswordRecoveryMode ? (
             <form onSubmit={handlePasswordRecoverySubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label htmlFor={recoveryNewPasswordId} className="block text-xs font-semibold text-slate-300 mb-1.5">
                   Nova Senha *
                 </label>
                 <div className="relative">
@@ -394,6 +408,8 @@ export const AuthLockScreen: React.FC = () => {
                     <KeyRound className="w-4 h-4" />
                   </div>
                   <input
+                    id={recoveryNewPasswordId}
+                    name="new_password"
                     type={showNewPassword ? 'text' : 'password'}
                     required
                     minLength={6}
@@ -415,7 +431,7 @@ export const AuthLockScreen: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label htmlFor={recoveryConfirmPasswordId} className="block text-xs font-semibold text-slate-300 mb-1.5">
                   Confirmar Nova Senha *
                 </label>
                 <div className="relative">
@@ -423,6 +439,8 @@ export const AuthLockScreen: React.FC = () => {
                     <KeyRound className="w-4 h-4" />
                   </div>
                   <input
+                    id={recoveryConfirmPasswordId}
+                    name="confirm_new_password"
                     type={showNewPassword ? 'text' : 'password'}
                     required
                     minLength={6}
@@ -563,8 +581,13 @@ export const AuthLockScreen: React.FC = () => {
                 </div>
               </div>
 
-              <label className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-950/60 border border-slate-800 cursor-pointer text-xs text-slate-300 leading-relaxed">
+              <label
+                htmlFor={confirmedWhatsappConsentId}
+                className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-950/60 border border-slate-800 cursor-pointer text-xs text-slate-300 leading-relaxed"
+              >
                 <input
+                  id={confirmedWhatsappConsentId}
+                  name="whatsapp_consent"
                   type="checkbox"
                   checked={whatsappConsent}
                   onChange={e => {
@@ -656,7 +679,7 @@ export const AuthLockScreen: React.FC = () => {
               {mode === 'login' && (
                 <form onSubmit={handleLoginSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    <label htmlFor={loginEmailId} className="block text-xs font-semibold text-slate-300 mb-1.5">
                       E-mail *
                     </label>
                     <div className="relative">
@@ -664,6 +687,8 @@ export const AuthLockScreen: React.FC = () => {
                         <Mail className="w-4 h-4" />
                       </div>
                       <input
+                        id={loginEmailId}
+                        name="email"
                         type="email"
                         required
                         value={email}
@@ -677,7 +702,7 @@ export const AuthLockScreen: React.FC = () => {
 
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-semibold text-slate-300">
+                      <label htmlFor={loginPasswordId} className="block text-xs font-semibold text-slate-300">
                         Senha *
                       </label>
                       <button
@@ -693,6 +718,8 @@ export const AuthLockScreen: React.FC = () => {
                         <KeyRound className="w-4 h-4" />
                       </div>
                       <input
+                        id={loginPasswordId}
+                        name="password"
                         type={showPassword ? 'text' : 'password'}
                         required
                         value={password}
@@ -733,7 +760,7 @@ export const AuthLockScreen: React.FC = () => {
               {mode === 'signup' && (
                 <form onSubmit={handleSignUpSubmit} className="space-y-3.5">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    <label htmlFor={signupNameId} className="block text-xs font-semibold text-slate-300 mb-1">
                       Nome completo *
                     </label>
                     <div className="relative">
@@ -741,6 +768,8 @@ export const AuthLockScreen: React.FC = () => {
                         <User className="w-4 h-4" />
                       </div>
                       <input
+                        id={signupNameId}
+                        name="full_name"
                         type="text"
                         required
                         value={fullName}
@@ -753,7 +782,7 @@ export const AuthLockScreen: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    <label htmlFor={signupWhatsappId} className="block text-xs font-semibold text-slate-300 mb-1">
                       WhatsApp com DDD *
                     </label>
                     <div className="relative">
@@ -761,6 +790,8 @@ export const AuthLockScreen: React.FC = () => {
                         <Phone className="w-4 h-4" />
                       </div>
                       <input
+                        id={signupWhatsappId}
+                        name="whatsapp"
                         type="tel"
                         required
                         value={whatsapp}
@@ -773,7 +804,7 @@ export const AuthLockScreen: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    <label htmlFor={signupEmailId} className="block text-xs font-semibold text-slate-300 mb-1">
                       E-mail *
                     </label>
                     <div className="relative">
@@ -781,6 +812,8 @@ export const AuthLockScreen: React.FC = () => {
                         <Mail className="w-4 h-4" />
                       </div>
                       <input
+                        id={signupEmailId}
+                        name="email"
                         type="email"
                         required
                         value={email}
@@ -794,7 +827,7 @@ export const AuthLockScreen: React.FC = () => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      <label htmlFor={signupPasswordId} className="block text-xs font-semibold text-slate-300 mb-1">
                         Criar senha *
                       </label>
                       <div className="relative">
@@ -802,6 +835,8 @@ export const AuthLockScreen: React.FC = () => {
                           <KeyRound className="w-4 h-4" />
                         </div>
                         <input
+                          id={signupPasswordId}
+                          name="password"
                           type={showPassword ? 'text' : 'password'}
                           required
                           minLength={6}
@@ -823,7 +858,7 @@ export const AuthLockScreen: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      <label htmlFor={signupConfirmPasswordId} className="block text-xs font-semibold text-slate-300 mb-1">
                         Confirmar senha *
                       </label>
                       <div className="relative">
@@ -831,6 +866,8 @@ export const AuthLockScreen: React.FC = () => {
                           <KeyRound className="w-4 h-4" />
                         </div>
                         <input
+                          id={signupConfirmPasswordId}
+                          name="confirm_password"
                           type={showPassword ? 'text' : 'password'}
                           required
                           minLength={6}
@@ -910,7 +947,7 @@ export const AuthLockScreen: React.FC = () => {
               {mode === 'forgot' && (
                 <form onSubmit={handleForgotSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    <label htmlFor={forgotEmailId} className="block text-xs font-semibold text-slate-300 mb-1.5">
                       E-mail da Conta *
                     </label>
                     <div className="relative">
@@ -918,6 +955,8 @@ export const AuthLockScreen: React.FC = () => {
                         <Mail className="w-4 h-4" />
                       </div>
                       <input
+                        id={forgotEmailId}
+                        name="email"
                         type="email"
                         required
                         value={email}
@@ -961,7 +1000,7 @@ export const AuthLockScreen: React.FC = () => {
                   {!otpSent ? (
                     <form onSubmit={handleSendOtp} className="space-y-4">
                       <div>
-                        <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                        <label htmlFor={otpEmailId} className="block text-xs font-semibold text-slate-300 mb-1.5">
                           Seu E-mail *
                         </label>
                         <div className="relative">
@@ -969,6 +1008,8 @@ export const AuthLockScreen: React.FC = () => {
                             <Mail className="w-4 h-4" />
                           </div>
                           <input
+                            id={otpEmailId}
+                            name="email"
                             type="email"
                             required
                             value={email}
@@ -999,7 +1040,7 @@ export const AuthLockScreen: React.FC = () => {
                     <div className="space-y-3">
                       <form onSubmit={handleVerifyOtp} className="space-y-3">
                         <div>
-                          <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                          <label htmlFor={otpCodeId} className="block text-xs font-semibold text-slate-300 mb-1.5">
                             Código de verificação (se enviado no e-mail)
                           </label>
                           <div className="relative">
@@ -1007,7 +1048,10 @@ export const AuthLockScreen: React.FC = () => {
                               <Key className="w-4 h-4" />
                             </div>
                             <input
+                              id={otpCodeId}
+                              name="otp_code"
                               type="text"
+                              autoComplete="one-time-code"
                               value={otpCode}
                               onChange={e => setOtpCode(e.target.value.trim())}
                               placeholder="Código de 6 dígitos"

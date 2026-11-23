@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import {
   Target,
   Plus,
@@ -35,6 +35,26 @@ export const GoalsView: React.FC = () => {
     deleteGoal,
     contributeToGoal
   } = useFinance();
+
+  const fieldIdPrefix = useId();
+  const simInitialId = `${fieldIdPrefix}-sim-initial`;
+  const simMonthlyId = `${fieldIdPrefix}-sim-monthly`;
+  const simYearsId = `${fieldIdPrefix}-sim-years`;
+  const simRateId = `${fieldIdPrefix}-sim-rate`;
+  const goalNameId = `${fieldIdPrefix}-goal-name`;
+  const goalTargetId = `${fieldIdPrefix}-goal-target`;
+  const goalMonthlyId = `${fieldIdPrefix}-goal-monthly`;
+  const goalDeadlineId = `${fieldIdPrefix}-goal-deadline`;
+  const goalCategoryId = `${fieldIdPrefix}-goal-category`;
+  const goalColorLabelId = `${fieldIdPrefix}-goal-color-label`;
+  const contributeAmountId = `${fieldIdPrefix}-contribute-amount`;
+  const contributeAccountSelectId = `${fieldIdPrefix}-contribute-account`;
+  const editGoalNameId = `${fieldIdPrefix}-edit-goal-name`;
+  const editGoalTargetId = `${fieldIdPrefix}-edit-goal-target`;
+  const editGoalMonthlyId = `${fieldIdPrefix}-edit-goal-monthly`;
+  const editGoalDeadlineId = `${fieldIdPrefix}-edit-goal-deadline`;
+  const editGoalCategoryId = `${fieldIdPrefix}-edit-goal-category`;
+  const editGoalColorLabelId = `${fieldIdPrefix}-edit-goal-color-label`;
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [contributeGoal, setContributeGoal] = useState<FinancialGoal | null>(null);
@@ -365,9 +385,12 @@ export const GoalsView: React.FC = () => {
         {/* Inputs */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Aporte Inicial (R$)</label>
+            <label htmlFor={simInitialId} className="block font-medium text-slate-500 mb-1">Aporte Inicial (R$)</label>
             <input
+              id={simInitialId}
+              name="sim_initial_amount"
               type="text"
+              autoComplete="off"
               value={simInitialStr}
               onChange={e => setSimInitialStr(e.target.value.replace(/[^0-9,]/g, ''))}
               className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -375,9 +398,12 @@ export const GoalsView: React.FC = () => {
           </div>
 
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Aporte Mensal (R$)</label>
+            <label htmlFor={simMonthlyId} className="block font-medium text-slate-500 mb-1">Aporte Mensal (R$)</label>
             <input
+              id={simMonthlyId}
+              name="sim_monthly_amount"
               type="text"
+              autoComplete="off"
               value={simMonthlyStr}
               onChange={e => setSimMonthlyStr(e.target.value.replace(/[^0-9,]/g, ''))}
               className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -385,8 +411,10 @@ export const GoalsView: React.FC = () => {
           </div>
 
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Prazo em Anos</label>
+            <label htmlFor={simYearsId} className="block font-medium text-slate-500 mb-1">Prazo em Anos</label>
             <select
+              id={simYearsId}
+              name="sim_years"
               value={simYears}
               onChange={e => setSimYears(parseInt(e.target.value, 10))}
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -398,9 +426,12 @@ export const GoalsView: React.FC = () => {
           </div>
 
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Taxa Estimada (% ao ano)</label>
+            <label htmlFor={simRateId} className="block font-medium text-slate-500 mb-1">Taxa Estimada (% ao ano)</label>
             <input
+              id={simRateId}
+              name="sim_annual_rate"
               type="text"
+              autoComplete="off"
               value={simAnnualRateStr}
               onChange={e => setSimAnnualRateStr(e.target.value.replace(/[^0-9,]/g, ''))}
               className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -459,10 +490,13 @@ export const GoalsView: React.FC = () => {
         }
       >
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Nome do Objetivo *</label>
+          <label htmlFor={goalNameId} className="block font-medium text-slate-500 mb-1">Nome do Objetivo *</label>
           <input
+            id={goalNameId}
+            name="goal_name"
             type="text"
             required
+            autoComplete="off"
             placeholder="Ex: Reserva de Emergência, Celular Novo, Viagem..."
             value={name}
             onChange={e => setName(e.target.value)}
@@ -472,10 +506,13 @@ export const GoalsView: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Valor Alvo (R$) *</label>
+            <label htmlFor={goalTargetId} className="block font-medium text-slate-500 mb-1">Valor Alvo (R$) *</label>
             <input
+              id={goalTargetId}
+              name="goal_target_amount"
               type="text"
               required
+              autoComplete="off"
               placeholder="0,00"
               value={targetAmountStr}
               onChange={e => setTargetAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
@@ -483,9 +520,12 @@ export const GoalsView: React.FC = () => {
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Aporte Mensal Planejado</label>
+            <label htmlFor={goalMonthlyId} className="block font-medium text-slate-500 mb-1">Aporte Mensal Planejado</label>
             <input
+              id={goalMonthlyId}
+              name="goal_monthly_contribution"
               type="text"
+              autoComplete="off"
               placeholder="Ex: 300,00"
               value={monthlyContributionStr}
               onChange={e => setMonthlyContributionStr(e.target.value.replace(/[^0-9,]/g, ''))}
@@ -496,8 +536,10 @@ export const GoalsView: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Data Limite / Prazo</label>
+            <label htmlFor={goalDeadlineId} className="block font-medium text-slate-500 mb-1">Data Limite / Prazo</label>
             <input
+              id={goalDeadlineId}
+              name="goal_deadline_date"
               type="date"
               value={deadlineDate}
               onChange={e => setDeadlineDate(e.target.value)}
@@ -505,8 +547,10 @@ export const GoalsView: React.FC = () => {
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Categoria</label>
+            <label htmlFor={goalCategoryId} className="block font-medium text-slate-500 mb-1">Categoria</label>
             <select
+              id={goalCategoryId}
+              name="goal_category"
               value={category}
               onChange={e => setCategory(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -522,12 +566,13 @@ export const GoalsView: React.FC = () => {
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Cor de Destaque</label>
-          <div className="flex flex-wrap items-center gap-2">
+          <span id={goalColorLabelId} className="block font-medium text-slate-500 mb-1">Cor de Destaque</span>
+          <div role="group" aria-labelledby={goalColorLabelId} className="flex flex-wrap items-center gap-2">
             {['#10b981', '#0284c7', '#8b5cf6', '#ec4899', '#f59e0b', '#64748b'].map(c => (
               <button
                 key={c}
                 type="button"
+                aria-label={`Cor ${c}`}
                 onClick={() => setColor(c)}
                 className={`w-7 h-7 rounded-full transition-transform cursor-pointer ${color === c ? 'scale-115 ring-2 ring-emerald-500 ring-offset-2' : ''}`}
                 style={{ backgroundColor: c }}
@@ -556,13 +601,16 @@ export const GoalsView: React.FC = () => {
         }
       >
         <div>
-          <label className="block font-medium text-slate-500 mb-1">
+          <label htmlFor={contributeAmountId} className="block font-medium text-slate-500 mb-1">
             Valor do Aporte (R$) *
           </label>
           <input
+            id={contributeAmountId}
+            name="contribution_amount"
             type="text"
             required
             autoFocus
+            autoComplete="off"
             placeholder="0,00"
             value={contributionAmountStr}
             onChange={e => setContributionAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
@@ -571,10 +619,12 @@ export const GoalsView: React.FC = () => {
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">
+          <label htmlFor={contributeAccountSelectId} className="block font-medium text-slate-500 mb-1">
             Debitar da Conta Bancária *
           </label>
           <select
+            id={contributeAccountSelectId}
+            name="contribute_account_id"
             value={contributeAccountId}
             onChange={e => setContributeAccountId(e.target.value)}
             className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -606,10 +656,13 @@ export const GoalsView: React.FC = () => {
         }
       >
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Nome do Objetivo *</label>
+          <label htmlFor={editGoalNameId} className="block font-medium text-slate-500 mb-1">Nome do Objetivo *</label>
           <input
+            id={editGoalNameId}
+            name="edit_goal_name"
             type="text"
             required
+            autoComplete="off"
             value={editName}
             onChange={e => setEditName(e.target.value)}
             className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -618,19 +671,25 @@ export const GoalsView: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Valor Alvo (R$) *</label>
+            <label htmlFor={editGoalTargetId} className="block font-medium text-slate-500 mb-1">Valor Alvo (R$) *</label>
             <input
+              id={editGoalTargetId}
+              name="edit_goal_target_amount"
               type="text"
               required
+              autoComplete="off"
               value={editTargetAmountStr}
               onChange={e => setEditTargetAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
               className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Aporte Mensal Planejado</label>
+            <label htmlFor={editGoalMonthlyId} className="block font-medium text-slate-500 mb-1">Aporte Mensal Planejado</label>
             <input
+              id={editGoalMonthlyId}
+              name="edit_goal_monthly_contribution"
               type="text"
+              autoComplete="off"
               value={editMonthlyContributionStr}
               onChange={e => setEditMonthlyContributionStr(e.target.value.replace(/[^0-9,]/g, ''))}
               className="w-full px-3 py-2 font-mono bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -640,8 +699,10 @@ export const GoalsView: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Data Limite / Prazo</label>
+            <label htmlFor={editGoalDeadlineId} className="block font-medium text-slate-500 mb-1">Data Limite / Prazo</label>
             <input
+              id={editGoalDeadlineId}
+              name="edit_goal_deadline_date"
               type="date"
               value={editDeadlineDate}
               onChange={e => setEditDeadlineDate(e.target.value)}
@@ -649,8 +710,10 @@ export const GoalsView: React.FC = () => {
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Categoria</label>
+            <label htmlFor={editGoalCategoryId} className="block font-medium text-slate-500 mb-1">Categoria</label>
             <select
+              id={editGoalCategoryId}
+              name="edit_goal_category"
               value={editCategory}
               onChange={e => setEditCategory(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -666,12 +729,13 @@ export const GoalsView: React.FC = () => {
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Cor de Destaque</label>
-          <div className="flex flex-wrap items-center gap-2">
+          <span id={editGoalColorLabelId} className="block font-medium text-slate-500 mb-1">Cor de Destaque</span>
+          <div role="group" aria-labelledby={editGoalColorLabelId} className="flex flex-wrap items-center gap-2">
             {['#10b981', '#0284c7', '#8b5cf6', '#ec4899', '#f59e0b', '#64748b'].map(c => (
               <button
                 key={c}
                 type="button"
+                aria-label={`Cor ${c}`}
                 onClick={() => setEditColor(c)}
                 className={`w-7 h-7 rounded-full transition-transform cursor-pointer ${editColor === c ? 'scale-115 ring-2 ring-emerald-500 ring-offset-2' : ''}`}
                 style={{ backgroundColor: c }}

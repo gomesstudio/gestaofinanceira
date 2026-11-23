@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import {
   Settings,
   Plus,
@@ -86,6 +86,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onOpenMasterPortal,
   isDevelopmentEnv
 }) => {
+  const fieldIdPrefix = useId();
   const { canViewAdminTools, canViewDevDiagnostics } = resolveTechnicalAccessPermissions({
     subscriptionAccess,
     isDev: isDevelopmentEnv
@@ -1296,7 +1297,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </button>
 
           {/* Restore Backup (Prévia + Validação antes de restaurar) */}
-          <label className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition-colors flex items-center gap-3 cursor-pointer min-w-0 min-h-[56px]">
+          <label
+            htmlFor={`${fieldIdPrefix}-backup-file`}
+            className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-left transition-colors flex items-center gap-3 cursor-pointer min-w-0 min-h-[56px]"
+          >
             <Upload className={`w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 ${isInspectingBackup ? 'animate-pulse' : ''}`} />
             <div className="min-w-0">
               <div className="text-xs font-semibold text-slate-900 dark:text-white">
@@ -1305,6 +1309,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="text-[11px] text-slate-400">Prévia segura de backup .json</div>
             </div>
             <input
+              id={`${fieldIdPrefix}-backup-file`}
+              name="backup_json_file"
               type="file"
               accept=".json"
               disabled={isInspectingBackup || isApplyingBackupRestore}
@@ -1386,8 +1392,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             </div>
 
-            <label className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+            <label
+              htmlFor={`${fieldIdPrefix}-confirm-legacy`}
+              className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer select-none"
+            >
               <input
+                id={`${fieldIdPrefix}-confirm-legacy`}
+                name="confirm_legacy_ownership"
                 type="checkbox"
                 checked={confirmLegacyOwnership}
                 onChange={e => setConfirmLegacyOwnership(e.target.checked)}
@@ -1854,9 +1865,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         }
       >
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Nome da Categoria *</label>
+          <label htmlFor={`${fieldIdPrefix}-cat-name`} className="block font-medium text-slate-500 mb-1">Nome da Categoria *</label>
           <input
+            id={`${fieldIdPrefix}-cat-name`}
+            name="category_name"
             type="text"
+            autoComplete="off"
             required
             placeholder="Ex: Assinaturas, Cursos, Pets..."
             value={catName}
@@ -1866,8 +1880,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Tipo Principal</label>
+          <label htmlFor={`${fieldIdPrefix}-cat-type`} className="block font-medium text-slate-500 mb-1">Tipo Principal</label>
           <select
+            id={`${fieldIdPrefix}-cat-type`}
+            name="category_type"
             value={catType}
             onChange={e => setCatType(e.target.value as any)}
             className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -1879,8 +1895,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         {catType === 'expense' && (
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Classificação de Despesa</label>
+            <label htmlFor={`${fieldIdPrefix}-cat-expense-type`} className="block font-medium text-slate-500 mb-1">Classificação de Despesa</label>
             <select
+              id={`${fieldIdPrefix}-cat-expense-type`}
+              name="category_expense_type"
               value={catExpenseType}
               onChange={e => setCatExpenseType(e.target.value as any)}
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -1892,8 +1910,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         )}
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1.5">Cor</label>
-          <div className="flex flex-wrap items-center gap-2">
+          <span id={`${fieldIdPrefix}-cat-color-label`} className="block font-medium text-slate-500 mb-1.5">Cor</span>
+          <div role="group" aria-labelledby={`${fieldIdPrefix}-cat-color-label`} className="flex flex-wrap items-center gap-2">
             {['#10b981', '#0284c7', '#8b5cf6', '#ec4899', '#f59e0b', '#e11d48', '#64748b'].map(c => (
               <button
                 key={c}
@@ -1935,9 +1953,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         }
       >
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Nome da Conta *</label>
+          <label htmlFor={`${fieldIdPrefix}-acc-name`} className="block font-medium text-slate-500 mb-1">Nome da Conta *</label>
           <input
+            id={`${fieldIdPrefix}-acc-name`}
+            name="account_name"
             type="text"
+            autoComplete="off"
             required
             placeholder="Ex: Inter, C6, Poupança Caixa..."
             value={accName}
@@ -1947,9 +1968,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Saldo Atual Inicial (R$)</label>
+          <label htmlFor={`${fieldIdPrefix}-acc-balance`} className="block font-medium text-slate-500 mb-1">Saldo Atual Inicial (R$)</label>
           <input
+            id={`${fieldIdPrefix}-acc-balance`}
+            name="account_initial_balance"
             type="text"
+            autoComplete="off"
             value={accBalanceStr}
             onChange={e => setAccBalanceStr(e.target.value.replace(/[^0-9,]/g, ''))}
             className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -1957,8 +1981,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Tipo de Conta</label>
+          <label htmlFor={`${fieldIdPrefix}-acc-type`} className="block font-medium text-slate-500 mb-1">Tipo de Conta</label>
           <select
+            id={`${fieldIdPrefix}-acc-type`}
+            name="account_type"
             value={accType}
             onChange={e => setAccType(e.target.value as any)}
             className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -2013,19 +2039,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         )}
 
         <div>
-          <label className="block font-medium text-slate-600 dark:text-slate-400 mb-1">
+          <span className="block font-medium text-slate-600 dark:text-slate-400 mb-1">
             Conta Autenticada
-          </label>
+          </span>
           <div className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 font-mono truncate">
             {supabaseUserEmail || supabaseUserDisplayName}
           </div>
         </div>
 
         <div>
-          <label className="block font-medium text-slate-600 dark:text-slate-400 mb-1">
+          <label htmlFor={`${fieldIdPrefix}-security-pass`} className="block font-medium text-slate-600 dark:text-slate-400 mb-1">
             Nova Senha (mínimo 6 caracteres) *
           </label>
           <input
+            id={`${fieldIdPrefix}-security-pass`}
+            name="new_password"
             type="password"
             required
             minLength={6}
@@ -2038,10 +2066,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         <div>
-          <label className="block font-medium text-slate-600 dark:text-slate-400 mb-1">
+          <label htmlFor={`${fieldIdPrefix}-security-confirm-pass`} className="block font-medium text-slate-600 dark:text-slate-400 mb-1">
             Confirmar Nova Senha *
           </label>
           <input
+            id={`${fieldIdPrefix}-security-confirm-pass`}
+            name="confirm_new_password"
             type="password"
             required
             minLength={6}
@@ -2139,11 +2169,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             {!sbOtpSent ? (
               <form onSubmit={handleSbSendOtp} className="space-y-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  <label htmlFor={`${fieldIdPrefix}-sb-otp-email`} className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
                     Seu E-mail *
                   </label>
                   <input
+                    id={`${fieldIdPrefix}-sb-otp-email`}
+                    name="cloud_otp_email"
                     type="email"
+                    autoComplete="email"
                     required
                     value={sbEmail}
                     onChange={e => setSbEmail(e.target.value)}
@@ -2190,9 +2223,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 {/* Opção secundária se houver código numérico de 6 dígitos */}
                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-xs space-y-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-[11px] font-semibold text-slate-500">
+                    <label
+                      htmlFor={`${fieldIdPrefix}-sb-otp-code`}
+                      className="text-[11px] font-semibold text-slate-500"
+                    >
                       (Opcional) Código numérico recebido:
-                    </span>
+                    </label>
                     <button
                       type="button"
                       onClick={() => setSbOtpSent(false)}
@@ -2203,7 +2239,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </div>
                   <form onSubmit={handleSbVerifyOtp} className="space-y-2">
                     <input
+                      id={`${fieldIdPrefix}-sb-otp-code`}
+                      name="cloud_otp_code"
                       type="text"
+                      autoComplete="one-time-code"
                       maxLength={8}
                       value={sbOtpCode}
                       onChange={e => setSbOtpCode(e.target.value)}
@@ -2238,11 +2277,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         {sbAuthTab === 'password' && (
           <form onSubmit={handleSupabaseLoginSubmit} className="space-y-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+              <label htmlFor={`${fieldIdPrefix}-sb-pw-email`} className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
                 E-mail da Conta *
               </label>
               <input
+                id={`${fieldIdPrefix}-sb-pw-email`}
+                name="cloud_login_email"
                 type="email"
+                autoComplete="email"
                 required
                 value={sbEmail}
                 onChange={e => setSbEmail(e.target.value)}
@@ -2253,7 +2295,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
             <div>
               <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                <label htmlFor={`${fieldIdPrefix}-sb-pw`} className="text-xs font-semibold text-slate-600 dark:text-slate-400">
                   Senha da Conta *
                 </label>
                 <button
@@ -2266,7 +2308,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </button>
               </div>
               <input
+                id={`${fieldIdPrefix}-sb-pw`}
+                name="cloud_login_password"
                 type="password"
+                autoComplete="current-password"
                 required
                 value={sbPass}
                 onChange={e => setSbPass(e.target.value)}
@@ -2511,8 +2556,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
 
                 {pendingBackupReview.outcome.canRestore && (
-                  <label className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 cursor-pointer select-none">
+                  <label
+                    htmlFor={`${fieldIdPrefix}-confirm-backup-replace`}
+                    className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 cursor-pointer select-none"
+                  >
                     <input
+                      id={`${fieldIdPrefix}-confirm-backup-replace`}
+                      name="confirm_backup_replace"
                       type="checkbox"
                       checked={confirmBackupReplaceChecked}
                       onChange={e => setConfirmBackupReplaceChecked(e.target.checked)}

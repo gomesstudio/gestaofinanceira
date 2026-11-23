@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import {
   CreditCard as CardIcon,
   Plus,
@@ -34,6 +34,21 @@ export const CardsView: React.FC = () => {
     payCreditCardInvoice,
     getCardInvoiceAmount
   } = useFinance();
+
+  const fieldIdPrefix = useId();
+  const cardNameId = `${fieldIdPrefix}-card-name`;
+  const cardLimitId = `${fieldIdPrefix}-card-limit`;
+  const cardClosingDayId = `${fieldIdPrefix}-card-closing-day`;
+  const cardDueDayId = `${fieldIdPrefix}-card-due-day`;
+  const cardColorLabelId = `${fieldIdPrefix}-card-color-label`;
+  const payAmountId = `${fieldIdPrefix}-pay-amount`;
+  const payAccountIdAttr = `${fieldIdPrefix}-pay-account`;
+  const invoiceMonthId = `${fieldIdPrefix}-invoice-month`;
+  const editCardNameId = `${fieldIdPrefix}-edit-card-name`;
+  const editCardLimitId = `${fieldIdPrefix}-edit-card-limit`;
+  const editClosingDayId = `${fieldIdPrefix}-edit-closing-day`;
+  const editDueDayId = `${fieldIdPrefix}-edit-due-day`;
+  const editColorLabelId = `${fieldIdPrefix}-edit-color-label`;
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [payModalCard, setPayModalCard] = useState<CreditCard | null>(null);
@@ -352,10 +367,13 @@ export const CardsView: React.FC = () => {
         }
       >
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Nome do Cartão *</label>
+          <label htmlFor={cardNameId} className="block font-medium text-slate-500 mb-1">Nome do Cartão *</label>
           <input
+            id={cardNameId}
+            name="card_name"
             type="text"
             required
+            autoComplete="off"
             placeholder="Ex: Nubank Ultravioleta, Itaú Click, Inter..."
             value={name}
             onChange={e => setName(e.target.value)}
@@ -364,10 +382,13 @@ export const CardsView: React.FC = () => {
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Limite Total (R$) *</label>
+          <label htmlFor={cardLimitId} className="block font-medium text-slate-500 mb-1">Limite Total (R$) *</label>
           <input
+            id={cardLimitId}
+            name="limit_total"
             type="text"
             required
+            autoComplete="off"
             placeholder="0,00"
             value={limitTotalStr}
             onChange={e => setLimitTotalStr(e.target.value.replace(/[^0-9,]/g, ''))}
@@ -377,8 +398,10 @@ export const CardsView: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Dia de Fechamento (1-31)</label>
+            <label htmlFor={cardClosingDayId} className="block font-medium text-slate-500 mb-1">Dia de Fechamento (1-31)</label>
             <input
+              id={cardClosingDayId}
+              name="closing_day"
               type="number"
               min={1}
               max={31}
@@ -388,8 +411,10 @@ export const CardsView: React.FC = () => {
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Dia de Vencimento (1-31)</label>
+            <label htmlFor={cardDueDayId} className="block font-medium text-slate-500 mb-1">Dia de Vencimento (1-31)</label>
             <input
+              id={cardDueDayId}
+              name="due_day"
               type="number"
               min={1}
               max={31}
@@ -401,12 +426,13 @@ export const CardsView: React.FC = () => {
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Cor do Cartão</label>
-          <div className="flex flex-wrap items-center gap-2">
+          <span id={cardColorLabelId} className="block font-medium text-slate-500 mb-1">Cor do Cartão</span>
+          <div role="group" aria-labelledby={cardColorLabelId} className="flex flex-wrap items-center gap-2">
             {['#820ad1', '#ec7000', '#0284c7', '#10b981', '#1e293b', '#e11d48'].map(c => (
               <button
                 key={c}
                 type="button"
+                aria-label={`Cor ${c}`}
                 onClick={() => setColor(c)}
                 className={`w-7 h-7 rounded-full transition-transform cursor-pointer ${color === c ? 'scale-115 ring-2 ring-emerald-500 ring-offset-2' : ''}`}
                 style={{ backgroundColor: c }}
@@ -439,13 +465,16 @@ export const CardsView: React.FC = () => {
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">
+          <label htmlFor={payAmountId} className="block font-medium text-slate-500 mb-1">
             Valor da Fatura a Pagar (R$) *
           </label>
           <input
+            id={payAmountId}
+            name="pay_amount"
             type="text"
             required
             autoFocus
+            autoComplete="off"
             placeholder="0,00"
             value={payAmountStr}
             onChange={e => setPayAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
@@ -454,10 +483,12 @@ export const CardsView: React.FC = () => {
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">
+          <label htmlFor={payAccountIdAttr} className="block font-medium text-slate-500 mb-1">
             Debitar da Conta Bancária *
           </label>
           <select
+            id={payAccountIdAttr}
+            name="pay_account_id"
             value={payAccountId}
             onChange={e => setPayAccountId(e.target.value)}
             className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -471,10 +502,12 @@ export const CardsView: React.FC = () => {
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">
+          <label htmlFor={invoiceMonthId} className="block font-medium text-slate-500 mb-1">
             Mês de Referência da Fatura
           </label>
           <input
+            id={invoiceMonthId}
+            name="invoice_month"
             type="month"
             value={invoiceMonth}
             onChange={e => setInvoiceMonth(e.target.value)}
@@ -501,10 +534,13 @@ export const CardsView: React.FC = () => {
         }
       >
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Nome do Cartão *</label>
+          <label htmlFor={editCardNameId} className="block font-medium text-slate-500 mb-1">Nome do Cartão *</label>
           <input
+            id={editCardNameId}
+            name="edit_card_name"
             type="text"
             required
+            autoComplete="off"
             value={editCardName}
             onChange={e => setEditCardName(e.target.value)}
             className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -512,10 +548,13 @@ export const CardsView: React.FC = () => {
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Limite Total (R$) *</label>
+          <label htmlFor={editCardLimitId} className="block font-medium text-slate-500 mb-1">Limite Total (R$) *</label>
           <input
+            id={editCardLimitId}
+            name="edit_limit_total"
             type="text"
             required
+            autoComplete="off"
             value={editLimitTotalStr}
             onChange={e => setEditLimitTotalStr(e.target.value.replace(/[^0-9,]/g, ''))}
             className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -524,8 +563,10 @@ export const CardsView: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Dia de Fechamento (1-31)</label>
+            <label htmlFor={editClosingDayId} className="block font-medium text-slate-500 mb-1">Dia de Fechamento (1-31)</label>
             <input
+              id={editClosingDayId}
+              name="edit_closing_day"
               type="number"
               min={1}
               max={31}
@@ -535,8 +576,10 @@ export const CardsView: React.FC = () => {
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Dia de Vencimento (1-31)</label>
+            <label htmlFor={editDueDayId} className="block font-medium text-slate-500 mb-1">Dia de Vencimento (1-31)</label>
             <input
+              id={editDueDayId}
+              name="edit_due_day"
               type="number"
               min={1}
               max={31}
@@ -548,12 +591,13 @@ export const CardsView: React.FC = () => {
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Cor do Cartão</label>
-          <div className="flex flex-wrap items-center gap-2">
+          <span id={editColorLabelId} className="block font-medium text-slate-500 mb-1">Cor do Cartão</span>
+          <div role="group" aria-labelledby={editColorLabelId} className="flex flex-wrap items-center gap-2">
             {['#820ad1', '#ec7000', '#0284c7', '#10b981', '#1e293b', '#e11d48'].map(c => (
               <button
                 key={c}
                 type="button"
+                aria-label={`Cor ${c}`}
                 onClick={() => setEditColor(c)}
                 className={`w-7 h-7 rounded-full transition-transform cursor-pointer ${editColor === c ? 'scale-115 ring-2 ring-emerald-500 ring-offset-2' : ''}`}
                 style={{ backgroundColor: c }}

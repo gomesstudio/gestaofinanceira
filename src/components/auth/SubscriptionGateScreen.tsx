@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import {
   ShieldAlert,
   Download,
@@ -57,6 +57,8 @@ export const SubscriptionGateScreen: React.FC<SubscriptionGateScreenProps> = ({
   adminPanel
 }) => {
   const { openLegalDocument } = useLegalNavigation();
+  const fieldIdPrefix = useId();
+  const whatsappConsentId = `${fieldIdPrefix}-whatsapp-consent`;
   const [isChecking, setIsChecking] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
@@ -258,8 +260,13 @@ export const SubscriptionGateScreen: React.FC<SubscriptionGateScreenProps> = ({
 
               {hasSignupContactForWhatsApp && (
                 <div className="space-y-3 pt-2 border-t border-emerald-500/20">
-                  <label className="flex items-start gap-2.5 text-xs text-slate-200 cursor-pointer leading-relaxed">
+                  <label
+                    htmlFor={whatsappConsentId}
+                    className="flex items-start gap-2.5 text-xs text-slate-200 cursor-pointer leading-relaxed"
+                  >
                     <input
+                      id={whatsappConsentId}
+                      name="whatsapp_consent"
                       type="checkbox"
                       checked={whatsappConsent}
                       onChange={e => {

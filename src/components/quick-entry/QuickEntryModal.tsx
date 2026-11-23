@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useId } from 'react';
 import { Plus, Sparkles, ArrowDownRight, ArrowUpRight, Check, CreditCard, Wallet } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { PaymentMethod, TransactionType } from '../../types/finance';
@@ -29,6 +29,20 @@ export const QuickEntryModal: React.FC = () => {
     accounts,
     creditCards,
   } = useFinance();
+
+  const fieldIdPrefix = useId();
+  const amountId = `${fieldIdPrefix}-amount`;
+  const descriptionId = `${fieldIdPrefix}-description`;
+  const categorySelectId = `${fieldIdPrefix}-category`;
+  const expenseTypeLabelId = `${fieldIdPrefix}-expense-type-label`;
+  const incomeAccountId = `${fieldIdPrefix}-income-account`;
+  const paymentMethodId = `${fieldIdPrefix}-payment-method`;
+  const creditCardSelectId = `${fieldIdPrefix}-credit-card`;
+  const expenseAccountId = `${fieldIdPrefix}-expense-account`;
+  const dateId = `${fieldIdPrefix}-date`;
+  const dueDateId = `${fieldIdPrefix}-due-date`;
+  const statusId = `${fieldIdPrefix}-status`;
+  const installmentsId = `${fieldIdPrefix}-installments`;
 
   const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
   const [description, setDescription] = useState('');
@@ -211,7 +225,7 @@ export const QuickEntryModal: React.FC = () => {
 
       {/* Valor Principal (Hero Input) */}
       <div>
-        <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+        <label htmlFor={amountId} className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
           Valor (R$) *
         </label>
         <div className="relative">
@@ -219,9 +233,12 @@ export const QuickEntryModal: React.FC = () => {
             R$
           </span>
           <input
+            id={amountId}
+            name="amount"
             type="text"
             required
             autoFocus
+            autoComplete="off"
             placeholder="0,00"
             value={amountStr}
             onChange={e => {
@@ -235,12 +252,15 @@ export const QuickEntryModal: React.FC = () => {
 
       {/* Descrição */}
       <div>
-        <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+        <label htmlFor={descriptionId} className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
           Descrição do Lançamento *
         </label>
         <input
+          id={descriptionId}
+          name="description"
           type="text"
           required
+          autoComplete="off"
           placeholder={activeTab === 'expense' ? 'Ex: Bala na padaria, Café, Supermercado...' : 'Ex: Salário, PIX de freelance, Restituição...'}
           value={description}
           onChange={e => setDescription(e.target.value)}
@@ -251,10 +271,12 @@ export const QuickEntryModal: React.FC = () => {
       {/* Categoria & Tipo */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="min-w-0">
-          <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+          <label htmlFor={categorySelectId} className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
             Categoria
           </label>
           <select
+            id={categorySelectId}
+            name="category"
             value={categoryId}
             onChange={e => setCategoryId(e.target.value)}
             className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
@@ -269,10 +291,10 @@ export const QuickEntryModal: React.FC = () => {
 
         {activeTab === 'expense' ? (
           <div className="min-w-0">
-            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+            <span id={expenseTypeLabelId} className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
               Tipo de Despesa
-            </label>
-            <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
+            </span>
+            <div role="group" aria-labelledby={expenseTypeLabelId} className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
               <button
                 type="button"
                 onClick={() => setExpenseType('variable')}
@@ -299,10 +321,12 @@ export const QuickEntryModal: React.FC = () => {
           </div>
         ) : (
           <div className="min-w-0">
-            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+            <label htmlFor={incomeAccountId} className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
               Conta de Destino
             </label>
             <select
+              id={incomeAccountId}
+              name="income_account_id"
               value={accountId}
               onChange={e => setAccountId(e.target.value)}
               className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
@@ -321,10 +345,12 @@ export const QuickEntryModal: React.FC = () => {
       {activeTab === 'expense' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="min-w-0">
-            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+            <label htmlFor={paymentMethodId} className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
               Forma de Pagamento
             </label>
             <select
+              id={paymentMethodId}
+              name="payment_method"
               value={paymentMethod}
               onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
               className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
@@ -341,11 +367,13 @@ export const QuickEntryModal: React.FC = () => {
           <div className="min-w-0">
             {paymentMethod === 'credit_card' ? (
               <>
-                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
+                <label htmlFor={creditCardSelectId} className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
                   <CreditCard className="w-3 h-3 text-purple-500 shrink-0" />
                   <span>Cartão Utilizado</span>
                 </label>
                 <select
+                  id={creditCardSelectId}
+                  name="credit_card_id"
                   value={creditCardId}
                   onChange={e => setCreditCardId(e.target.value)}
                   className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
@@ -359,11 +387,13 @@ export const QuickEntryModal: React.FC = () => {
               </>
             ) : (
               <>
-                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
+                <label htmlFor={expenseAccountId} className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
                   <Wallet className="w-3 h-3 text-blue-500 shrink-0" />
                   <span>Conta de Saída</span>
                 </label>
                 <select
+                  id={expenseAccountId}
+                  name="expense_account_id"
                   value={accountId}
                   onChange={e => setAccountId(e.target.value)}
                   className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
@@ -395,8 +425,10 @@ export const QuickEntryModal: React.FC = () => {
         <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl space-y-3 border border-slate-200/60 dark:border-slate-800 text-xs animate-in fade-in">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-slate-500 mb-1">Data do Lançamento</label>
+              <label htmlFor={dateId} className="block text-slate-500 mb-1">Data do Lançamento</label>
               <input
+                id={dateId}
+                name="date"
                 type="date"
                 value={date}
                 onChange={e => setDate(e.target.value)}
@@ -405,8 +437,10 @@ export const QuickEntryModal: React.FC = () => {
             </div>
             {activeTab === 'expense' && (
               <div>
-                <label className="block text-slate-500 mb-1">Data de Vencimento</label>
+                <label htmlFor={dueDateId} className="block text-slate-500 mb-1">Data de Vencimento</label>
                 <input
+                  id={dueDateId}
+                  name="due_date"
                   type="date"
                   value={dueDate}
                   onChange={e => setDueDate(e.target.value)}
@@ -418,8 +452,10 @@ export const QuickEntryModal: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-slate-500 mb-1">Situação / Status</label>
+              <label htmlFor={statusId} className="block text-slate-500 mb-1">Situação / Status</label>
               <select
+                id={statusId}
+                name="status"
                 value={status}
                 onChange={e => setStatus(e.target.value as 'paid' | 'pending')}
                 className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
@@ -431,8 +467,10 @@ export const QuickEntryModal: React.FC = () => {
 
             {activeTab === 'expense' && paymentMethod === 'credit_card' && (
               <div>
-                <label className="block text-slate-500 mb-1">Parcelamento</label>
+                <label htmlFor={installmentsId} className="block text-slate-500 mb-1">Parcelamento</label>
                 <select
+                  id={installmentsId}
+                  name="installments"
                   value={installments}
                   onChange={e => setInstallments(parseInt(e.target.value, 10))}
                   className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useId, useMemo, useState } from 'react';
 import {
   DollarSign,
   Plus,
@@ -65,6 +65,7 @@ export const MasterBillingView: React.FC<MasterBillingViewProps> = ({
   onRefresh,
   onPaymentChanged
 }) => {
+  const fieldIdPrefix = useId();
   const [statusFilter, setStatusFilter] = useState<CommercialPaymentStatus | 'all'>('all');
   const [search, setSearch] = useState('');
 
@@ -271,10 +272,15 @@ export const MasterBillingView: React.FC<MasterBillingViewProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <div>
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+            <label
+              htmlFor={`${fieldIdPrefix}-customer`}
+              className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1"
+            >
               Cliente
             </label>
             <select
+              id={`${fieldIdPrefix}-customer`}
+              name="customer_user_id"
               value={customerUserId}
               onChange={e => setCustomerUserId(e.target.value)}
               required
@@ -290,10 +296,15 @@ export const MasterBillingView: React.FC<MasterBillingViewProps> = ({
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+            <label
+              htmlFor={`${fieldIdPrefix}-plan`}
+              className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1"
+            >
               Plano
             </label>
             <select
+              id={`${fieldIdPrefix}-plan`}
+              name="subscription_plan"
               value={subscriptionPlan}
               onChange={e => setSubscriptionPlan(e.target.value as SubscriptionPlanType)}
               className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
@@ -305,11 +316,17 @@ export const MasterBillingView: React.FC<MasterBillingViewProps> = ({
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+            <label
+              htmlFor={`${fieldIdPrefix}-amount`}
+              className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1"
+            >
               Valor Recebido (R$)
             </label>
             <input
+              id={`${fieldIdPrefix}-amount`}
+              name="amount"
               type="text"
+              autoComplete="off"
               value={amountText}
               onChange={e => setAmountText(e.target.value)}
               placeholder="Ex.: 49,90"
@@ -319,10 +336,15 @@ export const MasterBillingView: React.FC<MasterBillingViewProps> = ({
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+            <label
+              htmlFor={`${fieldIdPrefix}-payment-date`}
+              className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1"
+            >
               Data do Pagamento
             </label>
             <input
+              id={`${fieldIdPrefix}-payment-date`}
+              name="payment_date"
               type="date"
               value={paymentDate}
               onChange={e => setPaymentDate(e.target.value)}
@@ -332,10 +354,15 @@ export const MasterBillingView: React.FC<MasterBillingViewProps> = ({
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+            <label
+              htmlFor={`${fieldIdPrefix}-payment-method`}
+              className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1"
+            >
               Forma de Pagamento
             </label>
             <select
+              id={`${fieldIdPrefix}-payment-method`}
+              name="payment_method"
               value={paymentMethod}
               onChange={e => setPaymentMethod(e.target.value as CommercialPaymentMethod)}
               className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
@@ -349,10 +376,15 @@ export const MasterBillingView: React.FC<MasterBillingViewProps> = ({
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+            <label
+              htmlFor={`${fieldIdPrefix}-payment-status`}
+              className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1"
+            >
               Situação
             </label>
             <select
+              id={`${fieldIdPrefix}-payment-status`}
+              name="payment_status"
               value={paymentStatus}
               onChange={e => setPaymentStatus(e.target.value as CommercialPaymentStatus)}
               className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
@@ -366,11 +398,17 @@ export const MasterBillingView: React.FC<MasterBillingViewProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+            <label
+              htmlFor={`${fieldIdPrefix}-reference-code`}
+              className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1"
+            >
               Código de Referência / Comprovante (opcional, evita duplicidade)
             </label>
             <input
+              id={`${fieldIdPrefix}-reference-code`}
+              name="reference_code"
               type="text"
+              autoComplete="off"
               value={referenceCode}
               onChange={e => setReferenceCode(e.target.value)}
               placeholder="Ex.: PIX-E2E-20261117-01"
@@ -379,11 +417,17 @@ export const MasterBillingView: React.FC<MasterBillingViewProps> = ({
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+            <label
+              htmlFor={`${fieldIdPrefix}-notes`}
+              className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1"
+            >
               Observação (opcional)
             </label>
             <input
+              id={`${fieldIdPrefix}-notes`}
+              name="notes"
               type="text"
+              autoComplete="off"
               value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="Ex.: Renovação via WhatsApp comercial"
@@ -432,7 +476,11 @@ export const MasterBillingView: React.FC<MasterBillingViewProps> = ({
           </div>
 
           <input
+            id={`${fieldIdPrefix}-search`}
+            name="billing_search"
             type="text"
+            autoComplete="off"
+            aria-label="Filtrar recebimentos"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Filtrar recebimentos..."
@@ -544,10 +592,15 @@ export const MasterBillingView: React.FC<MasterBillingViewProps> = ({
         }
       >
         <div>
-          <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+          <label
+            htmlFor={`${fieldIdPrefix}-edit-status`}
+            className="font-semibold text-slate-700 dark:text-slate-300 block mb-1"
+          >
             Situação
           </label>
           <select
+            id={`${fieldIdPrefix}-edit-status`}
+            name="edit_payment_status"
             value={editStatus}
             onChange={e => setEditStatus(e.target.value as CommercialPaymentStatus)}
             className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
@@ -559,11 +612,17 @@ export const MasterBillingView: React.FC<MasterBillingViewProps> = ({
         </div>
 
         <div>
-          <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+          <label
+            htmlFor={`${fieldIdPrefix}-edit-amount`}
+            className="font-semibold text-slate-700 dark:text-slate-300 block mb-1"
+          >
             Valor (R$)
           </label>
           <input
+            id={`${fieldIdPrefix}-edit-amount`}
+            name="edit_amount"
             type="text"
+            autoComplete="off"
             value={editAmountText}
             onChange={e => setEditAmountText(e.target.value)}
             className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white tabular-nums"
@@ -571,11 +630,17 @@ export const MasterBillingView: React.FC<MasterBillingViewProps> = ({
         </div>
 
         <div>
-          <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+          <label
+            htmlFor={`${fieldIdPrefix}-edit-notes`}
+            className="font-semibold text-slate-700 dark:text-slate-300 block mb-1"
+          >
             Observação / Motivo da alteração
           </label>
           <input
+            id={`${fieldIdPrefix}-edit-notes`}
+            name="edit_notes"
             type="text"
+            autoComplete="off"
             value={editNotes}
             onChange={e => setEditNotes(e.target.value)}
             className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"

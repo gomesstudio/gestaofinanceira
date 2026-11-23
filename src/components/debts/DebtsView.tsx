@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import {
   AlertCircle,
   Plus,
@@ -37,6 +37,30 @@ export const DebtsView: React.FC = () => {
     amortizeDebt,
     accounts
   } = useFinance();
+
+  const fieldIdPrefix = useId();
+  const debtNameId = `${fieldIdPrefix}-debt-name`;
+  const debtCreditorId = `${fieldIdPrefix}-debt-creditor`;
+  const debtPriorityId = `${fieldIdPrefix}-debt-priority`;
+  const debtOriginalAmountId = `${fieldIdPrefix}-debt-original-amount`;
+  const debtCurrentBalanceId = `${fieldIdPrefix}-debt-current-balance`;
+  const debtInterestRateId = `${fieldIdPrefix}-debt-interest-rate`;
+  const debtMinPaymentId = `${fieldIdPrefix}-debt-min-payment`;
+  const debtDueDateId = `${fieldIdPrefix}-debt-due-date`;
+  const debtStatusId = `${fieldIdPrefix}-debt-status`;
+  const debtNotesId = `${fieldIdPrefix}-debt-notes`;
+  const amortizeAmountId = `${fieldIdPrefix}-amortize-amount`;
+  const amortizeAccountSelectId = `${fieldIdPrefix}-amortize-account`;
+  const amortizeNotesId = `${fieldIdPrefix}-amortize-notes`;
+  const editDebtNameId = `${fieldIdPrefix}-edit-debt-name`;
+  const editCreditorId = `${fieldIdPrefix}-edit-debt-creditor`;
+  const editPriorityId = `${fieldIdPrefix}-edit-debt-priority`;
+  const editCurrentBalanceId = `${fieldIdPrefix}-edit-debt-current-balance`;
+  const editMinPaymentId = `${fieldIdPrefix}-edit-debt-min-payment`;
+  const editInterestRateId = `${fieldIdPrefix}-edit-debt-interest-rate`;
+  const editDueDateId = `${fieldIdPrefix}-edit-debt-due-date`;
+  const editStatusId = `${fieldIdPrefix}-edit-debt-status`;
+  const editNotesId = `${fieldIdPrefix}-edit-debt-notes`;
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [amortizeModalDebt, setAmortizeModalDebt] = useState<Debt | null>(null);
@@ -511,10 +535,13 @@ export const DebtsView: React.FC = () => {
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="sm:col-span-2">
-            <label className="block font-medium text-slate-500 mb-1">Nome da Dívida / Contrato *</label>
+            <label htmlFor={debtNameId} className="block font-medium text-slate-500 mb-1">Nome da Dívida / Contrato *</label>
             <input
+              id={debtNameId}
+              name="debt_name"
               type="text"
               required
+              autoComplete="off"
               placeholder="Ex: Empréstimo Caixa, Cartão de Loja em Atraso..."
               value={name}
               onChange={e => setName(e.target.value)}
@@ -522,9 +549,12 @@ export const DebtsView: React.FC = () => {
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Credor / Banco</label>
+            <label htmlFor={debtCreditorId} className="block font-medium text-slate-500 mb-1">Credor / Banco</label>
             <input
+              id={debtCreditorId}
+              name="debt_creditor"
               type="text"
+              autoComplete="off"
               placeholder="Ex: Caixa, Santander, Amigo..."
               value={creditor}
               onChange={e => setCreditor(e.target.value)}
@@ -532,8 +562,10 @@ export const DebtsView: React.FC = () => {
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Prioridade</label>
+            <label htmlFor={debtPriorityId} className="block font-medium text-slate-500 mb-1">Prioridade</label>
             <select
+              id={debtPriorityId}
+              name="debt_priority"
               value={priority}
               onChange={e => setPriority(e.target.value as DebtPriority)}
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -548,10 +580,13 @@ export const DebtsView: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Valor Original (R$) *</label>
+            <label htmlFor={debtOriginalAmountId} className="block font-medium text-slate-500 mb-1">Valor Original (R$) *</label>
             <input
+              id={debtOriginalAmountId}
+              name="debt_original_amount"
               type="text"
               required
+              autoComplete="off"
               placeholder="0,00"
               value={originalAmountStr}
               onChange={e => setOriginalAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
@@ -559,9 +594,12 @@ export const DebtsView: React.FC = () => {
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Saldo Devedor Atual (R$)</label>
+            <label htmlFor={debtCurrentBalanceId} className="block font-medium text-slate-500 mb-1">Saldo Devedor Atual (R$)</label>
             <input
+              id={debtCurrentBalanceId}
+              name="debt_current_balance"
               type="text"
+              autoComplete="off"
               placeholder="Igual ao original se vazio"
               value={currentBalanceStr}
               onChange={e => setCurrentBalanceStr(e.target.value.replace(/[^0-9,]/g, ''))}
@@ -572,9 +610,12 @@ export const DebtsView: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Juros (% ao mês)</label>
+            <label htmlFor={debtInterestRateId} className="block font-medium text-slate-500 mb-1">Juros (% ao mês)</label>
             <input
+              id={debtInterestRateId}
+              name="debt_interest_rate"
               type="text"
+              autoComplete="off"
               placeholder="Ex: 2,5"
               value={interestRateStr}
               onChange={e => setInterestRateStr(e.target.value)}
@@ -582,9 +623,12 @@ export const DebtsView: React.FC = () => {
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Parcela Mínima (R$)</label>
+            <label htmlFor={debtMinPaymentId} className="block font-medium text-slate-500 mb-1">Parcela Mínima (R$)</label>
             <input
+              id={debtMinPaymentId}
+              name="debt_minimum_payment"
               type="text"
+              autoComplete="off"
               placeholder="Ex: 250,00"
               value={minPaymentStr}
               onChange={e => setMinPaymentStr(e.target.value)}
@@ -595,8 +639,10 @@ export const DebtsView: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Data de Vencimento</label>
+            <label htmlFor={debtDueDateId} className="block font-medium text-slate-500 mb-1">Data de Vencimento</label>
             <input
+              id={debtDueDateId}
+              name="debt_due_date"
               type="date"
               value={dueDate}
               onChange={e => setDueDate(e.target.value)}
@@ -604,8 +650,10 @@ export const DebtsView: React.FC = () => {
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Situação / Status</label>
+            <label htmlFor={debtStatusId} className="block font-medium text-slate-500 mb-1">Situação / Status</label>
             <select
+              id={debtStatusId}
+              name="debt_status"
               value={status}
               onChange={e => setStatus(e.target.value as DebtStatus)}
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -620,8 +668,10 @@ export const DebtsView: React.FC = () => {
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Observações ou Termos de Acordo</label>
+          <label htmlFor={debtNotesId} className="block font-medium text-slate-500 mb-1">Observações ou Termos de Acordo</label>
           <textarea
+            id={debtNotesId}
+            name="debt_notes"
             rows={2}
             placeholder="Detalhes adicionais, contato do credor, número de protocolo..."
             value={notes}
@@ -657,13 +707,16 @@ export const DebtsView: React.FC = () => {
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">
+          <label htmlFor={amortizeAmountId} className="block font-medium text-slate-500 mb-1">
             Valor Pago nesta Amortização (R$) *
           </label>
           <input
+            id={amortizeAmountId}
+            name="amortize_amount"
             type="text"
             required
             autoFocus
+            autoComplete="off"
             placeholder="0,00"
             value={amortizeAmountStr}
             onChange={e => setAmortizeAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
@@ -672,10 +725,12 @@ export const DebtsView: React.FC = () => {
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">
+          <label htmlFor={amortizeAccountSelectId} className="block font-medium text-slate-500 mb-1">
             Conta Bancária Debitada *
           </label>
           <select
+            id={amortizeAccountSelectId}
+            name="amortize_account_id"
             value={amortizeAccountId}
             onChange={e => setAmortizeAccountId(e.target.value)}
             className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -689,11 +744,14 @@ export const DebtsView: React.FC = () => {
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">
+          <label htmlFor={amortizeNotesId} className="block font-medium text-slate-500 mb-1">
             Observações (Ex: Parcela 05/24)
           </label>
           <input
+            id={amortizeNotesId}
+            name="amortize_notes"
             type="text"
+            autoComplete="off"
             placeholder="Opcional..."
             value={amortizeNotes}
             onChange={e => setAmortizeNotes(e.target.value)}
@@ -721,27 +779,35 @@ export const DebtsView: React.FC = () => {
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="sm:col-span-2">
-            <label className="block font-medium text-slate-500 mb-1">Nome da Dívida *</label>
+            <label htmlFor={editDebtNameId} className="block font-medium text-slate-500 mb-1">Nome da Dívida *</label>
             <input
+              id={editDebtNameId}
+              name="edit_debt_name"
               type="text"
               required
+              autoComplete="off"
               value={editDebtName}
               onChange={e => setEditDebtName(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Credor / Instituição</label>
+            <label htmlFor={editCreditorId} className="block font-medium text-slate-500 mb-1">Credor / Instituição</label>
             <input
+              id={editCreditorId}
+              name="edit_debt_creditor"
               type="text"
+              autoComplete="off"
               value={editCreditor}
               onChange={e => setEditCreditor(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Prioridade</label>
+            <label htmlFor={editPriorityId} className="block font-medium text-slate-500 mb-1">Prioridade</label>
             <select
+              id={editPriorityId}
+              name="edit_debt_priority"
               value={editPriority}
               onChange={e => setEditPriority(e.target.value as DebtPriority)}
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -756,19 +822,25 @@ export const DebtsView: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Saldo Devedor Atual (R$) *</label>
+            <label htmlFor={editCurrentBalanceId} className="block font-medium text-slate-500 mb-1">Saldo Devedor Atual (R$) *</label>
             <input
+              id={editCurrentBalanceId}
+              name="edit_debt_current_balance"
               type="text"
               required
+              autoComplete="off"
               value={editCurrentBalanceStr}
               onChange={e => setEditCurrentBalanceStr(e.target.value.replace(/[^0-9,]/g, ''))}
               className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Parcela Mínima Mensal (R$)</label>
+            <label htmlFor={editMinPaymentId} className="block font-medium text-slate-500 mb-1">Parcela Mínima Mensal (R$)</label>
             <input
+              id={editMinPaymentId}
+              name="edit_debt_min_payment"
               type="text"
+              autoComplete="off"
               value={editMinPaymentStr}
               onChange={e => setEditMinPaymentStr(e.target.value.replace(/[^0-9,]/g, ''))}
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -778,9 +850,12 @@ export const DebtsView: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Taxa de Juros (% a.m.)</label>
+            <label htmlFor={editInterestRateId} className="block font-medium text-slate-500 mb-1">Taxa de Juros (% a.m.)</label>
             <input
+              id={editInterestRateId}
+              name="edit_debt_interest_rate"
               type="text"
+              autoComplete="off"
               placeholder="Ex: 3,5"
               value={editInterestRateStr}
               onChange={e => setEditInterestRateStr(e.target.value)}
@@ -788,8 +863,10 @@ export const DebtsView: React.FC = () => {
             />
           </div>
           <div>
-            <label className="block font-medium text-slate-500 mb-1">Vencimento</label>
+            <label htmlFor={editDueDateId} className="block font-medium text-slate-500 mb-1">Vencimento</label>
             <input
+              id={editDueDateId}
+              name="edit_debt_due_date"
               type="date"
               value={editDueDate}
               onChange={e => setEditDueDate(e.target.value)}
@@ -799,8 +876,10 @@ export const DebtsView: React.FC = () => {
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Situação / Status</label>
+          <label htmlFor={editStatusId} className="block font-medium text-slate-500 mb-1">Situação / Status</label>
           <select
+            id={editStatusId}
+            name="edit_debt_status"
             value={editStatus}
             onChange={e => setEditStatus(e.target.value as DebtStatus)}
             className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
@@ -815,8 +894,10 @@ export const DebtsView: React.FC = () => {
         </div>
 
         <div>
-          <label className="block font-medium text-slate-500 mb-1">Observações ou Condições de Acordo</label>
+          <label htmlFor={editNotesId} className="block font-medium text-slate-500 mb-1">Observações ou Condições de Acordo</label>
           <textarea
+            id={editNotesId}
+            name="edit_debt_notes"
             rows={2}
             value={editNotes}
             onChange={e => setEditNotes(e.target.value)}
