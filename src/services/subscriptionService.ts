@@ -780,7 +780,7 @@ export async function fetchUserSubscriptionAccess(userId: string): Promise<Subsc
       subscription: null,
       effectiveExpiresAt: null,
       daysRemaining: null,
-      message: 'Sessão Supabase Auth ausente ou expirada.'
+      message: 'Sessão ausente ou expirada. Faça login novamente.'
     };
   }
 
@@ -817,7 +817,7 @@ export async function fetchUserSubscriptionAccess(userId: string): Promise<Subsc
         errorCode: error.code,
         message: isRlsAuthorizationError(error)
           ? 'Permissão negada ao consultar assinatura no servidor.'
-          : error.message || 'Falha ao verificar status da assinatura no Supabase.'
+          : error.message || 'Falha ao verificar status da assinatura.'
       };
     }
 
@@ -908,7 +908,7 @@ export async function exportReadOnlyBackupForBlockedUser(
   } catch {
     return {
       success: false,
-      message: 'Não foi possível validar sua sessão Supabase Auth para exportação segura de backup.'
+      message: 'Não foi possível validar sua sessão para exportação segura de backup.'
     };
   }
 
@@ -916,7 +916,7 @@ export async function exportReadOnlyBackupForBlockedUser(
     return {
       success: false,
       message:
-        'Exportação bloqueada: é necessária uma sessão Supabase Auth ativa pertencente ao mesmo usuário para exportar seus dados.'
+        'Exportação bloqueada: é necessária uma sessão ativa pertencente ao mesmo usuário para exportar seus dados.'
     };
   }
 

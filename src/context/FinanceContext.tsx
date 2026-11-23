@@ -878,7 +878,7 @@ export const FinanceProvider: React.FC<{
       }
 
       setCloudSyncStatus('error');
-      const msg = res.message || 'Erro ao enviar dados locais para o Supabase.';
+      const msg = res.message || 'Não foi possível enviar seus dados para a nuvem. Tente novamente.';
       setCloudSyncMessage(msg);
       return { success: false, message: msg };
     } finally {
@@ -898,7 +898,7 @@ export const FinanceProvider: React.FC<{
 
     if (!reqUserId || !isSupabaseAuthenticated) {
       setCloudSyncStatus(cloudAuthStatus === 'session_expired' ? 'session_expired' : 'unauthenticated');
-      setCloudSyncMessage('Conecte sua conta Supabase para baixar dados da nuvem.');
+      setCloudSyncMessage('Conecte sua conta para baixar dados da nuvem.');
       return;
     }
 
@@ -3222,7 +3222,7 @@ export const FinanceProvider: React.FC<{
         }
         const failMsg =
           saveRes.message ||
-          'Restauração cancelada: não foi possível confirmar a gravação do backup na nuvem Supabase.';
+          'Restauração cancelada: não foi possível confirmar a gravação do backup na nuvem.';
         setCloudSyncMessage(failMsg);
         return {
           success: false,
@@ -3247,8 +3247,8 @@ export const FinanceProvider: React.FC<{
         snapshotStatus: restoreSnapshotStatus,
         message:
           restoreSnapshotStatus === 'failed'
-            ? 'Backup restaurado e confirmado na nuvem Supabase com sucesso, porém não foi possível gravar a cópia preventiva local neste navegador.'
-            : 'Backup restaurado e confirmado na nuvem Supabase com sucesso!'
+            ? 'Backup restaurado e confirmado na nuvem com sucesso, porém não foi possível gravar a cópia preventiva local neste navegador.'
+            : 'Backup restaurado e confirmado na nuvem com sucesso!'
       };
     } finally {
       operationLockRef.current = false;

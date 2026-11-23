@@ -94,7 +94,7 @@ export function mapSupabaseSyncError(error: { code?: string; message?: string } 
     return 'Operação bloqueada pelo servidor (RLS / assinatura inativa ou vencida). Seus dados locais foram preservados; verifique sua assinatura ou exporte seu backup JSON.';
   }
 
-  return rawMsg || 'Falha na comunicação com o Supabase.';
+  return rawMsg || 'Não foi possível conectar. Tente novamente.';
 }
 
 /**
@@ -203,7 +203,7 @@ export async function verifyCloudPreservationForUser(
       reasonCode: 'cloud_unreachable',
       message:
         remote.message ||
-        'Não foi possível comunicar com o Supabase para confirmar se seus dados estão salvos na nuvem.'
+        'Não foi possível conectar para confirmar se seus dados estão salvos na nuvem.'
     };
   }
 
@@ -302,7 +302,7 @@ export async function testSupabaseConnection(): Promise<{
     return {
       connected: false,
       tableExists: false,
-      message: err.message || 'Erro de rede ao conectar com Supabase.'
+      message: err.message || 'Erro de rede ao conectar com a nuvem.'
     };
   }
 }
@@ -322,7 +322,7 @@ export async function getActiveSupabaseSession(): Promise<{
       return {
         sessionValid: false,
         userId: null,
-        error: error?.message || 'Nenhuma sessão ativa encontrada no Supabase.'
+        error: error?.message || 'Nenhuma sessão ativa encontrada.'
       };
     }
 
@@ -330,7 +330,7 @@ export async function getActiveSupabaseSession(): Promise<{
       return {
         sessionValid: false,
         userId: null,
-        error: 'UUID de usuário na sessão Supabase possui formato inválido.'
+        error: 'Identificador de usuário na sessão possui formato inválido.'
       };
     }
 
@@ -343,7 +343,7 @@ export async function getActiveSupabaseSession(): Promise<{
     return {
       sessionValid: false,
       userId: null,
-      error: err.message || 'Erro ao consultar sessão Supabase.'
+      error: err.message || 'Erro ao consultar sessão da conta.'
     };
   }
 }
@@ -366,7 +366,7 @@ export async function fetchFinanceDataFromSupabase(userId: string): Promise<Sync
   if (!userId || !isValidUUID(userId)) {
     return {
       success: false,
-      message: 'ID de usuário inválido. É obrigatório um UUID do usuário autenticado no Supabase.'
+      message: 'ID de usuário inválido. É obrigatório estar autenticado em uma conta válida.'
     };
   }
 
@@ -374,7 +374,7 @@ export async function fetchFinanceDataFromSupabase(userId: string): Promise<Sync
   if (!sessionCheck.sessionValid || sessionCheck.userId !== userId) {
     return {
       success: false,
-      message: 'Operação bloqueada: O acesso aos dados financeiros na nuvem requer uma sessão Supabase Auth ativa correspondente ao UUID solicitado.'
+      message: 'Operação bloqueada: O acesso aos dados financeiros na nuvem requer uma sessão ativa correspondente ao usuário solicitado.'
     };
   }
 
@@ -435,7 +435,7 @@ export async function fetchFinanceDataFromSupabase(userId: string): Promise<Sync
   } catch (err: any) {
     return {
       success: false,
-      message: err.message || 'Erro ao carregar dados do Supabase.'
+      message: err.message || 'Erro ao carregar dados da nuvem.'
     };
   }
 }
@@ -451,7 +451,7 @@ export async function saveFinanceDataToSupabase(
   if (!userId || !isValidUUID(userId)) {
     return {
       success: false,
-      message: 'ID de usuário inválido. É obrigatório um UUID do usuário autenticado no Supabase.'
+      message: 'ID de usuário inválido. É obrigatório estar autenticado em uma conta válida.'
     };
   }
 
@@ -476,7 +476,7 @@ export async function saveFinanceDataToSupabase(
   if (!sessionCheck.sessionValid || sessionCheck.userId !== userId) {
     return {
       success: false,
-      message: 'Gravação cancelada: Nenhuma sessão Supabase Auth ativa encontrada para o UUID especificado. RLS impede gravações não autorizadas.'
+      message: 'Gravação cancelada: Nenhuma sessão ativa encontrada para o usuário especificado.'
     };
   }
 
@@ -514,12 +514,12 @@ export async function saveFinanceDataToSupabase(
       success: true,
       version: currentVersion,
       clientTimestamp: currentTimestamp,
-      message: 'Dados gravados no Supabase com sucesso.'
+      message: 'Dados sincronizados na nuvem com sucesso.'
     };
   } catch (err: any) {
     return {
       success: false,
-      message: err.message || 'Erro ao enviar dados para o Supabase.'
+      message: err.message || 'Erro ao enviar dados para a nuvem.'
     };
   }
 }
@@ -554,7 +554,7 @@ export async function migrateAndVerifyFinanceData(
   if (!saveResult.success) {
     return {
       success: false,
-      message: `Falha ao gravar no Supabase durante a migração: ${saveResult.message}`
+      message: `Falha ao gravar na nuvem durante a migração: ${saveResult.message}`
     };
   }
 

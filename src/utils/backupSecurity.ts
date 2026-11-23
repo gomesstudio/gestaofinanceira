@@ -336,7 +336,7 @@ export function validateBackupJsonStructure(
     return {
       valid: false,
       code: 'missing_owner',
-      error: 'Sessão Supabase inválida. Autentique-se antes de validar backups.'
+      error: 'Sessão inválida. Autentique-se antes de validar backups.'
     };
   }
 
@@ -645,7 +645,7 @@ export function evaluateBackupRestorationSafety(params: {
       allowed: false,
       reasonCode: 'cloud_unavailable',
       message:
-        'Restauração bloqueada: não foi possível consultar o estado atual na nuvem Supabase para garantir que dados mais recentes não serão sobrescritos.',
+        'Restauração bloqueada: não foi possível consultar o estado atual na nuvem para garantir que dados mais recentes não serão sobrescritos.',
       backupVersion,
       backupTimestamp
     };
@@ -773,7 +773,7 @@ export function evaluateManualCloudUploadSafety(params: {
       conflict: false,
       alreadySynced: false,
       reasonCode: 'unauthenticated',
-      message: 'Sessão não autenticada no Supabase.',
+      message: 'Sessão não autenticada.',
       localVersion,
       localTimestamp
     };

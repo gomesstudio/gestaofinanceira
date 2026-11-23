@@ -568,7 +568,7 @@ const AuthenticatedApp: React.FC<AuthenticatedAppProps> = ({
       <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-200 font-sans">
         <div className="w-10 h-10 border-3 border-emerald-500/30 border-t-emerald-400 rounded-full animate-spin mb-4" />
         <p className="text-sm font-semibold text-white">Verificando sessão segura...</p>
-        <p className="text-xs text-slate-400 mt-1">Autenticação protegida via Supabase Auth</p>
+        <p className="text-xs text-slate-400 mt-1">Autenticação segura da sua conta</p>
       </div>
     );
   }
@@ -607,7 +607,7 @@ const AuthenticatedApp: React.FC<AuthenticatedAppProps> = ({
       <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-200 font-sans">
         <div className="w-10 h-10 border-3 border-emerald-500/30 border-t-emerald-400 rounded-full animate-spin mb-4" />
         <p className="text-sm font-semibold text-white">Validando plano e assinatura da conta...</p>
-        <p className="text-xs text-slate-400 mt-1">Verificação segura vinculada ao Supabase</p>
+        <p className="text-xs text-slate-400 mt-1">Verificação segura da sua assinatura</p>
       </div>
     );
   }

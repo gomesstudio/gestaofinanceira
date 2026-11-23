@@ -324,14 +324,16 @@ export const AuthLockScreen: React.FC = () => {
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-500" />
 
           {/* Header & Logo */}
-          <div className="text-center space-y-2 mb-5 sm:mb-6">
-            <div className="inline-flex items-center justify-center p-3 sm:p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 shadow-inner">
-              <ShieldCheck className="w-7 h-7 sm:w-8 sm:h-8" />
-            </div>
+          <div className="text-center space-y-2.5 mb-5 sm:mb-6">
+            <img
+              src="/favicon.svg"
+              alt="Gestão Financeira Pro"
+              className="w-16 h-16 mx-auto block"
+            />
 
             <div>
-              <div className="text-[11px] font-semibold text-emerald-400 tracking-wide mb-1">
-                Controle Financeiro Pessoal
+              <div className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider mb-1">
+                CONTROLE FINANCEIRO PESSOAL
               </div>
               <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight text-balance">
                 Gestão Financeira Pro
@@ -347,7 +349,7 @@ export const AuthLockScreen: React.FC = () => {
                   ? 'Informe seu e-mail cadastrado para receber o link de redefinição de senha.'
                   : mode === 'otp'
                   ? 'Acesse sua conta com um link mágico ou código enviado ao seu e-mail.'
-                  : 'Entre com sua conta individual para acessar seus dados financeiros.'}
+                  : 'Assuma o controle das suas finanças.'}
               </p>
             </div>
           </div>
@@ -650,112 +652,79 @@ export const AuthLockScreen: React.FC = () => {
 
               {/* MODO 1: ENTRAR */}
               {mode === 'login' && (
-                <div className="space-y-4">
-                  <form onSubmit={handleLoginSubmit} className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                        E-mail *
+                <form onSubmit={handleLoginSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                      E-mail *
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                        <Mail className="w-4 h-4" />
+                      </div>
+                      <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        placeholder="seu@email.com"
+                        autoComplete="email"
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white text-base sm:text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold text-slate-300">
+                        Senha *
                       </label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                          <Mail className="w-4 h-4" />
-                        </div>
-                        <input
-                          type="email"
-                          required
-                          value={email}
-                          onChange={e => setEmail(e.target.value)}
-                          placeholder="seu@email.com"
-                          autoComplete="email"
-                          className="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white text-base sm:text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all"
-                        />
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => switchMode('forgot')}
+                        className="text-[11px] text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
+                      >
+                        Recuperar senha
+                      </button>
                     </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <label className="block text-xs font-semibold text-slate-300">
-                          Senha *
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => switchMode('forgot')}
-                          className="text-[11px] text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
-                        >
-                          Recuperar senha
-                        </button>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                        <KeyRound className="w-4 h-4" />
                       </div>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                          <KeyRound className="w-4 h-4" />
-                        </div>
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          required
-                          value={password}
-                          onChange={e => setPassword(e.target.value)}
-                          placeholder="Sua senha"
-                          autoComplete="current-password"
-                          className="w-full pl-10 pr-10 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white text-base sm:text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
-                          aria-label={showPassword ? 'Ocultar senha' : 'Ver senha'}
-                        >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        placeholder="Sua senha"
+                        autoComplete="current-password"
+                        className="w-full pl-10 pr-10 py-2.5 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white text-base sm:text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                        aria-label={showPassword ? 'Ocultar senha' : 'Ver senha'}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
                     </div>
-
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-60 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-950/50 transition-all flex items-center justify-center gap-2 group cursor-pointer"
-                    >
-                      {isLoading ? (
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <>
-                          <span>Entrar</span>
-                          <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-                        </>
-                      )}
-                    </button>
-                  </form>
-
-                  <div className="relative flex items-center justify-center">
-                    <div className="border-t border-slate-800 w-full" />
-                    <span className="bg-slate-900 px-3 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
-                      ou acesse com
-                    </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    <button
-                      type="button"
-                      disabled={isLoading}
-                      onClick={() => switchMode('otp')}
-                      className="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-60 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Mail className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                      <span>Link / Código E-mail</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={isLoading}
-                      onClick={handleGitHubLogin}
-                      className="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-60 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <svg className="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-                        <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-                      </svg>
-                      <span>GitHub</span>
-                    </button>
-                  </div>
-                </div>
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-60 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-950/50 transition-all flex items-center justify-center gap-2 group cursor-pointer"
+                  >
+                    {isLoading ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <span>Entrar</span>
+                        <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                      </>
+                    )}
+                  </button>
+                </form>
               )}
 
               {/* MODO 2: CRIAR CONTA */}
@@ -1089,8 +1058,11 @@ export const AuthLockScreen: React.FC = () => {
           )}
 
           {/* Footer comercial neutro + Documentos Legais */}
-          <div className="mt-6 pt-4 border-t border-slate-800/80 text-center text-[11px] text-slate-500 space-y-2">
-            <div>Sessão isolada por usuário com autenticação oficial Supabase Auth.</div>
+          <div className="mt-5 pt-4 border-t border-slate-800/80 text-center text-[11px] text-slate-500 space-y-2">
+            <div className="inline-flex items-center justify-center gap-1.5 text-slate-400">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span>Seus dados são privados e protegidos.</span>
+            </div>
             <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
               <a
                 href={LEGAL_DOCUMENTS_REGISTRY.terms_of_use.routePath}
