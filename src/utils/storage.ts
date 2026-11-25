@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BankAccount, Category, CreditCard, Debt, FinancialGoal, Transaction } from '../types/finance';
+import { BankAccount, Category, CreditCard, Debt, FinancialGoal, RecurringIncomeRule, Transaction } from '../types/finance';
 
 export const DEFAULT_CATEGORIES: Category[] = [
   // Renda Principal
@@ -439,6 +439,7 @@ export interface AppState {
   creditCards: CreditCard[];
   debts: Debt[];
   goals: FinancialGoal[];
+  recurringIncomes?: RecurringIncomeRule[];
   safetyReserveDesired: number; // Reserva que deseja preservar
   isSampleLoaded: boolean;
 }
@@ -497,6 +498,7 @@ export function createNeutralLoadingState(userId?: string): AppState {
     creditCards: [],
     debts: [],
     goals: [],
+    recurringIncomes: [],
     safetyReserveDesired: 0,
     isSampleLoaded: false,
   };
@@ -525,6 +527,7 @@ export function createCleanUserState(userId: string): AppState {
     ],
     debts: [],
     goals: [],
+    recurringIncomes: [],
     safetyReserveDesired: 1000.00,
     isSampleLoaded: false,
   };
@@ -602,7 +605,12 @@ export function saveStateToStorageForUser(userId: string, state: AppState): bool
 export function saveRecoverySnapshotForUser(userId: string, state: AppState, reason: string): boolean {
   if (!isValidStorageUserId(userId)) return false;
   if (state.ownerUserId && state.ownerUserId !== userId) return false;
-  if (state.transactions.length === 0 && state.debts.length === 0 && state.goals.length === 0) {
+  if (
+    state.transactions.length === 0 &&
+    state.debts.length === 0 &&
+    state.goals.length === 0 &&
+    (state.recurringIncomes?.length || 0) === 0
+  ) {
     return false;
   }
 
@@ -737,6 +745,7 @@ export function resetToSampleStateForUser(userId: string, currentVersion = 0): A
     creditCards: DEFAULT_CARDS,
     debts: DEFAULT_DEBTS,
     goals: DEFAULT_GOALS,
+    recurringIncomes: [],
     safetyReserveDesired: 2000.00,
     isSampleLoaded: true,
   };

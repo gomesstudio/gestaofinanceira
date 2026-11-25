@@ -37,7 +37,8 @@ import {
   History,
   Eye,
   Clock,
-  ShieldAlert
+  ShieldAlert,
+  ArrowRight
 } from 'lucide-react';
 import {
   BackupInspectionOutcome,
@@ -45,8 +46,7 @@ import {
 } from '../../context/FinanceContext';
 import { useAuth } from '../../context/AuthContext';
 import { SUPABASE_PROJECT_URL } from '../../utils/supabase';
-import { formatCurrency } from '../../utils/formatters';
-import { BankAccount, Category } from '../../types/finance';
+import { Category } from '../../types/finance';
 import { SUPABASE_SQL_SETUP, DiagnosticResult } from '../../services/supabaseSyncService';
 import { hasRealFinancialData } from '../../utils/backupSecurity';
 import { formatRecoveryReason } from '../../utils/recoverySnapshot';
@@ -76,6 +76,7 @@ export interface SettingsViewProps {
   subscriptionAccess?: SubscriptionAccessState;
   onRefreshSubscription?: () => Promise<void> | void;
   onOpenMasterPortal?: () => void;
+  onNavigateToAccounts?: () => void;
   isDevelopmentEnv?: boolean;
 }
 
@@ -84,6 +85,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   subscriptionAccess,
   onRefreshSubscription,
   onOpenMasterPortal,
+  onNavigateToAccounts,
   isDevelopmentEnv
 }) => {
   const fieldIdPrefix = useId();
@@ -103,9 +105,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     addCategory,
     updateCategory,
     deleteCategory,
-    addAccount,
-    updateAccount,
-    deleteAccount,
     loadSampleData,
     exportBackupJson,
     inspectBackupJsonForRestore,
@@ -163,40 +162,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [catType, setCatType] = useState<'income' | 'expense'>('expense');
   const [catExpenseType, setCatExpenseType] = useState<'fixed' | 'variable'>('variable');
   const [catColor, setCatColor] = useState('#10b981');
-
-  // Account modal
-  const [isAccModalOpen, setIsAccModalOpen] = useState(false);
-  const [accName, setAccName] = useState('');
-  const [accBalanceStr, setAccBalanceStr] = useState('0');
-  const [accType, setAccType] = useState<BankAccount['type']>('checking');
-  const [accColor, setAccColor] = useState('#3b82f6');
-  const [pendingDeleteAccount, setPendingDeleteAccount] = useState<BankAccount | null>(null);
-  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
-  const [accountDeleteFeedback, setAccountDeleteFeedback] = useState<ActionFeedback | null>(null);
-
-  const handleConfirmDeleteAccount = async () => {
-    if (!pendingDeleteAccount || isDeletingAccount) return;
-    setIsDeletingAccount(true);
-    try {
-      const result = await deleteAccount(pendingDeleteAccount.id);
-      const feedback: ActionFeedback = {
-        type: result.success && result.synced ? 'success' : 'error',
-        text: result.message
-      };
-      setAccountDeleteFeedback(feedback);
-      setStatusMsg(feedback);
-    } catch (err: any) {
-      const feedback: ActionFeedback = {
-        type: 'error',
-        text: err?.message || 'Não foi possível excluir a conta bancária.'
-      };
-      setAccountDeleteFeedback(feedback);
-      setStatusMsg(feedback);
-    } finally {
-      setIsDeletingAccount(false);
-      setPendingDeleteAccount(null);
-    }
-  };
 
   const {
     logout,
@@ -624,25 +589,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setTimeout(() => setStatusMsg(null), 4000);
   };
 
-  const handleSaveAccount = (e: React.FormEvent) => {
-    e.preventDefault();
-    const bal = parseFloat(accBalanceStr.replace(/\./g, '').replace(',', '.')) || 0;
-    if (!accName.trim()) return;
-
-    addAccount({
-      name: accName.trim(),
-      type: accType,
-      balance: bal,
-      color: accColor
-    });
-
-    setIsAccModalOpen(false);
-    setAccName('');
-    setAccBalanceStr('0');
-    setStatusMsg({ type: 'success', text: `Conta "${accName}" cadastrada com sucesso!` });
-    setTimeout(() => setStatusMsg(null), 3500);
-  };
-
   const handleExportJson = () => {
     const jsonStr = exportBackupJson();
     const blob = new Blob([jsonStr], { type: 'application/json' });
@@ -744,7 +690,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           Configurações & Personalização Total
         </h2>
         <p className="text-xs text-slate-500">
-          Personalize categorias, gerencie contas bancárias e controle backups e segurança
+          Personalize categorias, atalhos e controle backups, nuvem e segurança
         </p>
       </div>
 
@@ -1671,74 +1617,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       </div>
 
-      {/* Accounts Management */}
-      <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+      {/* Minhas Contas (Atalho para o módulo dedicado) */}
+      <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="min-w-0">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Wallet className="w-4 h-4 text-emerald-500 shrink-0" />
-              <span>Contas Bancárias, Carteiras e Dinheiro Vivo</span>
+              <span>Minhas Contas</span>
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Personalize suas contas correntes, contas salário, poupanças e dinheiro em espécie
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Gerencie suas contas bancárias, carteiras e dinheiro em espécie.
             </p>
           </div>
           <button
-            onClick={() => setIsAccModalOpen(true)}
-            className="w-full sm:w-auto px-3.5 py-2 min-h-[38px] text-xs font-semibold rounded-xl bg-slate-900 dark:bg-emerald-600 text-white flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+            type="button"
+            onClick={() => onNavigateToAccounts?.()}
+            className="w-full sm:w-auto px-4 py-2 min-h-[38px] text-xs font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white inline-flex items-center justify-center gap-2 shrink-0 transition-colors cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5 shrink-0" />
-            <span>Adicionar Conta</span>
+            <span>Gerenciar minhas contas</span>
+            <ArrowRight className="w-3.5 h-3.5 shrink-0" />
           </button>
-        </div>
-
-        <ActionFeedbackBanner
-          feedback={accountDeleteFeedback}
-          onClose={() => setAccountDeleteFeedback(null)}
-        />
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {accounts.map(acc => (
-            <div
-              key={acc.id}
-              className="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex flex-col justify-between min-w-0"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: acc.color }} />
-                    <span className="font-semibold text-slate-900 dark:text-white text-xs truncate">
-                      {acc.name}
-                    </span>
-                  </div>
-                  {accounts.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={e => {
-                        e.stopPropagation();
-                        setPendingDeleteAccount(acc);
-                      }}
-                      title="Excluir conta"
-                      aria-label={`Excluir conta ${acc.name}`}
-                      className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-                <div className="text-[10px] text-slate-400 uppercase tracking-wider capitalize">
-                  {acc.type === 'checking' ? 'Conta Corrente' : acc.type === 'savings' ? 'Poupança / Reserva' : acc.type === 'cash' ? 'Dinheiro em Espécie' : 'Investimento'}
-                </div>
-              </div>
-
-              <div className="mt-3 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex justify-between items-baseline gap-2">
-                <span className="text-[11px] text-slate-400">Saldo:</span>
-                <span className="font-mono font-bold text-slate-900 dark:text-white tabular-nums text-sm">
-                  {formatCurrency(acc.balance)}
-                </span>
-              </div>
-            </div>
-          ))}
         </div>
       </div>
 
@@ -1923,77 +1821,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               />
             ))}
           </div>
-        </div>
-      </ResponsiveModal>
-
-      {/* Modal: Account */}
-      <ResponsiveModal
-        isOpen={isAccModalOpen}
-        onClose={() => setIsAccModalOpen(false)}
-        title="Cadastrar Nova Conta"
-        size="sm"
-        bodyClassName="text-xs space-y-3"
-        onSubmit={handleSaveAccount}
-        footer={
-          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setIsAccModalOpen(false)}
-              className="px-4 py-2.5 min-h-[42px] rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2.5 min-h-[42px] bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs cursor-pointer"
-            >
-              Cadastrar Conta
-            </button>
-          </div>
-        }
-      >
-        <div>
-          <label htmlFor={`${fieldIdPrefix}-acc-name`} className="block font-medium text-slate-500 mb-1">Nome da Conta *</label>
-          <input
-            id={`${fieldIdPrefix}-acc-name`}
-            name="account_name"
-            type="text"
-            autoComplete="off"
-            required
-            placeholder="Ex: Inter, C6, Poupança Caixa..."
-            value={accName}
-            onChange={e => setAccName(e.target.value)}
-            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-          />
-        </div>
-
-        <div>
-          <label htmlFor={`${fieldIdPrefix}-acc-balance`} className="block font-medium text-slate-500 mb-1">Saldo Atual Inicial (R$)</label>
-          <input
-            id={`${fieldIdPrefix}-acc-balance`}
-            name="account_initial_balance"
-            type="text"
-            autoComplete="off"
-            value={accBalanceStr}
-            onChange={e => setAccBalanceStr(e.target.value.replace(/[^0-9,]/g, ''))}
-            className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-          />
-        </div>
-
-        <div>
-          <label htmlFor={`${fieldIdPrefix}-acc-type`} className="block font-medium text-slate-500 mb-1">Tipo de Conta</label>
-          <select
-            id={`${fieldIdPrefix}-acc-type`}
-            name="account_type"
-            value={accType}
-            onChange={e => setAccType(e.target.value as any)}
-            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-          >
-            <option value="checking">Conta Corrente</option>
-            <option value="savings">Poupança / Reserva</option>
-            <option value="cash">Dinheiro em Espécie (Carteira)</option>
-            <option value="investment">Investimento</option>
-          </select>
         </div>
       </ResponsiveModal>
 
@@ -2340,17 +2167,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </form>
         )}
       </ResponsiveModal>
-
-      <ConfirmDeleteModal
-        isOpen={!!pendingDeleteAccount}
-        title="Excluir Conta Bancária"
-        description="Deseja excluir esta conta bancária? Os demais saldos e lançamentos permanecerão preservados."
-        itemLabel={pendingDeleteAccount?.name}
-        itemValue={pendingDeleteAccount ? formatCurrency(pendingDeleteAccount.balance) : undefined}
-        isDeleting={isDeletingAccount}
-        onConfirm={handleConfirmDeleteAccount}
-        onCancel={() => setPendingDeleteAccount(null)}
-      />
 
       <ConfirmDeleteModal
         isOpen={pendingDestructiveAction === 'sample'}

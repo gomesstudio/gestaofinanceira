@@ -20,7 +20,8 @@ import {
   Settings,
   ShieldCheck,
   ChevronRight,
-  LogOut
+  LogOut,
+  Wallet
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { useAuth } from '../../context/AuthContext';
@@ -46,6 +47,7 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({
 
   const items = [
     { id: 'dashboard', label: 'Dashboard Principal', desc: 'Resumo e indicadores gerais', icon: LayoutDashboard },
+    { id: 'accounts', label: 'Minhas Contas', desc: 'Contas bancárias, carteiras e dinheiro', icon: Wallet },
     { id: 'transactions', label: 'Extrato Geral', desc: 'Todas as movimentações e busca', icon: Receipt },
     { id: 'incomes', label: 'Entradas Financeiras', desc: 'Salário, benefícios e extras', icon: ArrowUpRight },
     { id: 'expenses', label: 'Despesas Fixas & Variáveis', desc: 'Gastos essenciais e consumo', icon: ArrowDownRight },
@@ -56,7 +58,7 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({
     { id: 'goals', label: 'Planejamento & Metas', desc: 'Objetivos e juros compostos', icon: Target },
     { id: 'calendar', label: 'Calendário Financeiro', desc: 'Vencimentos e datas de pagamento', icon: Calendar },
     { id: 'reports', label: 'Relatórios & Exportar', desc: 'Planilhas Excel e arquivos PDF', icon: FileSpreadsheet },
-    { id: 'settings', label: 'Configurações', desc: 'Categorias, contas e backups', icon: Settings },
+    { id: 'settings', label: 'Configurações', desc: 'Categorias, nuvem e backups', icon: Settings },
   ];
 
   const handleSelect = (id: string) => {
@@ -98,9 +100,13 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({
         </div>
 
         {/* Mini Balances Card */}
-        <div className="m-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200/70 dark:border-slate-800 flex justify-between items-center text-xs">
+        <button
+          type="button"
+          onClick={() => handleSelect('accounts')}
+          className="m-3 p-3 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl border border-slate-200/70 dark:border-slate-800 flex justify-between items-center text-xs text-left transition-colors cursor-pointer"
+        >
           <div>
-            <div className="text-[10px] text-slate-400 font-medium">Saldo Total:</div>
+            <div className="text-[10px] text-slate-400 font-medium">Saldo Total (Gerenciar contas):</div>
             <div className="font-mono font-bold text-slate-900 dark:text-white tabular-nums">
               {formatCurrency(totalBankBalance)}
             </div>
@@ -111,7 +117,7 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({
               {formatCurrency(freeMoneyAvailable)}
             </div>
           </div>
-        </div>
+        </button>
 
         {/* Modules List */}
         <div className="px-4 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">

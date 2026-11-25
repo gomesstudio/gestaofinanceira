@@ -18,7 +18,8 @@ import {
   FileSpreadsheet,
   Settings,
   ShieldCheck,
-  ChevronRight
+  ChevronRight,
+  Wallet
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 import { useFinance } from '../../context/FinanceContext';
@@ -33,6 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab }) =
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'accounts', label: 'Minhas Contas', icon: Wallet },
     { id: 'transactions', label: 'Extrato Geral', icon: Receipt },
     { id: 'incomes', label: 'Entradas', icon: ArrowUpRight },
     { id: 'expenses', label: 'Despesas', icon: ArrowDownRight },
@@ -64,9 +66,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab }) =
       </div>
 
       {/* Mini Quick Summary Card in Sidebar */}
-      <div className="shrink-0 mx-3.5 xl:mx-4 mt-3.5 p-3 xl:p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200/70 dark:border-slate-800">
-        <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-          Saldo em Contas
+      <button
+        type="button"
+        onClick={() => setCurrentTab('accounts')}
+        title="Gerenciar contas e carteiras"
+        className="shrink-0 mx-3.5 xl:mx-4 mt-3.5 p-3 xl:p-3.5 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl border border-slate-200/70 dark:border-slate-800 hover:border-emerald-500/40 text-left transition-all cursor-pointer group"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            Saldo em Contas
+          </div>
+          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 opacity-85 group-hover:opacity-100">
+            <span>Gerenciar</span>
+            <ChevronRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+          </span>
         </div>
         <div className="text-base font-bold text-slate-900 dark:text-white font-mono tabular-nums mt-0.5 truncate">
           {formatCurrency(totalBankBalance)}
@@ -77,7 +90,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab }) =
             {formatCurrency(freeMoneyAvailable)}
           </span>
         </div>
-      </div>
+      </button>
 
       {/* Navigation Links */}
       <nav className="flex-1 min-h-0 px-3 py-3 space-y-1 overflow-y-auto overscroll-contain">

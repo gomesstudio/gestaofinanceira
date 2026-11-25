@@ -14,8 +14,23 @@ import {
   FutureCommitmentItem,
   MonthProjection,
   PurchaseSimulationResult,
+  RecurringIncomeOccurrence,
+  RecurringIncomeRule,
   Transaction
 } from '../types/finance';
+import {
+  addRecurringIncomeRuleToState,
+  confirmRecurringIncomeReceiptInState,
+  ConfirmRecurringIncomeReceiptInput,
+  CreateRecurringIncomeInput,
+  deleteRecurringIncomeRuleInState,
+  endRecurringIncomeInState,
+  getRecurringIncomesForMonth,
+  skipRecurringIncomeOccurrenceInState,
+  unskipRecurringIncomeOccurrenceInState,
+  updateRecurringIncomeInState,
+  UpdateRecurringIncomeInput
+} from '../utils/recurringIncome';
 import {
   AppState,
   LegacyStorageSummary,
@@ -127,6 +142,8 @@ export interface FinanceContextType {
   creditCards: CreditCard[];
   debts: Debt[];
   goals: FinancialGoal[];
+  recurringIncomes: RecurringIncomeRule[];
+  selectedMonthRecurringIncomes: RecurringIncomeOccurrence[];
   safetyReserveDesired: number;
   filter: DateFilter;
   theme: 'light' | 'dark';
@@ -153,6 +170,15 @@ export interface FinanceContextType {
   updateTransaction: (id: string, tx: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => Promise<DeleteResult>;
   duplicateTransaction: (id: string) => void;
+
+  // Recurring Incomes
+  addRecurringIncome: (input: CreateRecurringIncomeInput) => void;
+  confirmRecurringIncomeReceipt: (input: ConfirmRecurringIncomeReceiptInput) => void;
+  updateRecurringIncome: (input: UpdateRecurringIncomeInput) => void;
+  skipRecurringIncomeOccurrence: (ruleId: string, period: string) => void;
+  unskipRecurringIncomeOccurrence: (ruleId: string, period: string) => void;
+  endRecurringIncome: (ruleId: string, deactivatedFromPeriod?: string) => void;
+  deleteRecurringIncomeRule: (ruleId: string) => void;
 
   // Debts
   addDebt: (debt: Omit<Debt, 'id' | 'totalPaid' | 'paymentsHistory'>) => void;
@@ -1516,25 +1542,22 @@ export const FinanceProvider: React.FC<{
 
     const totalOwedTotal = commitments.reduce((sum, c) => sum + c.amount, 0);
 
-    // Projected income
+    // Projected income (transações do mês + ocorrências previstas de receitas fixas recorrentes)
     let totalIncomeProjected = monthTransactions
       .filter(t => t.type === 'income')
       .reduce((sum, t) => sum + t.amount, 0);
 
-    if (isFuture || totalIncomeProjected === 0) {
-      const recurringIncomesMap = new Map<string, Transaction>();
-      state.transactions
-        .filter(t => t.isRecurring && t.type === 'income')
-        .forEach(t => {
-          if (!recurringIncomesMap.has(t.description)) {
-            recurringIncomesMap.set(t.description, t);
-          }
-        });
-
-      recurringIncomesMap.forEach((inc, desc) => {
-        const alreadyHas = monthTransactions.some(t => t.type === 'income' && t.description.toLowerCase().includes(desc.toLowerCase()));
-        if (!alreadyHas) {
-          totalIncomeProjected += inc.amount;
+    if (isFuture || isCurrent) {
+      const recurringOccurrences = getRecurringIncomesForMonth(
+        state.recurringIncomes,
+        targetYear,
+        targetMonth,
+        state.transactions,
+        getTodayISO()
+      );
+      recurringOccurrences.forEach(occ => {
+        if (occ.isVirtual) {
+          totalIncomeProjected += occ.amount;
         }
       });
     }
@@ -1573,7 +1596,7 @@ export const FinanceProvider: React.FC<{
       list.push(calculateMonthProjection(d.getFullYear(), d.getMonth()));
     }
     return list;
-  }, [state.transactions, state.debts, totalBankBalance, currentYear, currentMonth]);
+  }, [state.transactions, state.debts, state.recurringIncomes, totalBankBalance, currentYear, currentMonth]);
 
   // Next 12 months projections with progressive debt amortization and cumulative balance
   const next12MonthsProjections = useMemo(() => {
@@ -1597,12 +1620,23 @@ export const FinanceProvider: React.FC<{
       list.push(proj);
     }
     return list;
-  }, [state.transactions, state.debts, totalBankBalance, currentYear, currentMonth]);
+  }, [state.transactions, state.debts, state.recurringIncomes, totalBankBalance, currentYear, currentMonth]);
 
   // Current selected month projection
   const currentSelectedMonthProjection = useMemo(() => {
     return calculateMonthProjection(selectedYear, selectedMonth);
-  }, [selectedYear, selectedMonth, state.transactions, state.debts]);
+  }, [selectedYear, selectedMonth, state.transactions, state.debts, state.recurringIncomes]);
+
+  const selectedMonthRecurringIncomes = useMemo(() => {
+    return getRecurringIncomesForMonth(
+      state.recurringIncomes,
+      selectedYear,
+      selectedMonth,
+      state.transactions,
+      getTodayISO(),
+      { includeSkipped: true }
+    );
+  }, [state.recurringIncomes, selectedYear, selectedMonth, state.transactions]);
 
   // Month navigation helpers
   const goToNextMonth = () => {
@@ -1670,27 +1704,37 @@ export const FinanceProvider: React.FC<{
           }
         });
 
-        // Add recurring incomes (Salário, VR)
-        const recurringIncomesMap = new Map<string, Transaction>();
-        state.transactions
-          .filter(t => t.isRecurring && t.type === 'income')
-          .forEach(t => {
-            if (!recurringIncomesMap.has(t.description)) recurringIncomesMap.set(t.description, t);
-          });
-
-        recurringIncomesMap.forEach((inc, desc) => {
-          const already = existing.some(t => t.type === 'income' && t.description.toLowerCase().includes(desc.toLowerCase()));
+        // Add recurring incomes dynamically (rules + legacy fallback) without duplicating
+        const recurringOccurrences = getRecurringIncomesForMonth(
+          state.recurringIncomes,
+          selectedYear,
+          selectedMonth,
+          state.transactions,
+          getTodayISO()
+        );
+        recurringOccurrences.forEach(occ => {
+          if (!occ.isVirtual) return;
+          const already = existing.some(
+            t =>
+              t.type === 'income' &&
+              ((t.recurringIncomeId && t.recurringIncomeId === occ.ruleId && t.recurringPeriod === occ.period) ||
+                t.description.trim().toLowerCase() === occ.description.trim().toLowerCase())
+          );
           if (!already) {
-            const day = inc.date ? parseInt(inc.date.slice(8, 10), 10) : 5;
-            const safeDay = Math.min(28, isNaN(day) ? 5 : day);
-            const pDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`;
-
             synthetic.push({
-              ...inc,
-              id: `proj-inc-${desc}-${targetMY}`,
-              date: pDate,
+              id: occ.id,
+              description: occ.description,
+              amount: occ.amount,
+              type: 'income',
+              category: occ.category,
+              date: occ.date,
+              accountId: occ.accountId,
+              paymentMethod: occ.paymentMethod,
               status: 'pending',
-              notes: 'Previsão automática de renda recorrente'
+              isRecurring: true,
+              recurringIncomeId: occ.isLegacy ? undefined : occ.ruleId,
+              recurringPeriod: occ.period,
+              notes: occ.notes || 'Previsão automática de receita fixa recorrente'
             });
           }
         });
@@ -1739,7 +1783,7 @@ export const FinanceProvider: React.FC<{
           return true;
       }
     });
-  }, [state.transactions, filter, currentYear, currentMonth, selectedYear, selectedMonth, isFutureView]);
+  }, [state.transactions, state.recurringIncomes, filter, currentYear, currentMonth, selectedYear, selectedMonth, isFutureView]);
 
   // Total de entradas no período filtrado
   const totalIncomePeriod = useMemo(() => {
@@ -2250,6 +2294,35 @@ export const FinanceProvider: React.FC<{
     });
   };
 
+  // Recurring Incomes CRUD & Workflow
+  const addRecurringIncome = (input: CreateRecurringIncomeInput) => {
+    mutateState(prev => addRecurringIncomeRuleToState(prev, input, getTodayISO()).state);
+  };
+
+  const confirmRecurringIncomeReceipt = (input: ConfirmRecurringIncomeReceiptInput) => {
+    mutateState(prev => confirmRecurringIncomeReceiptInState(prev, input).state);
+  };
+
+  const updateRecurringIncome = (input: UpdateRecurringIncomeInput) => {
+    mutateState(prev => updateRecurringIncomeInState(prev, input));
+  };
+
+  const skipRecurringIncomeOccurrence = (ruleId: string, period: string) => {
+    mutateState(prev => skipRecurringIncomeOccurrenceInState(prev, ruleId, period));
+  };
+
+  const unskipRecurringIncomeOccurrence = (ruleId: string, period: string) => {
+    mutateState(prev => unskipRecurringIncomeOccurrenceInState(prev, ruleId, period));
+  };
+
+  const endRecurringIncome = (ruleId: string, deactivatedFromPeriod?: string) => {
+    mutateState(prev => endRecurringIncomeInState(prev, ruleId, deactivatedFromPeriod));
+  };
+
+  const deleteRecurringIncomeRule = (ruleId: string) => {
+    mutateState(prev => deleteRecurringIncomeRuleInState(prev, ruleId));
+  };
+
   // Transfer between accounts (does NOT count as income or expense)
   const transferBetweenAccounts = (
     sourceAccountId: string,
@@ -2620,7 +2693,8 @@ export const FinanceProvider: React.FC<{
       const hadEligibleContent =
         (currentState.transactions?.length || 0) > 0 ||
         (currentState.debts?.length || 0) > 0 ||
-        (currentState.goals?.length || 0) > 0;
+        (currentState.goals?.length || 0) > 0 ||
+        (currentState.recurringIncomes?.length || 0) > 0;
       const sampleSnap = await saveRecoverySnapshotWithExperimentalHistory(
         reqUserId,
         currentState,
@@ -2701,7 +2775,8 @@ export const FinanceProvider: React.FC<{
       const hadEligibleContent =
         (currentState.transactions?.length || 0) > 0 ||
         (currentState.debts?.length || 0) > 0 ||
-        (currentState.goals?.length || 0) > 0;
+        (currentState.goals?.length || 0) > 0 ||
+        (currentState.recurringIncomes?.length || 0) > 0;
       const resetSnap = await saveRecoverySnapshotWithExperimentalHistory(
         reqUserId,
         currentState,
@@ -3178,7 +3253,8 @@ export const FinanceProvider: React.FC<{
       const hadEligibleContentBeforeRestore =
         (previousState.transactions?.length || 0) > 0 ||
         (previousState.debts?.length || 0) > 0 ||
-        (previousState.goals?.length || 0) > 0;
+        (previousState.goals?.length || 0) > 0 ||
+        (previousState.recurringIncomes?.length || 0) > 0;
       const restoreSnap = await saveRecoverySnapshotWithExperimentalHistory(
         reqUserId,
         previousState,
@@ -3264,6 +3340,8 @@ export const FinanceProvider: React.FC<{
         creditCards: state.creditCards,
         debts: state.debts,
         goals: state.goals,
+        recurringIncomes: state.recurringIncomes || [],
+        selectedMonthRecurringIncomes,
         safetyReserveDesired: state.safetyReserveDesired,
         filter,
         theme,
@@ -3287,6 +3365,14 @@ export const FinanceProvider: React.FC<{
         updateTransaction,
         deleteTransaction,
         duplicateTransaction,
+
+        addRecurringIncome,
+        confirmRecurringIncomeReceipt,
+        updateRecurringIncome,
+        skipRecurringIncomeOccurrence,
+        unskipRecurringIncomeOccurrence,
+        endRecurringIncome,
+        deleteRecurringIncomeRule,
 
         addDebt,
         updateDebt,

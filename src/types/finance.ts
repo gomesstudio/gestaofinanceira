@@ -87,6 +87,77 @@ export interface FinancialGoal {
   completed?: boolean;
 }
 
+export type RecurringFrequency = 'monthly';
+
+export type RecurringIncomeOccurrenceStatus = 'received' | 'predicted' | 'overdue' | 'skipped';
+
+export interface RecurringIncomeScheduleEntry {
+  effectiveFromPeriod: string; // YYYY-MM
+  amount: number;
+  dayOfMonth?: number;
+  description?: string;
+  category?: string;
+  accountId?: string;
+  paymentMethod?: PaymentMethod;
+  notes?: string;
+}
+
+export interface RecurringIncomeMonthOverride {
+  amount?: number;
+  dayOfMonth?: number;
+  customDate?: string; // YYYY-MM-DD
+  description?: string;
+  category?: string;
+  accountId?: string;
+  paymentMethod?: PaymentMethod;
+  notes?: string;
+  skipped?: boolean;
+}
+
+export interface RecurringIncomeRule {
+  id: string;
+  description: string;
+  amount: number;
+  category: string;
+  accountId?: string;
+  paymentMethod: PaymentMethod;
+  frequency: RecurringFrequency;
+  dayOfMonth: number; // 1-31 (ajustado dinamicamente em meses curtos sem perder a configuração original)
+  startDate: string; // YYYY-MM-DD
+  startPeriod: string; // YYYY-MM
+  isIndefinite: boolean;
+  endDate?: string; // YYYY-MM-DD
+  endPeriod?: string; // YYYY-MM
+  isActive: boolean;
+  deactivatedFromPeriod?: string; // YYYY-MM
+  notes?: string;
+  schedules?: RecurringIncomeScheduleEntry[];
+  overrides?: Record<string, RecurringIncomeMonthOverride>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RecurringIncomeOccurrence {
+  id: string;
+  ruleId: string;
+  period: string; // YYYY-MM
+  description: string;
+  amount: number;
+  category: string;
+  accountId?: string;
+  paymentMethod: PaymentMethod;
+  scheduledDate: string; // YYYY-MM-DD
+  date: string; // YYYY-MM-DD (data prevista ou data real se já recebida)
+  configuredDayOfMonth: number;
+  status: RecurringIncomeOccurrenceStatus;
+  isIndefinite: boolean;
+  endDate?: string;
+  transactionId?: string;
+  notes?: string;
+  isVirtual: boolean;
+  isLegacy?: boolean;
+}
+
 export interface Transaction {
   id: string;
   description: string;
@@ -101,6 +172,8 @@ export interface Transaction {
   paymentMethod: PaymentMethod;
   status: TransactionStatus;
   isRecurring?: boolean;
+  recurringIncomeId?: string;
+  recurringPeriod?: string; // YYYY-MM
   notes?: string;
   
   // Parcelamento

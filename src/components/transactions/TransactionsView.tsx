@@ -18,7 +18,8 @@ import {
   AlertTriangle,
   CreditCard,
   Wallet,
-  Plus
+  Plus,
+  Repeat
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency, formatDateBR, getTodayISO } from '../../utils/formatters';
@@ -26,7 +27,15 @@ import { Transaction, TransactionStatus, TransactionType } from '../../types/fin
 import { ActionFeedback, ActionFeedbackBanner, ConfirmDeleteModal } from '../common/ConfirmDeleteModal';
 import { ResponsiveModal } from '../common/ResponsiveModal';
 
-export const TransactionsView: React.FC = () => {
+export interface TransactionsViewProps {
+  accountFilter?: string;
+  onAccountFilterChange?: (accountId: string) => void;
+}
+
+export const TransactionsView: React.FC<TransactionsViewProps> = ({
+  accountFilter: controlledAccountFilter,
+  onAccountFilterChange
+}) => {
   const {
     transactions,
     accounts,
@@ -43,8 +52,17 @@ export const TransactionsView: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [internalAccountFilter, setInternalAccountFilter] = useState<string>('all');
   const [minAmountStr, setMinAmountStr] = useState('');
   const [maxAmountStr, setMaxAmountStr] = useState('');
+
+  const activeAccountFilter =
+    controlledAccountFilter !== undefined ? controlledAccountFilter : internalAccountFilter;
+
+  const handleAccountFilterChange = (nextAccountId: string) => {
+    setInternalAccountFilter(nextAccountId);
+    onAccountFilterChange?.(nextAccountId);
+  };
 
   // Edit Modal State
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
@@ -96,6 +114,13 @@ export const TransactionsView: React.FC = () => {
 
     if (typeFilter !== 'all' && t.type !== typeFilter) return false;
     if (categoryFilter !== 'all' && t.category !== categoryFilter) return false;
+    if (
+      activeAccountFilter !== 'all' &&
+      t.accountId !== activeAccountFilter &&
+      t.targetAccountId !== activeAccountFilter
+    ) {
+      return false;
+    }
 
     if (statusFilter === 'paid' && t.status !== 'paid') return false;
     if (statusFilter === 'pending' && (t.status === 'paid' || (t.dueDate && t.dueDate < todayStr))) return false;
@@ -216,6 +241,20 @@ export const TransactionsView: React.FC = () => {
             </select>
 
             <select
+              id={`${fieldIdPrefix}-account-filter`}
+              name="transactions_account_filter"
+              aria-label="Filtrar por conta"
+              value={activeAccountFilter}
+              onChange={e => handleAccountFilterChange(e.target.value)}
+              className="w-full sm:w-auto flex-1 sm:flex-none px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-hidden"
+            >
+              <option value="all">Todas as Contas</option>
+              {accounts.map(acc => (
+                <option key={acc.id} value={acc.id}>{acc.name}</option>
+              ))}
+            </select>
+
+            <select
               id={`${fieldIdPrefix}-status-filter`}
               name="transactions_status_filter"
               aria-label="Filtrar por status"
@@ -257,17 +296,18 @@ export const TransactionsView: React.FC = () => {
             onChange={e => setMaxAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
             className="w-24 px-2 py-1.5 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white font-mono text-[11px]"
           />
-          {(minAmountStr || maxAmountStr || search || typeFilter !== 'all' || categoryFilter !== 'all' || statusFilter !== 'all') && (
+          {(minAmountStr || maxAmountStr || search || typeFilter !== 'all' || categoryFilter !== 'all' || statusFilter !== 'all' || activeAccountFilter !== 'all') && (
             <button
               onClick={() => {
                 setSearch('');
                 setTypeFilter('all');
                 setCategoryFilter('all');
                 setStatusFilter('all');
+                handleAccountFilterChange('all');
                 setMinAmountStr('');
                 setMaxAmountStr('');
               }}
-              className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold underline ml-2"
+              className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold underline ml-2 cursor-pointer"
             >
               Limpar Filtros
             </button>
@@ -298,10 +338,13 @@ export const TransactionsView: React.FC = () => {
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
                 {filtered.map(tx => {
                   const isInc = tx.type === 'income';
-                  const isOver = !isInc && tx.status !== 'paid' && tx.dueDate && tx.dueDate < todayStr;
+                  const isOver = isInc
+                    ? tx.status !== 'paid' && tx.date < todayStr
+                    : tx.status !== 'paid' && Boolean(tx.dueDate && tx.dueDate < todayStr);
                   const isCard = tx.paymentMethod === 'credit_card';
                   const account = accounts.find(a => a.id === tx.accountId);
                   const card = creditCards.find(c => c.id === tx.creditCardId);
+                  const isRecurringBadge = Boolean(tx.recurringIncomeId || (isInc && tx.isRecurring));
 
                   return (
                     <tr key={tx.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
@@ -314,6 +357,12 @@ export const TransactionsView: React.FC = () => {
                       <td className="py-3 px-4 font-medium text-slate-900 dark:text-white">
                         <div className="flex items-center gap-2 truncate max-w-xs">
                           <span className="truncate">{tx.description}</span>
+                          {isRecurringBadge && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
+                              <Repeat className="w-2.5 h-2.5" />
+                              Fixa mensal
+                            </span>
+                          )}
                           {tx.installmentInfo && (
                             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
                               {tx.installmentInfo.current}/{tx.installmentInfo.total}
@@ -357,7 +406,19 @@ export const TransactionsView: React.FC = () => {
                           }`}
                         >
                           {tx.status === 'paid' ? <CheckCircle2 className="w-3 h-3" /> : isOver ? <AlertTriangle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                          <span>{tx.status === 'paid' ? 'Efetivado' : isOver ? 'Atrasado' : 'Pendente'}</span>
+                          <span>
+                            {isInc
+                              ? tx.status === 'paid'
+                                ? 'Recebido'
+                                : isOver
+                                ? 'Previsto em atraso'
+                                : 'Previsto'
+                              : tx.status === 'paid'
+                              ? 'Efetivado'
+                              : isOver
+                              ? 'Atrasado'
+                              : 'Pendente'}
+                          </span>
                         </span>
                       </td>
                       <td className="py-3 px-4 text-center whitespace-nowrap">

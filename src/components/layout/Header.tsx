@@ -107,6 +107,7 @@ export const Header: React.FC<HeaderProps> = ({
   const getTabLabel = (id: string) => {
     switch (id) {
       case 'dashboard': return 'Dashboard Principal';
+      case 'accounts': return 'Minhas Contas';
       case 'transactions': return 'Extrato & Movimentações';
       case 'incomes': return 'Entradas Financeiras';
       case 'expenses': return 'Despesas Fixas & Variáveis';

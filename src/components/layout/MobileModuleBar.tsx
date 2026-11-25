@@ -16,7 +16,8 @@ import {
   Target,
   Calendar,
   FileSpreadsheet,
-  Settings
+  Settings,
+  Wallet
 } from 'lucide-react';
 
 interface MobileModuleBarProps {
@@ -27,6 +28,7 @@ interface MobileModuleBarProps {
 export const MobileModuleBar: React.FC<MobileModuleBarProps> = ({ currentTab, setCurrentTab }) => {
   const modules = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'accounts', label: 'Minhas Contas', icon: Wallet },
     { id: 'transactions', label: 'Extrato', icon: Receipt },
     { id: 'incomes', label: 'Entradas', icon: ArrowUpRight },
     { id: 'expenses', label: 'Despesas', icon: ArrowDownRight },

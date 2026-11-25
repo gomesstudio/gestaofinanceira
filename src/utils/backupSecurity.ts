@@ -12,6 +12,7 @@ import {
   DebtStatus,
   FinancialGoal,
   PaymentMethod,
+  RecurringIncomeRule,
   Transaction,
   TransactionStatus,
   TransactionType
@@ -187,6 +188,8 @@ function isValidTransaction(item: unknown): item is Transaction {
   if (!isOptionalString(item.targetAccountId)) return false;
   if (!isOptionalString(item.creditCardId)) return false;
   if (item.isRecurring !== undefined && typeof item.isRecurring !== 'boolean') return false;
+  if (!isOptionalString(item.recurringIncomeId)) return false;
+  if (!isOptionalString(item.recurringPeriod)) return false;
   if (!isOptionalString(item.notes)) return false;
   if (!isOptionalString(item.debtId)) return false;
   if (!isOptionalString(item.cardInvoiceMonth)) return false;
@@ -298,12 +301,60 @@ function isValidGoal(item: unknown): item is FinancialGoal {
   return true;
 }
 
-export function hasRealFinancialData(state: Pick<AppState, 'isSampleLoaded' | 'transactions' | 'debts' | 'goals'>): boolean {
+function isValidRecurringIncomeRule(item: unknown): item is RecurringIncomeRule {
+  if (!isPlainObject(item)) return false;
+  if (!isNonEmptyString(item.id)) return false;
+  if (!isNonEmptyString(item.description)) return false;
+  if (!isFiniteNonNegativeNumber(item.amount)) return false;
+  if (typeof item.category !== 'string') return false;
+  if (!isOptionalString(item.accountId)) return false;
+  if (!VALID_PAYMENT_METHODS.has(item.paymentMethod as PaymentMethod)) return false;
+  if (item.frequency !== 'monthly') return false;
+  if (!Number.isInteger(item.dayOfMonth) || (item.dayOfMonth as number) < 1 || (item.dayOfMonth as number) > 31) {
+    return false;
+  }
+  if (!isNonEmptyString(item.startDate)) return false;
+  if (!isNonEmptyString(item.startPeriod)) return false;
+  if (typeof item.isIndefinite !== 'boolean') return false;
+  if (!isOptionalString(item.endDate)) return false;
+  if (!isOptionalString(item.endPeriod)) return false;
+  if (typeof item.isActive !== 'boolean') return false;
+  if (!isOptionalString(item.deactivatedFromPeriod)) return false;
+  if (!isOptionalString(item.notes)) return false;
+  if (item.schedules !== undefined) {
+    if (!Array.isArray(item.schedules)) return false;
+    for (const sched of item.schedules) {
+      if (!isPlainObject(sched)) return false;
+      if (!isNonEmptyString(sched.effectiveFromPeriod)) return false;
+      if (!isFiniteNonNegativeNumber(sched.amount)) return false;
+      if (
+        sched.dayOfMonth !== undefined &&
+        (!Number.isInteger(sched.dayOfMonth) || (sched.dayOfMonth as number) < 1 || (sched.dayOfMonth as number) > 31)
+      ) {
+        return false;
+      }
+    }
+  }
+  if (item.overrides !== undefined) {
+    if (!isPlainObject(item.overrides)) return false;
+    for (const ov of Object.values(item.overrides)) {
+      if (!isPlainObject(ov)) return false;
+      if (ov.amount !== undefined && !isFiniteNonNegativeNumber(ov.amount)) return false;
+      if (ov.skipped !== undefined && typeof ov.skipped !== 'boolean') return false;
+    }
+  }
+  return true;
+}
+
+export function hasRealFinancialData(
+  state: Pick<AppState, 'isSampleLoaded' | 'transactions' | 'debts' | 'goals' | 'recurringIncomes'>
+): boolean {
   if (state.isSampleLoaded) return false;
   return (
     (state.transactions?.length || 0) > 0 ||
     (state.debts?.length || 0) > 0 ||
-    (state.goals?.length || 0) > 0
+    (state.goals?.length || 0) > 0 ||
+    (state.recurringIncomes?.length || 0) > 0
   );
 }
 
@@ -578,6 +629,26 @@ export function validateBackupJsonStructure(
     };
   }
 
+  if (stateCandidate.recurringIncomes !== undefined) {
+    if (!Array.isArray(stateCandidate.recurringIncomes)) {
+      return {
+        valid: false,
+        code: 'invalid_structure',
+        error: 'Backup inválido: o campo "recurringIncomes" deve ser uma lista válida.'
+      };
+    }
+    const invalidRecurringIndex = stateCandidate.recurringIncomes.findIndex(
+      item => !isValidRecurringIncomeRule(item)
+    );
+    if (invalidRecurringIndex !== -1) {
+      return {
+        valid: false,
+        code: 'incompatible_item',
+        error: `Backup incompatível: receita fixa recorrente #${invalidRecurringIndex + 1} possui campos ausentes ou tipos inválidos.`
+      };
+    }
+  }
+
   const validatedState: AppState = {
     ownerUserId: expectedUserId,
     version: stateCandidate.version as number,
@@ -588,6 +659,9 @@ export function validateBackupJsonStructure(
     creditCards: stateCandidate.creditCards as CreditCard[],
     debts: stateCandidate.debts as Debt[],
     goals: stateCandidate.goals as FinancialGoal[],
+    ...(Array.isArray(stateCandidate.recurringIncomes)
+      ? { recurringIncomes: stateCandidate.recurringIncomes as RecurringIncomeRule[] }
+      : {}),
     safetyReserveDesired: stateCandidate.safetyReserveDesired as number,
     isSampleLoaded: stateCandidate.isSampleLoaded as boolean
   };

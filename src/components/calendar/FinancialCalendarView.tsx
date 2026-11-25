@@ -19,11 +19,13 @@ import {
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency, formatDateBR, getMonthNamePT, getTodayISO } from '../../utils/formatters';
+import { getRecurringIncomesForMonth } from '../../utils/recurringIncome';
 import { Transaction } from '../../types/finance';
 
 export const FinancialCalendarView: React.FC = () => {
   const {
     transactions,
+    recurringIncomes = [],
     creditCards,
     openQuickEntry
   } = useFinance();
@@ -67,6 +69,44 @@ export const FinancialCalendarView: React.FC = () => {
       eventsByDay[effectiveDate] = [];
     }
     eventsByDay[effectiveDate].push(tx);
+  });
+
+  // Incluir ocorrências previstas dinâmicas de receitas fixas recorrentes para o mês visualizado
+  const monthRecurringOccurrences = getRecurringIncomesForMonth(
+    recurringIncomes,
+    year,
+    month,
+    transactions,
+    todayStr
+  );
+  monthRecurringOccurrences.forEach(occ => {
+    if (!occ.isVirtual) return;
+    const alreadyExists = transactions.some(
+      t =>
+        t.type === 'income' &&
+        ((t.recurringIncomeId && t.recurringIncomeId === occ.ruleId && t.recurringPeriod === occ.period) ||
+          (t.date.slice(0, 7) === occ.period &&
+            t.description.trim().toLowerCase() === occ.description.trim().toLowerCase()))
+    );
+    if (alreadyExists) return;
+    if (!eventsByDay[occ.date]) {
+      eventsByDay[occ.date] = [];
+    }
+    eventsByDay[occ.date].push({
+      id: occ.id,
+      description: occ.description,
+      amount: occ.amount,
+      type: 'income',
+      category: occ.category,
+      date: occ.date,
+      accountId: occ.accountId,
+      paymentMethod: occ.paymentMethod,
+      status: occ.status === 'overdue' ? 'overdue' : 'pending',
+      isRecurring: true,
+      recurringIncomeId: occ.isLegacy ? undefined : occ.ruleId,
+      recurringPeriod: occ.period,
+      notes: occ.notes,
+    });
   });
 
   // Also include credit card due dates for current month
@@ -309,7 +349,10 @@ export const FinancialCalendarView: React.FC = () => {
               ) : (
                 selectedDayItems.map(t => {
                   const isInc = t.type === 'income';
-                  const isOver = !isInc && t.status !== 'paid' && t.dueDate && t.dueDate < todayStr;
+                  const isOver = isInc
+                    ? t.status !== 'paid' && t.date < todayStr
+                    : t.status !== 'paid' && Boolean(t.dueDate && t.dueDate < todayStr);
+                  const isRecurringItem = Boolean(t.recurringIncomeId || (isInc && t.isRecurring));
 
                   return (
                     <div
@@ -317,7 +360,14 @@ export const FinancialCalendarView: React.FC = () => {
                       className="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30 text-xs space-y-1"
                     >
                       <div className="flex items-center justify-between gap-2 font-medium">
-                        <span className="text-slate-800 dark:text-slate-200 truncate min-w-0">{t.description}</span>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-slate-800 dark:text-slate-200 truncate min-w-0">{t.description}</span>
+                          {isRecurringItem && (
+                            <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[9px] font-semibold shrink-0">
+                              Fixa mensal
+                            </span>
+                          )}
+                        </div>
                         <span
                           className={`font-mono font-bold tabular-nums shrink-0 ${
                             isInc ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white'
@@ -337,7 +387,17 @@ export const FinancialCalendarView: React.FC = () => {
                               : 'text-amber-600'
                           }`}
                         >
-                          {t.status === 'paid' ? 'Pago' : isOver ? 'Atrasado' : 'Pendente'}
+                          {isInc
+                            ? t.status === 'paid'
+                              ? 'Recebida'
+                              : isOver
+                              ? 'Prevista em atraso'
+                              : 'Prevista'
+                            : t.status === 'paid'
+                            ? 'Pago'
+                            : isOver
+                            ? 'Atrasado'
+                            : 'Pendente'}
                         </span>
                       </div>
                     </div>

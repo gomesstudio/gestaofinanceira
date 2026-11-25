@@ -82,7 +82,10 @@ function hasEligibleSnapshotContent(state: AppState): boolean {
     Array.isArray(state.transactions) &&
     Array.isArray(state.debts) &&
     Array.isArray(state.goals) &&
-    (state.transactions.length > 0 || state.debts.length > 0 || state.goals.length > 0)
+    (state.transactions.length > 0 ||
+      state.debts.length > 0 ||
+      state.goals.length > 0 ||
+      (state.recurringIncomes?.length || 0) > 0)
   );
 }
 

@@ -128,7 +128,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setCurrentTab }) =
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
           {/* Destaque 1: Saldo Consolidado */}
           <div
-            onClick={() => setCurrentTab('settings')}
+            onClick={() => setCurrentTab('accounts')}
             className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-all cursor-pointer group"
           >
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">
@@ -136,7 +136,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setCurrentTab }) =
                 <Wallet className="w-4 h-4 text-slate-500" />
                 <span>Patrimônio Líquido em Contas</span>
               </span>
-              <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition-transform group-hover:translate-x-0.5" />
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                <span className="hidden sm:inline">Gerenciar contas</span>
+                <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+              </span>
             </div>
             <div className="text-2xl sm:text-3xl font-extrabold font-mono text-slate-900 dark:text-white tabular-nums tracking-tight">
               {formatCurrency(totalBankBalance)}
@@ -224,7 +227,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setCurrentTab }) =
         <div className="grid grid-cols-1 min-[380px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-3.5">
           {/* Card 1: Saldo Atual Total */}
           <div
-            onClick={() => setCurrentTab('settings')}
+            onClick={() => setCurrentTab('accounts')}
             className="p-3.5 sm:p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-emerald-500/40 hover:shadow-sm transition-all cursor-pointer group"
           >
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">
@@ -679,8 +682,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setCurrentTab }) =
                     Minhas Contas & Carteiras
                   </h4>
                   <button
-                    onClick={() => setCurrentTab('settings')}
-                    className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer font-medium shrink-0"
+                    type="button"
+                    onClick={() => setCurrentTab('accounts')}
+                    className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer font-semibold shrink-0"
                   >
                     Gerenciar
                   </button>

@@ -147,7 +147,8 @@ export function computeStateContentSignature(state: AppState): string {
     categories: state.categories || [],
     creditCards: state.creditCards || [],
     debts: state.debts || [],
-    goals: state.goals || []
+    goals: state.goals || [],
+    ...(state.recurringIncomes?.length ? { recurringIncomes: state.recurringIncomes } : {})
   };
   const serialized = stableStringify(canonicalPayload);
 
@@ -198,6 +199,7 @@ function isStructurallyValidAppState(state: unknown, expectedUserId: string): st
     Array.isArray(s.debts) &&
     Array.isArray(s.goals) &&
     Array.isArray(s.categories) &&
+    (s.recurringIncomes === undefined || Array.isArray(s.recurringIncomes)) &&
     typeof s.safetyReserveDesired === 'number' &&
     Number.isFinite(s.safetyReserveDesired)
   );

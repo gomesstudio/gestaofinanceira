@@ -37,6 +37,7 @@ import { MobileDrawer } from './components/layout/MobileDrawer';
 import { MobileModuleBar } from './components/layout/MobileModuleBar';
 import { QuickEntryModal } from './components/quick-entry/QuickEntryModal';
 import { DashboardView } from './components/dashboard/DashboardView';
+import { AccountsView } from './components/accounts/AccountsView';
 import { TransactionsView } from './components/transactions/TransactionsView';
 import { IncomesView } from './components/transactions/IncomesView';
 import { ExpensesView } from './components/transactions/ExpensesView';
@@ -65,8 +66,19 @@ const MainAppContent: React.FC<MainAppContentProps> = ({
   onOpenMasterPortal
 }) => {
   const [currentTab, setCurrentTab] = useState('dashboard');
+  const [transactionsAccountFilter, setTransactionsAccountFilter] = useState<string>('all');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { supabaseUserId, logout } = useAuth();
+
+  const handleNavigateTab = useCallback((nextTab: string) => {
+    setTransactionsAccountFilter('all');
+    setCurrentTab(nextTab);
+  }, []);
+
+  const handleOpenAccountTransactions = useCallback((accountId: string) => {
+    setTransactionsAccountFilter(accountId);
+    setCurrentTab('transactions');
+  }, []);
   const {
     isFinanceHydrating,
     isFinanceHydrated,
@@ -115,9 +127,20 @@ const MainAppContent: React.FC<MainAppContentProps> = ({
   const renderActiveView = () => {
     switch (currentTab) {
       case 'dashboard':
-        return <DashboardView setCurrentTab={setCurrentTab} />;
+        return <DashboardView setCurrentTab={handleNavigateTab} />;
+      case 'accounts':
+        return (
+          <AccountsView
+            onViewAccountTransactions={handleOpenAccountTransactions}
+          />
+        );
       case 'transactions':
-        return <TransactionsView />;
+        return (
+          <TransactionsView
+            accountFilter={transactionsAccountFilter}
+            onAccountFilterChange={setTransactionsAccountFilter}
+          />
+        );
       case 'incomes':
         return <IncomesView />;
       case 'expenses':
@@ -142,17 +165,18 @@ const MainAppContent: React.FC<MainAppContentProps> = ({
             subscriptionAccess={subscriptionAccess}
             onRefreshSubscription={onRefreshSubscription}
             onOpenMasterPortal={subscriptionAccess?.isAdmin ? onOpenMasterPortal : undefined}
+            onNavigateToAccounts={() => handleNavigateTab('accounts')}
           />
         );
       default:
-        return <DashboardView setCurrentTab={setCurrentTab} />;
+        return <DashboardView setCurrentTab={handleNavigateTab} />;
     }
   };
 
   return (
     <div className="flex min-h-screen min-h-[100dvh] bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-500/20 selection:text-emerald-700 dark:selection:text-emerald-300">
       {/* Desktop Sidebar */}
-      <Sidebar currentTab={currentTab} setCurrentTab={setCurrentTab} />
+      <Sidebar currentTab={currentTab} setCurrentTab={handleNavigateTab} />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 pb-[calc(5.25rem+env(safe-area-inset-bottom))] lg:pb-8">
@@ -167,7 +191,7 @@ const MainAppContent: React.FC<MainAppContentProps> = ({
         {/* Dedicated Horizontal Mobile Module Selector Ribbon */}
         <MobileModuleBar
           currentTab={currentTab}
-          setCurrentTab={setCurrentTab}
+          setCurrentTab={handleNavigateTab}
         />
 
         <main className="flex-1 max-w-7xl w-full mx-auto min-w-0 p-3 sm:p-5 lg:p-8 animate-in fade-in duration-150">
@@ -178,7 +202,7 @@ const MainAppContent: React.FC<MainAppContentProps> = ({
       {/* Mobile Bottom Navigation Bar */}
       <MobileNav
         currentTab={currentTab}
-        setCurrentTab={setCurrentTab}
+        setCurrentTab={handleNavigateTab}
         openMobileMenu={() => setIsMobileMenuOpen(true)}
       />
 
@@ -187,7 +211,7 @@ const MainAppContent: React.FC<MainAppContentProps> = ({
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
         currentTab={currentTab}
-        setCurrentTab={setCurrentTab}
+        setCurrentTab={handleNavigateTab}
       />
 
       {/* Global Quick Entry Modal (+ NOVO LANÇAMENTO) */}

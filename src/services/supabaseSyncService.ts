@@ -129,6 +129,7 @@ export function areStatesContentEqual(a: AppState, b: AppState): boolean {
   if ((a.creditCards?.length || 0) !== (b.creditCards?.length || 0)) return false;
   if ((a.debts?.length || 0) !== (b.debts?.length || 0)) return false;
   if ((a.goals?.length || 0) !== (b.goals?.length || 0)) return false;
+  if ((a.recurringIncomes?.length || 0) !== (b.recurringIncomes?.length || 0)) return false;
 
   return (
     stableStringify(a.transactions || []) === stableStringify(b.transactions || []) &&
@@ -136,7 +137,8 @@ export function areStatesContentEqual(a: AppState, b: AppState): boolean {
     stableStringify(a.categories || []) === stableStringify(b.categories || []) &&
     stableStringify(a.creditCards || []) === stableStringify(b.creditCards || []) &&
     stableStringify(a.debts || []) === stableStringify(b.debts || []) &&
-    stableStringify(a.goals || []) === stableStringify(b.goals || [])
+    stableStringify(a.goals || []) === stableStringify(b.goals || []) &&
+    stableStringify(a.recurringIncomes || []) === stableStringify(b.recurringIncomes || [])
   );
 }
 
@@ -184,7 +186,8 @@ export async function verifyCloudPreservationForUser(
     !localState.isSampleLoaded &&
     ((localState.transactions?.length || 0) > 0 ||
       (localState.debts?.length || 0) > 0 ||
-      (localState.goals?.length || 0) > 0);
+      (localState.goals?.length || 0) > 0 ||
+      (localState.recurringIncomes?.length || 0) > 0);
 
   const isUnmodifiedSample =
     Boolean(localState.isSampleLoaded) && (!localState.lastModified || localState.lastModified <= 0);

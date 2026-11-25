@@ -85,7 +85,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ currentTab, setCurrentTab,
         onClick={openMobileMenu}
         aria-label="Abrir menu de todos os módulos"
         className={`flex-1 min-w-0 min-h-[44px] flex flex-col items-center justify-center gap-0.5 px-0.5 py-1 transition-colors cursor-pointer ${
-          ['incomes', 'expenses', 'debts', 'cards', 'analytics', 'goals', 'calendar', 'reports', 'settings'].includes(currentTab)
+          ['accounts', 'incomes', 'expenses', 'debts', 'cards', 'analytics', 'goals', 'calendar', 'reports', 'settings'].includes(currentTab)
             ? 'text-emerald-600 dark:text-emerald-400 font-bold'
             : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
         }`}
