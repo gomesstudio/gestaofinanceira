@@ -30,12 +30,17 @@ export const PowerOfPurchaseView: React.FC = () => {
     setSafetyReserveDesired,
     totalPendingFixed,
     totalPendingVariable,
+    pendingFixedCurrentMonth,
+    pendingVariableCurrentMonth,
     simulatePurchase,
     accounts,
     debts,
     creditCards,
     getCardInvoiceAmount
   } = useFinance();
+
+  const realPendingFixed = pendingFixedCurrentMonth ?? totalPendingFixed;
+  const realPendingVariable = pendingVariableCurrentMonth ?? totalPendingVariable;
 
   // Simulation states
   const fieldIdPrefix = useId();
@@ -138,7 +143,7 @@ export const PowerOfPurchaseView: React.FC = () => {
               <span className="text-slate-700 dark:text-slate-300">Despesas fixas ainda não pagas no mês</span>
             </div>
             <span className="font-mono font-semibold text-rose-600 dark:text-rose-400 tabular-nums shrink-0 self-end min-[420px]:self-auto">
-              -{formatCurrency(totalPendingFixed)}
+              -{formatCurrency(realPendingFixed)}
             </span>
           </div>
 
@@ -149,7 +154,7 @@ export const PowerOfPurchaseView: React.FC = () => {
               <span className="text-slate-700 dark:text-slate-300">Despesas variáveis pendentes no mês</span>
             </div>
             <span className="font-mono font-semibold text-rose-600 dark:text-rose-400 tabular-nums shrink-0 self-end min-[420px]:self-auto">
-              -{formatCurrency(totalPendingVariable)}
+              -{formatCurrency(realPendingVariable)}
             </span>
           </div>
 

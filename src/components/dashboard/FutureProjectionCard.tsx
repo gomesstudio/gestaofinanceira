@@ -30,6 +30,8 @@ export const FutureProjectionCard: React.FC<FutureProjectionCardProps> = ({ onOp
   const {
     nextMonthsProjections,
     currentSelectedMonthProjection,
+    periodProjectionSummary,
+    activePeriod,
     isFutureView,
     selectSpecificMonth,
     goToCurrentMonth
@@ -39,11 +41,15 @@ export const FutureProjectionCard: React.FC<FutureProjectionCardProps> = ({ onOp
 
   // The very next month projection (Month 1 ahead)
   const nextMonth = nextMonthsProjections[0];
+  const isMultiMonthProjection = Boolean(activePeriod?.isMultiMonth && activePeriod?.includesFuture);
+  const activeBannerProjection = isMultiMonthProjection
+    ? (periodProjectionSummary ?? currentSelectedMonthProjection)
+    : currentSelectedMonthProjection;
 
   return (
     <div className="space-y-4">
-      {/* Active Future Month Alert Banner (if user navigated to a future month) */}
-      {isFutureView && (
+      {/* Active Future Month or Multi-Month Projection Alert Banner */}
+      {(isFutureView || isMultiMonthProjection) && (
         <div className="p-4 bg-emerald-500/10 dark:bg-emerald-950/30 border border-emerald-500/30 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs animate-in fade-in">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-emerald-600 text-white rounded-xl shadow-xs">
@@ -51,10 +57,10 @@ export const FutureProjectionCard: React.FC<FutureProjectionCardProps> = ({ onOp
             </div>
             <div>
               <div className="font-bold text-slate-900 dark:text-white text-sm">
-                Visualizando Projeção Futura: {currentSelectedMonthProjection.label}
+                Visualizando Projeção Futura: {activeBannerProjection.label}
               </div>
               <div className="text-slate-600 dark:text-slate-300 mt-0.5">
-                Você estará devendo <strong className="text-rose-600 dark:text-rose-400 font-mono tabular-nums">{formatCurrency(currentSelectedMonthProjection.totalOwedTotal)}</strong> em compromissos programados para este mês.
+                Você estará devendo <strong className="text-rose-600 dark:text-rose-400 font-mono tabular-nums">{formatCurrency(activeBannerProjection.totalOwedTotal)}</strong> em compromissos programados {isMultiMonthProjection ? 'neste intervalo.' : 'para este mês.'}
               </div>
             </div>
           </div>

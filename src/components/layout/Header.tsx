@@ -30,6 +30,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { useAuth } from '../../context/AuthContext';
 import { TimeFilterPeriod } from '../../types/finance';
 import { MONTH_NAMES_PT, MONTH_NAMES_SHORT_PT } from '../../utils/formatters';
+import { resolveActivePeriod } from '../../utils/periodFilter';
 import {
   resolveTechnicalAccessPermissions,
   sanitizeCloudSyncMessageForUser
@@ -50,6 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const {
     filter,
+    activePeriod: ctxActivePeriod,
     setFilter,
     theme,
     toggleTheme,
@@ -65,6 +67,9 @@ export const Header: React.FC<HeaderProps> = ({
     forceUploadLocalToCloud,
     requestSafeLogout
   } = useFinance();
+
+  const activePeriod = ctxActivePeriod ?? resolveActivePeriod(filter);
+  const isProjectedPeriod = isFutureView || activePeriod.includesFuture;
 
   const { logout, supabaseUserDisplayName, supabaseUserEmail } = useAuth();
 
@@ -124,23 +129,11 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const getPeriodLabel = () => {
-    if (
-      filter.period === 'specific_month' ||
-      filter.period === 'current_month' ||
-      filter.period === 'next_month' ||
-      filter.period === 'previous_month'
-    ) {
+    if (activePeriod.mode === 'single_month') {
       const mName = MONTH_NAMES_SHORT_PT[selectedMonth] || '';
       return `${mName}/${String(selectedYear).slice(2)}`;
     }
-    switch (filter.period) {
-      case 'next_3_months': return 'Próximos 3M';
-      case 'next_6_months': return 'Próximos 6M';
-      case 'last_3_months': return 'Últimos 3M';
-      case 'last_6_months': return 'Últimos 6M';
-      case 'all': return 'Histórico';
-      default: return 'Período';
-    }
+    return activePeriod.shortLabel;
   };
 
   const cloudStatusLabel =
@@ -211,7 +204,7 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center gap-1 text-[10px] text-slate-500 font-medium leading-tight">
                 <span>Módulos</span>
                 <ChevronDown className="w-3 h-3 text-emerald-600 dark:text-emerald-400 group-hover:translate-y-0.5 transition-transform shrink-0" />
-                {isFutureView && (
+                {isProjectedPeriod && (
                   <span className="inline-flex items-center gap-0.5 px-1 py-px text-[9px] font-bold rounded-sm bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 shrink-0">
                     <Sparkles className="w-2.5 h-2.5" />
                     <span>Projeção</span>
@@ -231,10 +224,10 @@ export const Header: React.FC<HeaderProps> = ({
                 Finanças /{' '}
                 <span className="text-slate-700 dark:text-slate-300">{getTabLabel(currentTab)}</span>
               </span>
-              {isFutureView && (
+              {isProjectedPeriod && (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300/40 shrink-0 min-[1900px]:hidden">
                   <Sparkles className="w-3 h-3" />
-                  <span>Projeção Futura</span>
+                  <span>{isFutureView ? 'Projeção Futura' : 'Projeção'}</span>
                 </span>
               )}
             </div>
@@ -242,7 +235,7 @@ export const Header: React.FC<HeaderProps> = ({
               <h1 className="text-base xl:text-lg min-[1900px]:text-base font-bold tracking-tight text-slate-900 dark:text-white truncate leading-snug">
                 {getTabLabel(currentTab)}
               </h1>
-              {isFutureView && (
+              {isProjectedPeriod && (
                 <span className="xl:hidden inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300/40 shrink-0">
                   <Sparkles className="w-3 h-3" />
                   <span>Projeção</span>
@@ -349,17 +342,19 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={goToCurrentMonth}
-                title="Voltar para o Mês Atual"
+                title={activePeriod.mode === 'single_month' ? 'Voltar para o Mês Atual' : `${activePeriod.label} — Clique para voltar ao Mês Atual`}
                 className={`px-2 min-[1900px]:px-1.5 py-1 text-xs min-[1900px]:text-[11px] font-bold font-mono min-w-[100px] min-[1900px]:min-w-[86px] text-center rounded-md transition-all cursor-pointer whitespace-nowrap ${
-                  isFutureView
+                  isProjectedPeriod
                     ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40'
                     : 'text-slate-900 dark:text-white'
                 }`}
               >
                 <span>
-                  {MONTH_NAMES_PT[selectedMonth]} {selectedYear}
+                  {activePeriod.mode === 'single_month'
+                    ? `${MONTH_NAMES_PT[selectedMonth]} ${selectedYear}`
+                    : activePeriod.shortLabel}
                 </span>
-                {isFutureView && (
+                {isProjectedPeriod && (
                   <span className="hidden min-[1900px]:block text-[9px] font-sans font-normal opacity-90">
                     ✨ Projeção
                   </span>
@@ -470,14 +465,16 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={goToCurrentMonth}
-                title="Voltar para o Mês Atual"
+                title={activePeriod.mode === 'single_month' ? 'Voltar para o Mês Atual' : `${activePeriod.label} — Clique para voltar ao Mês Atual`}
                 className={`px-2 py-1 text-xs font-bold font-mono whitespace-nowrap rounded-md transition-all cursor-pointer ${
-                  isFutureView
+                  isProjectedPeriod
                     ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40'
                     : 'text-slate-900 dark:text-white'
                 }`}
               >
-                {MONTH_NAMES_PT[selectedMonth]} {selectedYear}
+                {activePeriod.mode === 'single_month'
+                  ? `${MONTH_NAMES_PT[selectedMonth]} ${selectedYear}`
+                  : activePeriod.shortLabel}
               </button>
               <button
                 type="button"
@@ -514,7 +511,7 @@ export const Header: React.FC<HeaderProps> = ({
                 aria-expanded={isMobilePeriodOpen}
                 aria-label="Selecionar período"
                 className={`flex items-center gap-1 px-1.5 sm:px-2.5 py-1.5 min-h-[34px] text-xs font-semibold rounded-xl cursor-pointer whitespace-nowrap border ${
-                  isFutureView
+                  isProjectedPeriod
                     ? 'bg-emerald-50 text-emerald-900 border-emerald-200/70 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/70'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200/60 dark:border-slate-700/60'
                 }`}

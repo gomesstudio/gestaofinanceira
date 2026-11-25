@@ -187,6 +187,10 @@ export interface Transaction {
   debtId?: string; // Se for pagamento de dívida
   cardInvoiceMonth?: string; // Ex: '2026-11' se for lançamento de cartão
   isInvoicePayment?: boolean; // Se for o pagamento da fatura (não duplica como despesa de consumo)
+
+  // Propriedades transitórias em tempo de execução para itens virtuais projetados (nunca persistidas)
+  isVirtualProjection?: boolean;
+  projectedStatus?: RecurringIncomeOccurrenceStatus;
 }
 
 export type TimeFilterPeriod = 

@@ -22,18 +22,32 @@ import { formatCurrency, formatDateBR, getTodayISO } from '../../utils/formatter
 import { CreditCard, Transaction } from '../../types/finance';
 import { ActionFeedback, ActionFeedbackBanner, ConfirmDeleteModal } from '../common/ConfirmDeleteModal';
 import { ResponsiveModal } from '../common/ResponsiveModal';
+import {
+  getTransactionEffectiveDate,
+  isVirtualTransaction,
+  resolveActivePeriod
+} from '../../utils/periodFilter';
 
 export const CardsView: React.FC = () => {
   const {
     creditCards,
     accounts,
     transactions,
+    filteredTransactions,
+    filter,
+    activePeriod: ctxActivePeriod,
+    periodLabel: ctxPeriodLabel,
     addCreditCard,
     updateCreditCard,
     deleteCreditCard,
     payCreditCardInvoice,
     getCardInvoiceAmount
   } = useFinance();
+
+  const todayISO = getTodayISO();
+  const activePeriod = ctxActivePeriod ?? resolveActivePeriod(filter ?? { period: 'current_month' }, todayISO);
+  const periodLabel = ctxPeriodLabel ?? activePeriod.label;
+  const scopedTransactions = filteredTransactions ?? transactions;
 
   const fieldIdPrefix = useId();
   const cardNameId = `${fieldIdPrefix}-card-name`;
@@ -121,13 +135,7 @@ export const CardsView: React.FC = () => {
   // Form states for Pay Invoice
   const [payAmountStr, setPayAmountStr] = useState('');
   const [payAccountId, setPayAccountId] = useState(accounts[0]?.id || '');
-  const [invoiceMonth, setInvoiceMonth] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  });
-
-  const now = new Date();
-  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const [invoiceMonth, setInvoiceMonth] = useState(() => activePeriod.selectedPeriod);
 
   const handleCreateCard = (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,13 +180,19 @@ export const CardsView: React.FC = () => {
             Acompanhe limites, faturas abertas e pagamentos sem duplicidade no orçamento
           </p>
         </div>
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 rounded-xl transition-all shadow-xs"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Cadastrar Novo Cartão</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-xs">
+            <Calendar className="w-3.5 h-3.5 text-emerald-500" />
+            <span>{periodLabel}</span>
+          </span>
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 rounded-xl transition-all shadow-xs"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Cadastrar Novo Cartão</span>
+          </button>
+        </div>
       </div>
 
       <ActionFeedbackBanner
@@ -197,14 +211,18 @@ export const CardsView: React.FC = () => {
       {/* Cards List */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {creditCards.map(card => {
-          const usedLimit = getCardInvoiceAmount(card.id, currentMonthStr);
+          const cardTxsAll = scopedTransactions
+            .filter(t => t.creditCardId === card.id && t.paymentMethod === 'credit_card' && !t.isInvoicePayment)
+            .sort((a, b) => getTransactionEffectiveDate(b).localeCompare(getTransactionEffectiveDate(a)));
+
+          const usedLimit = activePeriod.isSingleMonth
+            ? getCardInvoiceAmount(card.id, activePeriod.selectedPeriod)
+            : cardTxsAll.reduce((sum, t) => sum + t.amount, 0);
           const availableLimit = Math.max(0, card.limitTotal - usedLimit);
           const usedPercent = card.limitTotal > 0 ? (usedLimit / card.limitTotal) * 100 : 0;
 
-          // Card transactions in current period
-          const cardTxs = transactions
-            .filter(t => t.creditCardId === card.id && t.paymentMethod === 'credit_card' && !t.isInvoicePayment)
-            .slice(0, 5);
+          // Card transactions in selected period
+          const cardTxs = cardTxsAll.slice(0, 5);
 
           return (
             <div
@@ -250,7 +268,9 @@ export const CardsView: React.FC = () => {
                 <div className="space-y-3 mb-4">
                   <div className="flex flex-wrap justify-between items-center gap-2 text-xs">
                     <div>
-                      <span className="text-slate-400">Fatura Atual: </span>
+                      <span className="text-slate-400">
+                        {activePeriod.isCurrentMonth ? 'Fatura Atual: ' : activePeriod.isSingleMonth ? `Fatura (${activePeriod.shortLabel}): ` : 'Faturas no Período: '}
+                      </span>
                       <span className="font-mono font-bold text-rose-600 dark:text-rose-400 tabular-nums">
                         {formatCurrency(usedLimit)}
                       </span>
@@ -284,19 +304,25 @@ export const CardsView: React.FC = () => {
                 {/* Recent Purchases on this card */}
                 <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
                   <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Lançamentos Recentes no Cartão
+                    Lançamentos no Cartão ({periodLabel})
                   </div>
                   {cardTxs.length === 0 ? (
                     <div className="text-xs text-slate-400 py-2">
-                      Nenhuma compra registrada neste cartão ainda.
+                      Nenhuma compra registrada neste cartão em {periodLabel}.
                     </div>
                   ) : (
                     <div className="space-y-1.5">
                       {cardTxs.map(t => (
                         <div key={t.id} className="flex items-center justify-between gap-2 text-xs py-1 border-b border-slate-50 dark:border-slate-800/60 last:border-0">
-                          <span className="text-slate-700 dark:text-slate-300 truncate min-w-0 flex-1">
-                            {t.description}
-                          </span>
+                          <div className="min-w-0 flex-1">
+                            <span className="text-slate-700 dark:text-slate-300 truncate block">
+                              {t.description}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {formatDateBR(getTransactionEffectiveDate(t))}
+                              {isVirtualTransaction(t) ? ' · Previsto' : ''}
+                            </span>
+                          </div>
                           <span className="font-mono font-medium text-slate-900 dark:text-white tabular-nums shrink-0">
                             {formatCurrency(t.amount)}
                           </span>
@@ -336,6 +362,7 @@ export const CardsView: React.FC = () => {
                 <button
                   onClick={() => {
                     setPayModalCard(card);
+                    setInvoiceMonth(activePeriod.selectedPeriod);
                     setPayAmountStr(usedLimit.toFixed(2).replace('.', ','));
                   }}
                   className="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"

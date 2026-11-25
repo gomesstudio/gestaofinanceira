@@ -20,13 +20,28 @@ import {
   Wallet
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
-import { formatCurrency, formatDateBR, formatPercent, MONTH_NAMES_SHORT_PT } from '../../utils/formatters';
+import { formatCurrency, formatDateBR, formatPercent, getTodayISO, MONTH_NAMES_SHORT_PT } from '../../utils/formatters';
 import { Transaction } from '../../types/finance';
 import { ResponsiveModal } from '../common/ResponsiveModal';
+import {
+  buildPeriodString,
+  buildProjectedTransactionsForMonth,
+  getTransactionEffectiveDate,
+  getTransactionEffectivePeriod,
+  isVirtualTransaction,
+  parsePeriodString,
+  resolveActivePeriod
+} from '../../utils/periodFilter';
+import { addMonthsToPeriod } from '../../utils/recurringIncome';
 
 export const AnalyticsView: React.FC = () => {
   const {
     transactions,
+    filteredTransactions,
+    filter,
+    activePeriod: ctxActivePeriod,
+    periodLabel: ctxPeriodLabel,
+    recurringIncomes = [],
     categories,
     debts,
     creditCards,
@@ -41,14 +56,19 @@ export const AnalyticsView: React.FC = () => {
     smartAlerts
   } = useFinance();
 
+  const todayISO = getTodayISO();
+  const activePeriod = ctxActivePeriod ?? resolveActivePeriod(filter ?? { period: 'current_month' }, todayISO);
+  const periodLabel = ctxPeriodLabel ?? activePeriod.label;
+  const scopedTransactions = filteredTransactions ?? transactions;
+
   // State for Category Drilldown Modal
   const [selectedDrilldownCategory, setSelectedDrilldownCategory] = useState<string | null>(null);
 
   // Group transactions by category for current period
   const categoryStats = useMemo(() => {
     const map: { [cat: string]: { total: number; count: number; color: string; type: string } } = {};
-    transactions
-      .filter(t => t.type === 'expense_fixed' || t.type === 'expense_variable')
+    scopedTransactions
+      .filter(t => (t.type === 'expense_fixed' || t.type === 'expense_variable') && !t.isInvoicePayment)
       .forEach(t => {
         if (!map[t.category]) {
           const catObj = categories.find(c => c.name === t.category);
@@ -66,48 +86,74 @@ export const AnalyticsView: React.FC = () => {
     return Object.entries(map)
       .map(([name, data]) => ({ name, ...data }))
       .sort((a, b) => b.total - a.total);
-  }, [transactions, categories]);
+  }, [scopedTransactions, categories]);
 
   // Small purchases sum (gastos invisíveis <= R$ 25)
   const smallPurchasesTotal = useMemo(() => {
-    return transactions
-      .filter(t => (t.type === 'expense_fixed' || t.type === 'expense_variable') && t.amount <= 25)
+    return scopedTransactions
+      .filter(t => (t.type === 'expense_fixed' || t.type === 'expense_variable') && !t.isInvoicePayment && t.amount <= 25)
       .reduce((sum, t) => sum + t.amount, 0);
-  }, [transactions]);
+  }, [scopedTransactions]);
 
-  // Monthly trends (Last 6 months projection/history)
+  // Monthly trends (6-month window anchored to selected period, including future projections when applicable)
   const monthlyTrends = useMemo(() => {
-    const monthsData: { [key: string]: { income: number; expense: number; fixed: number; variable: number; saved: number; label: string } } = {};
-    const now = new Date();
+    const currentPeriodStr = todayISO.slice(0, 7);
+    const anchorPeriod =
+      activePeriod.months.length > 0
+        ? activePeriod.months[activePeriod.months.length - 1].period
+        : buildPeriodString(activePeriod.selectedYear, activePeriod.selectedMonth);
+
+    const monthsData: { [key: string]: { income: number; expense: number; fixed: number; variable: number; saved: number; label: string; isFuture: boolean } } = {};
+    const orderedKeys: string[] = [];
 
     for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const label = `${MONTH_NAMES_SHORT_PT[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`;
-      monthsData[key] = { income: 0, expense: 0, fixed: 0, variable: 0, saved: 0, label };
+      const key = addMonthsToPeriod(anchorPeriod, -i);
+      const parsed = parsePeriodString(key) ?? { year: activePeriod.selectedYear, month: activePeriod.selectedMonth };
+      const label = `${MONTH_NAMES_SHORT_PT[parsed.month]}/${String(parsed.year).slice(2)}`;
+      monthsData[key] = { income: 0, expense: 0, fixed: 0, variable: 0, saved: 0, label, isFuture: key > currentPeriodStr };
+      orderedKeys.push(key);
     }
 
+    const accumulateTx = (key: string, t: Transaction) => {
+      if (!monthsData[key]) return;
+      if (t.type === 'income') {
+        monthsData[key].income += t.amount;
+      } else if (t.type === 'expense_fixed' && !t.isInvoicePayment) {
+        monthsData[key].expense += t.amount;
+        monthsData[key].fixed += t.amount;
+      } else if (t.type === 'expense_variable' && !t.isInvoicePayment) {
+        monthsData[key].expense += t.amount;
+        monthsData[key].variable += t.amount;
+      }
+    };
+
     transactions.forEach(t => {
-      const key = t.date.slice(0, 7);
-      if (monthsData[key]) {
-        if (t.type === 'income') {
-          monthsData[key].income += t.amount;
-        } else if (t.type === 'expense_fixed') {
-          monthsData[key].expense += t.amount;
-          monthsData[key].fixed += t.amount;
-        } else if (t.type === 'expense_variable') {
-          monthsData[key].expense += t.amount;
-          monthsData[key].variable += t.amount;
+      const key = getTransactionEffectivePeriod(t);
+      accumulateTx(key, t);
+    });
+
+    for (const key of orderedKeys) {
+      if (key > currentPeriodStr) {
+        const parsed = parsePeriodString(key);
+        if (parsed) {
+          const projected = buildProjectedTransactionsForMonth({
+            targetYear: parsed.year,
+            targetMonth: parsed.month,
+            transactions,
+            recurringIncomes,
+            todayISO
+          });
+          projected.forEach(pt => accumulateTx(key, pt));
         }
       }
+    }
+
+    orderedKeys.forEach(k => {
+      monthsData[k].saved = Math.max(0, monthsData[k].income - monthsData[k].expense);
     });
 
-    Object.values(monthsData).forEach(m => {
-      m.saved = Math.max(0, m.income - m.expense);
-    });
-
-    return Object.values(monthsData);
-  }, [transactions]);
+    return orderedKeys.map(k => monthsData[k]);
+  }, [transactions, recurringIncomes, activePeriod, todayISO]);
 
   // Income distribution by group (Principal vs Benefícios vs Extras)
   const incomeDistribution = useMemo(() => {
@@ -115,7 +161,7 @@ export const AnalyticsView: React.FC = () => {
     let benefits = 0;
     let extras = 0;
 
-    transactions
+    scopedTransactions
       .filter(t => t.type === 'income')
       .forEach(t => {
         const cat = categories.find(c => c.name === t.category && c.type === 'income');
@@ -134,12 +180,12 @@ export const AnalyticsView: React.FC = () => {
       benefitsPct: (benefits / total) * 100,
       extrasPct: (extras / total) * 100
     };
-  }, [transactions, categories]);
+  }, [scopedTransactions, categories]);
 
   // Card expenses distribution
   const cardSpending = useMemo(() => {
     return creditCards.map(card => {
-      const total = transactions
+      const total = scopedTransactions
         .filter(t => t.creditCardId === card.id && t.paymentMethod === 'credit_card' && !t.isInvoicePayment)
         .reduce((sum, t) => sum + t.amount, 0);
       return {
@@ -148,27 +194,40 @@ export const AnalyticsView: React.FC = () => {
         usedPct: card.limitTotal > 0 ? (total / card.limitTotal) * 100 : 0
       };
     });
-  }, [creditCards, transactions]);
+  }, [creditCards, scopedTransactions]);
 
   // Transactions belonging to selected drilldown category
   const drilldownTransactions = useMemo(() => {
     if (!selectedDrilldownCategory) return [];
-    return transactions.filter(t => t.category === selectedDrilldownCategory);
-  }, [selectedDrilldownCategory, transactions]);
+    return scopedTransactions.filter(
+      t => t.category === selectedDrilldownCategory && (t.type === 'expense_fixed' || t.type === 'expense_variable') && !t.isInvoicePayment
+    );
+  }, [selectedDrilldownCategory, scopedTransactions]);
 
   const maxMonthlyVal = Math.max(1, ...monthlyTrends.map(m => Math.max(m.income, m.expense)));
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <BarChart3 className="w-5 h-5 text-emerald-500" />
-          Central de Gráficos & Inteligência Financeira
-        </h2>
-        <p className="text-xs text-slate-500">
-          Análise visual profunda de gastos, tendências, dívidas e padrões de consumo
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-emerald-500" />
+            Central de Gráficos & Inteligência Financeira
+          </h2>
+          <p className="text-xs text-slate-500">
+            Análise visual profunda de gastos, tendências, dívidas e padrões de consumo
+          </p>
+        </div>
+        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-xs">
+          <Calendar className="w-3.5 h-3.5 text-emerald-500" />
+          <span>{periodLabel}</span>
+          {(activePeriod.isFutureView || activePeriod.includesFuture) && (
+            <span className="px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-600 dark:text-blue-400 text-[10px] font-bold">
+              Projeção
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Smart Automated Insights Summary */}
@@ -597,9 +656,16 @@ export const AnalyticsView: React.FC = () => {
           drilldownTransactions.map(t => (
             <div key={t.id} className="py-2.5 flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="font-semibold text-slate-900 dark:text-white truncate">{t.description}</div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-semibold text-slate-900 dark:text-white truncate">{t.description}</span>
+                  {isVirtualTransaction(t) && (
+                    <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[9px] font-semibold shrink-0">
+                      Previsto
+                    </span>
+                  )}
+                </div>
                 <div className="text-[11px] text-slate-400">
-                  {formatDateBR(t.date)} · {t.paymentMethod}
+                  {formatDateBR(getTransactionEffectiveDate(t))} · {t.paymentMethod}
                 </div>
               </div>
               <div className="font-mono font-bold text-rose-600 dark:text-rose-400 tabular-nums shrink-0">

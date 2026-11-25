@@ -27,6 +27,7 @@ import { formatCurrency, formatDateBR, getTodayISO } from '../../utils/formatter
 import { Debt, DebtPriority, DebtStatus } from '../../types/finance';
 import { ActionFeedback, ActionFeedbackBanner, ConfirmDeleteModal } from '../common/ConfirmDeleteModal';
 import { ResponsiveModal } from '../common/ResponsiveModal';
+import { resolveActivePeriod } from '../../utils/periodFilter';
 
 export const DebtsView: React.FC = () => {
   const {
@@ -35,8 +36,19 @@ export const DebtsView: React.FC = () => {
     updateDebt,
     deleteDebt,
     amortizeDebt,
-    accounts
+    accounts,
+    filter,
+    activePeriod: ctxActivePeriod,
+    periodLabel: ctxPeriodLabel,
+    currentSelectedMonthProjection,
+    periodProjectionSummary
   } = useFinance();
+
+  const activePeriod = ctxActivePeriod ?? resolveActivePeriod(filter ?? { period: 'current_month' });
+  const periodLabel = ctxPeriodLabel ?? activePeriod.label;
+  const scheduledPeriodDebtCommitment = activePeriod.isMultiMonth
+    ? (periodProjectionSummary?.debtsProjected ?? 0)
+    : (currentSelectedMonthProjection?.debtsProjected ?? 0);
 
   const fieldIdPrefix = useId();
   const debtNameId = `${fieldIdPrefix}-debt-name`;
@@ -292,6 +304,21 @@ export const DebtsView: React.FC = () => {
           <span className="font-semibold">Regra de Integridade:</span> As dívidas cadastradas aqui são compromissos gerenciados separadamente e <strong>não são deduzidas novamente do saldo bancário atual</strong>. Quando você registrar uma amortização, o valor será debitado da sua conta escolhida e reduzirá o saldo devedor da dívida, sem duplicar com despesas gerais de consumo.
         </div>
       </div>
+
+      {/* Period Commitments Summary */}
+      {activeDebts.length > 0 && (
+        <div className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs shadow-xs">
+          <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+            <Calendar className="w-4 h-4 text-emerald-500 shrink-0" />
+            <span>
+              Parcelas/compromissos mínimos previstos em <strong className="text-slate-900 dark:text-white">{periodLabel}</strong>:
+            </span>
+          </div>
+          <span className="font-mono font-bold text-rose-600 dark:text-rose-400 tabular-nums">
+            {formatCurrency(scheduledPeriodDebtCommitment)}
+          </span>
+        </div>
+      )}
 
       {/* KPI Indicators */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">

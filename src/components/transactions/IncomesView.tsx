@@ -33,6 +33,11 @@ import {
   getEffectiveRuleValuesForPeriod
 } from '../../utils/recurringIncome';
 import {
+  groupTransactionsByMonth,
+  isVirtualTransaction,
+  resolveActivePeriod
+} from '../../utils/periodFilter';
+import {
   IncomeGroup,
   PaymentMethod,
   RecurringIncomeOccurrence,
@@ -45,10 +50,15 @@ import { ResponsiveModal } from '../common/ResponsiveModal';
 export const IncomesView: React.FC = () => {
   const {
     transactions,
+    filteredTransactions,
+    filter,
+    activePeriod: ctxActivePeriod,
+    periodLabel: ctxPeriodLabel,
     accounts,
     categories,
     recurringIncomes = [],
     selectedMonthRecurringIncomes = [],
+    periodRecurringIncomes,
     selectedYear = new Date().getFullYear(),
     selectedMonth = new Date().getMonth(),
     deleteTransaction,
@@ -61,6 +71,9 @@ export const IncomesView: React.FC = () => {
     unskipRecurringIncomeOccurrence,
     endRecurringIncome
   } = useFinance();
+
+  const activePeriod = ctxActivePeriod ?? resolveActivePeriod(filter ?? { period: 'current_month' });
+  const periodLabel = ctxPeriodLabel ?? activePeriod.label;
 
   const fieldIdPrefix = useId();
   const [search, setSearch] = useState('');
@@ -276,8 +289,9 @@ export const IncomesView: React.FC = () => {
     setEndingRule(null);
   };
 
-  // Filter only income transactions
-  const incomeTransactions = transactions.filter(t => t.type === 'income');
+  // Filter only income transactions inside active global period
+  const baseTransactions = filteredTransactions ?? transactions;
+  const incomeTransactions = baseTransactions.filter(t => t.type === 'income');
 
   // Group helpers
   const getCategoryGroup = (categoryName: string): IncomeGroup => {
@@ -303,43 +317,78 @@ export const IncomesView: React.FC = () => {
     return true;
   });
 
-  // Strict separation between realized (paid) vs predicted/pending incomes
-  const paidIncomeTransactions = incomeTransactions.filter(t => t.status === 'paid');
-  const pendingIncomeTransactions = incomeTransactions.filter(t => t.status !== 'paid');
-  const virtualForecastSum = selectedMonthRecurringIncomes
-    .filter(o => o.isVirtual && (o.status === 'predicted' || o.status === 'overdue'))
-    .reduce((sum, o) => sum + o.amount, 0);
+  const displayedRecurringOccurrences = activePeriod.isMultiMonth
+    ? (periodRecurringIncomes ?? selectedMonthRecurringIncomes)
+    : selectedMonthRecurringIncomes;
 
-  const totalMain = paidIncomeTransactions
+  // Strict separation between realized (paid) vs predicted/pending incomes
+  const paidIncomeTransactions = incomeTransactions.filter(t => t.status === 'paid' && !isVirtualTransaction(t));
+  const pendingSavedIncomes = incomeTransactions.filter(t => t.status !== 'paid' && !isVirtualTransaction(t));
+  const virtualFilteredIncomes = incomeTransactions.filter(t => isVirtualTransaction(t));
+
+  const virtualForecastSum = virtualFilteredIncomes.length > 0
+    ? virtualFilteredIncomes.reduce((sum, t) => sum + t.amount, 0)
+    : displayedRecurringOccurrences
+        .filter(o => o.isVirtual && (o.status === 'predicted' || o.status === 'overdue'))
+        .reduce((sum, o) => sum + o.amount, 0);
+
+  const isForwardProjectionView = activePeriod.isFutureView || activePeriod.includesFuture;
+  const kpiSourceTransactions = isForwardProjectionView ? incomeTransactions : paidIncomeTransactions;
+
+  const totalMain = kpiSourceTransactions
     .filter(t => getCategoryGroup(t.category) === 'main_income')
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const totalBenefits = paidIncomeTransactions
+  const totalBenefits = kpiSourceTransactions
     .filter(t => getCategoryGroup(t.category) === 'benefits')
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const totalExtras = paidIncomeTransactions
+  const totalExtras = kpiSourceTransactions
     .filter(t => getCategoryGroup(t.category) === 'extra_income' || getCategoryGroup(t.category) === 'other')
     .reduce((sum, t) => sum + t.amount, 0);
 
   const totalReceivedIncomes = paidIncomeTransactions.reduce((sum, t) => sum + t.amount, 0);
   const totalPendingIncomes =
-    pendingIncomeTransactions.reduce((sum, t) => sum + t.amount, 0) + virtualForecastSum;
+    pendingSavedIncomes.reduce((sum, t) => sum + t.amount, 0) + virtualForecastSum;
+  const totalProjectedPlusReceived = totalReceivedIncomes + totalPendingIncomes;
 
   const handleToggleStatus = (tx: Transaction) => {
+    if (isVirtualTransaction(tx)) {
+      if (tx.recurringIncomeId && tx.recurringPeriod) {
+        const matchedOcc = displayedRecurringOccurrences.find(
+          o => o.ruleId === tx.recurringIncomeId && o.period === tx.recurringPeriod
+        );
+        if (matchedOcc) {
+          handleOpenConfirmOccurrence(matchedOcc);
+        }
+      }
+      return;
+    }
     const newStatus = tx.status === 'paid' ? 'pending' : 'paid';
     updateTransaction(tx.id, { status: newStatus });
   };
+
+  const shouldGroupByMonth = activePeriod.isMultiMonth || activePeriod.filterPeriod === 'all';
+  const groupedIncomes = groupTransactionsByMonth(filteredIncomes, {
+    ascending: isForwardProjectionView,
+    todayISO
+  });
 
   return (
     <div className="space-y-6">
       {/* Top Banner with Groups */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-            Entradas Financeiras
-          </h2>
-          <p className="text-xs text-slate-500">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+              Entradas Financeiras
+            </h2>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+              <Calendar className="w-3 h-3" />
+              <span>{periodLabel}</span>
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mt-0.5">
             Controle de salários, receitas fixas recorrentes, benefícios e rendas extras
           </p>
         </div>
@@ -360,14 +409,14 @@ export const IncomesView: React.FC = () => {
 
       {/* Group Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-        {/* Total Geral Recebido (strictly paid) */}
+        {/* Total Geral Recebido (strictly paid on current/past, or projected+received on forward views) */}
         <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
           <div className="text-xs font-medium text-slate-500 mb-1 flex items-center justify-between">
-            <span>Total Recebido</span>
+            <span>{isForwardProjectionView ? 'Total Previsto no Período' : 'Total Recebido'}</span>
             <ArrowUpRight className="w-4 h-4 text-emerald-500" />
           </div>
           <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 tabular-nums">
-            {formatCurrency(totalReceivedIncomes)}
+            {formatCurrency(isForwardProjectionView ? totalProjectedPlusReceived : totalReceivedIncomes)}
           </div>
           <div className="text-[11px] text-slate-400 mt-1">
             {paidIncomeTransactions.length} efetivada(s)
@@ -520,13 +569,16 @@ export const IncomesView: React.FC = () => {
       </div>
 
       {/* Ocorrências Recorrentes do Período Selecionado */}
-      {selectedMonthRecurringIncomes.length > 0 && (
+      {displayedRecurringOccurrences.length > 0 && (
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-xs space-y-3">
           <div className="flex items-center justify-between gap-2">
             <div>
               <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-emerald-500" />
-                <span>Ocorrências Recorrentes de {selectedMonthLabel}</span>
+                <span>
+                  Ocorrências Recorrentes de{' '}
+                  {activePeriod.mode === 'single_month' ? selectedMonthLabel : periodLabel}
+                </span>
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Previsões não alteram o saldo atual das contas até você confirmar o recebimento real
@@ -535,7 +587,7 @@ export const IncomesView: React.FC = () => {
           </div>
 
           <div className="space-y-2.5">
-            {selectedMonthRecurringIncomes.map(occ => {
+            {displayedRecurringOccurrences.map(occ => {
               const parentRule = recurringIncomes.find(r => r.id === occ.ruleId);
               const acc = accounts.find(a => a.id === occ.accountId);
               const dayFromOcc = parseInt(occ.date.slice(8, 10), 10);
@@ -739,104 +791,166 @@ export const IncomesView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-                {filteredIncomes.map(tx => {
-                  const grp = getCategoryGroup(tx.category);
-                  const acc = accounts.find(a => a.id === tx.accountId);
-                  const isOverdue = tx.status !== 'paid' && tx.date < todayISO;
-                  const isFixedBadge = Boolean(tx.recurringIncomeId || tx.isRecurring);
-                  return (
-                    <tr key={tx.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3 px-4 font-mono text-slate-500 whitespace-nowrap">
-                        {formatDateBR(tx.date)}
-                      </td>
-                      <td className="py-3 px-4 font-medium text-slate-900 dark:text-white">
-                        <div className="flex items-center gap-2 max-w-xs">
-                          <span className="truncate">{tx.description}</span>
-                          {isFixedBadge && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-semibold shrink-0">
-                              <Repeat className="w-2.5 h-2.5" />
-                              Fixa mensal
+                {(shouldGroupByMonth
+                  ? groupedIncomes
+                  : [
+                      {
+                        period: activePeriod.selectedPeriod,
+                        label: periodLabel,
+                        shortLabel: activePeriod.shortLabel,
+                        isFuture: activePeriod.isFutureView,
+                        isCurrent: activePeriod.isCurrentMonth,
+                        transactions: filteredIncomes,
+                        totalIncome: filteredIncomes.reduce((s, t) => s + t.amount, 0),
+                        totalExpense: 0,
+                        net: 0
+                      }
+                    ]
+                ).map(group => (
+                  <React.Fragment key={group.period}>
+                    {shouldGroupByMonth && (
+                      <tr className="bg-slate-50/90 dark:bg-slate-800/40">
+                        <td colSpan={7} className="py-2 px-4">
+                          <div className="flex items-center justify-between text-[11px] font-semibold">
+                            <span className="text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                              <Calendar className="w-3 h-3 text-emerald-500" />
+                              <span>{group.label}</span>
+                              {group.isFuture && (
+                                <span className="px-1.5 py-0.2 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px]">
+                                  Projeção
+                                </span>
+                              )}
                             </span>
-                          )}
-                        </div>
-                        {tx.notes && <div className="text-[11px] text-slate-400 truncate">{tx.notes}</div>}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="font-medium text-slate-800 dark:text-slate-200">{tx.category}</div>
-                        <div className="text-[10px] text-slate-400 capitalize">
-                          {grp === 'main_income' ? 'Renda Principal' : grp === 'benefits' ? 'Benefícios' : 'Entrada Extra'}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-slate-500 truncate max-w-[140px]">
-                        {acc ? acc.name : '-'}
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400 tabular-nums whitespace-nowrap">
-                        +{formatCurrency(tx.amount)}
-                      </td>
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleStatus(tx)}
-                          title="Clique para alternar status"
-                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
-                            tx.status === 'paid'
-                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
-                              : isOverdue
-                              ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400'
-                              : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
-                          }`}
-                        >
-                          {tx.status === 'paid' ? (
-                            <CheckCircle2 className="w-3 h-3" />
-                          ) : isOverdue ? (
-                            <AlertTriangle className="w-3 h-3" />
-                          ) : (
-                            <Clock className="w-3 h-3" />
-                          )}
-                          <span>
-                            {tx.status === 'paid'
-                              ? 'Recebido'
-                              : isOverdue
-                              ? 'Previsto em atraso'
-                              : 'Previsto'}
-                          </span>
-                        </button>
-                      </td>
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-1 text-slate-400">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEdit(tx)}
-                            title="Editar entrada"
-                            className="p-1.5 rounded-lg hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => duplicateTransaction(tx.id)}
-                            title="Duplicar entrada"
-                            className="p-1.5 rounded-lg hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
-                          >
-                            <Copy className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={e => {
-                              e.stopPropagation();
-                              setPendingDeleteTx(tx);
-                            }}
-                            title="Excluir entrada"
-                            aria-label={`Excluir entrada ${tx.description}`}
-                            className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 transition-colors cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                            <span className="font-mono text-emerald-600 dark:text-emerald-400 tabular-nums">
+                              +{formatCurrency(group.totalIncome)} ({group.transactions.length})
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    {group.transactions.map(tx => {
+                      const grp = getCategoryGroup(tx.category);
+                      const acc = accounts.find(a => a.id === tx.accountId);
+                      const isVirtual = isVirtualTransaction(tx);
+                      const isOverdue =
+                        tx.projectedStatus === 'overdue' ||
+                        (tx.status !== 'paid' && tx.date < todayISO);
+                      const isFixedBadge = Boolean(tx.recurringIncomeId || tx.isRecurring);
+                      return (
+                        <tr key={tx.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                          <td className="py-3 px-4 font-mono text-slate-500 whitespace-nowrap">
+                            {formatDateBR(tx.date)}
+                          </td>
+                          <td className="py-3 px-4 font-medium text-slate-900 dark:text-white">
+                            <div className="flex items-center gap-2 max-w-xs">
+                              <span className="truncate">{tx.description}</span>
+                              {isFixedBadge && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-semibold shrink-0">
+                                  <Repeat className="w-2.5 h-2.5" />
+                                  Fixa mensal
+                                </span>
+                              )}
+                              {isVirtual && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-700 dark:text-blue-400 text-[10px] font-semibold shrink-0">
+                                  Projeção
+                                </span>
+                              )}
+                            </div>
+                            {tx.notes && <div className="text-[11px] text-slate-400 truncate">{tx.notes}</div>}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="font-medium text-slate-800 dark:text-slate-200">{tx.category}</div>
+                            <div className="text-[10px] text-slate-400 capitalize">
+                              {grp === 'main_income' ? 'Renda Principal' : grp === 'benefits' ? 'Benefícios' : 'Entrada Extra'}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-slate-500 truncate max-w-[140px]">
+                            {acc ? acc.name : '-'}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400 tabular-nums whitespace-nowrap">
+                            +{formatCurrency(tx.amount)}
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleStatus(tx)}
+                              title={isVirtual ? 'Confirmar recebimento desta previsão' : 'Clique para alternar status'}
+                              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
+                                tx.status === 'paid'
+                                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+                                  : isOverdue
+                                  ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400'
+                                  : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
+                              }`}
+                            >
+                              {tx.status === 'paid' ? (
+                                <CheckCircle2 className="w-3 h-3" />
+                              ) : isOverdue ? (
+                                <AlertTriangle className="w-3 h-3" />
+                              ) : (
+                                <Clock className="w-3 h-3" />
+                              )}
+                              <span>
+                                {tx.status === 'paid'
+                                  ? 'Recebido'
+                                  : isOverdue
+                                  ? 'Previsto em atraso'
+                                  : 'Previsto'}
+                              </span>
+                            </button>
+                          </td>
+                          <td className="py-3 px-4 text-center whitespace-nowrap">
+                            {isVirtual ? (
+                              tx.recurringIncomeId && tx.recurringPeriod ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleStatus(tx)}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors cursor-pointer"
+                                >
+                                  <CheckCircle2 className="w-3 h-3" />
+                                  <span>Confirmar</span>
+                                </button>
+                              ) : (
+                                <span className="text-[10px] text-slate-400 font-medium">Previsto</span>
+                              )
+                            ) : (
+                              <div className="flex items-center justify-center gap-1 text-slate-400">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEdit(tx)}
+                                  title="Editar entrada"
+                                  className="p-1.5 rounded-lg hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => duplicateTransaction(tx.id)}
+                                  title="Duplicar entrada"
+                                  className="p-1.5 rounded-lg hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setPendingDeleteTx(tx);
+                                  }}
+                                  title="Excluir entrada"
+                                  aria-label={`Excluir entrada ${tx.description}`}
+                                  className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </React.Fragment>
+                ))}
               </tbody>
             </table>
           </div>

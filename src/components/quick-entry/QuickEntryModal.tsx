@@ -8,7 +8,8 @@ import { Plus, Sparkles, ArrowDownRight, ArrowUpRight, Check, CreditCard, Wallet
 import { useFinance } from '../../context/FinanceContext';
 import { PaymentMethod, RecurringIncomeRule, TransactionType } from '../../types/finance';
 import { formatCurrency, getTodayISO } from '../../utils/formatters';
-import { calculateRecurringIncomeAnnualTotal, clampDayOfMonth, parseISODateParts } from '../../utils/recurringIncome';
+import { calculateRecurringIncomeAnnualTotal, clampDayOfMonth, parseISODateParts, resolveClampedDateForPeriod } from '../../utils/recurringIncome';
+import { resolveActivePeriod } from '../../utils/periodFilter';
 import { ResponsiveModal } from '../common/ResponsiveModal';
 
 const PRESET_QUICK_EXPENSES = [
@@ -30,7 +31,11 @@ export const QuickEntryModal: React.FC = () => {
     categories,
     accounts,
     creditCards,
+    filter,
+    activePeriod: ctxActivePeriod
   } = useFinance();
+
+  const activePeriod = ctxActivePeriod ?? resolveActivePeriod(filter ?? { period: 'current_month' });
 
   const fieldIdPrefix = useId();
   const amountId = `${fieldIdPrefix}-amount`;
@@ -89,10 +94,17 @@ export const QuickEntryModal: React.FC = () => {
       setActiveTab('expense');
     }
     const today = getTodayISO();
-    setDate(today);
-    setDueDate(today);
-    setRecurringStartDate(today);
-    const parts = parseISODateParts(today);
+    const todayParts = parseISODateParts(today);
+    const contextualDate =
+      activePeriod.isSingleMonth && !activePeriod.isCurrentMonth
+        ? resolveClampedDateForPeriod(activePeriod.selectedPeriod, todayParts ? todayParts.day : 1)
+        : today;
+    setDate(contextualDate);
+    setDueDate(contextualDate);
+    setStatus(contextualDate > today ? 'pending' : 'paid');
+    setShowAdvanced(activePeriod.isSingleMonth && !activePeriod.isCurrentMonth);
+    setRecurringStartDate(contextualDate);
+    const parts = parseISODateParts(contextualDate);
     setRecurringDayOfMonth(parts ? parts.day : new Date().getDate());
     setIsRecurringIncome(false);
     setRecurringIsIndefinite(true);
@@ -101,7 +113,7 @@ export const QuickEntryModal: React.FC = () => {
     setRecurringNotes('');
     setFormError(null);
     setSavedSuccess(false);
-  }, [quickEntryType, isQuickEntryOpen]);
+  }, [quickEntryType, isQuickEntryOpen, activePeriod.isSingleMonth, activePeriod.isCurrentMonth, activePeriod.selectedPeriod]);
 
   // Set default account/card and category
   useEffect(() => {

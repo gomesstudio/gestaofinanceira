@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -20,6 +20,12 @@ import {
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency, formatDateBR, getMonthNamePT, getTodayISO } from '../../utils/formatters';
 import { getRecurringIncomesForMonth } from '../../utils/recurringIncome';
+import {
+  buildPeriodString,
+  buildProjectedTransactionsForMonth,
+  getTransactionEffectiveDate,
+  isVirtualTransaction
+} from '../../utils/periodFilter';
 import { Transaction } from '../../types/finance';
 
 export const FinancialCalendarView: React.FC = () => {
@@ -27,16 +33,25 @@ export const FinancialCalendarView: React.FC = () => {
     transactions,
     recurringIncomes = [],
     creditCards,
-    openQuickEntry
+    openQuickEntry,
+    selectedYear,
+    selectedMonth
   } = useFinance();
 
-  const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [currentDate, setCurrentDate] = useState(() => new Date(selectedYear, selectedMonth, 1));
   const [selectedDayISO, setSelectedDayISO] = useState<string | null>(getTodayISO());
+
+  useEffect(() => {
+    setCurrentDate(new Date(selectedYear, selectedMonth, 1));
+  }, [selectedYear, selectedMonth]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth(); // 0-11
 
   const todayStr = getTodayISO();
+  const viewedPeriod = buildPeriodString(year, month);
+  const currentPeriod = todayStr.slice(0, 7);
+  const isViewedFuture = viewedPeriod > currentPeriod;
 
   // Navigation handlers
   const handlePrevMonth = () => {
@@ -60,59 +75,77 @@ export const FinancialCalendarView: React.FC = () => {
   const daysInPrevMonth = new Date(year, month, 0).getDate();
 
   // Map events to date strings (YYYY-MM-DD)
-  // An event can be based on `tx.date` (income or payment date) or `tx.dueDate` (due date of bills)
   const eventsByDay: { [dateStr: string]: Transaction[] } = {};
 
   transactions.forEach(tx => {
-    const effectiveDate = tx.dueDate || tx.date;
+    const effectiveDate = getTransactionEffectiveDate(tx);
     if (!eventsByDay[effectiveDate]) {
       eventsByDay[effectiveDate] = [];
     }
     eventsByDay[effectiveDate].push(tx);
   });
 
-  // Incluir ocorrências previstas dinâmicas de receitas fixas recorrentes para o mês visualizado
-  const monthRecurringOccurrences = getRecurringIncomesForMonth(
-    recurringIncomes,
-    year,
-    month,
-    transactions,
-    todayStr
-  );
-  monthRecurringOccurrences.forEach(occ => {
-    if (!occ.isVirtual) return;
-    const alreadyExists = transactions.some(
-      t =>
-        t.type === 'income' &&
-        ((t.recurringIncomeId && t.recurringIncomeId === occ.ruleId && t.recurringPeriod === occ.period) ||
-          (t.date.slice(0, 7) === occ.period &&
-            t.description.trim().toLowerCase() === occ.description.trim().toLowerCase()))
-    );
-    if (alreadyExists) return;
-    if (!eventsByDay[occ.date]) {
-      eventsByDay[occ.date] = [];
-    }
-    eventsByDay[occ.date].push({
-      id: occ.id,
-      description: occ.description,
-      amount: occ.amount,
-      type: 'income',
-      category: occ.category,
-      date: occ.date,
-      accountId: occ.accountId,
-      paymentMethod: occ.paymentMethod,
-      status: occ.status === 'overdue' ? 'overdue' : 'pending',
-      isRecurring: true,
-      recurringIncomeId: occ.isLegacy ? undefined : occ.ruleId,
-      recurringPeriod: occ.period,
-      notes: occ.notes,
+  if (isViewedFuture) {
+    // Inclui receitas fixas recorrentes e despesas fixas explicitamente recorrentes previstas no mês futuro
+    const projectedItems = buildProjectedTransactionsForMonth({
+      targetYear: year,
+      targetMonth: month,
+      transactions,
+      recurringIncomes,
+      todayISO: todayStr
     });
-  });
+    projectedItems.forEach(pt => {
+      const effectiveDate = getTransactionEffectiveDate(pt);
+      if (!eventsByDay[effectiveDate]) {
+        eventsByDay[effectiveDate] = [];
+      }
+      eventsByDay[effectiveDate].push(pt);
+    });
+  } else {
+    // Mês atual ou passado: inclui ocorrências virtuais de receitas fixas recorrentes no calendário visual
+    const monthRecurringOccurrences = getRecurringIncomesForMonth(
+      recurringIncomes,
+      year,
+      month,
+      transactions,
+      todayStr
+    );
+    monthRecurringOccurrences.forEach(occ => {
+      if (!occ.isVirtual || occ.status === 'skipped') return;
+      const alreadyExists = transactions.some(
+        t =>
+          t.type === 'income' &&
+          ((t.recurringIncomeId && t.recurringIncomeId === occ.ruleId && t.recurringPeriod === occ.period) ||
+            (t.date.slice(0, 7) === occ.period &&
+              t.description.trim().toLowerCase() === occ.description.trim().toLowerCase()))
+      );
+      if (alreadyExists) return;
+      if (!eventsByDay[occ.date]) {
+        eventsByDay[occ.date] = [];
+      }
+      eventsByDay[occ.date].push({
+        id: occ.id,
+        description: occ.description,
+        amount: occ.amount,
+        type: 'income',
+        category: occ.category,
+        date: occ.date,
+        accountId: occ.accountId,
+        paymentMethod: occ.paymentMethod,
+        status: occ.status === 'overdue' ? 'overdue' : 'pending',
+        isRecurring: true,
+        recurringIncomeId: occ.isLegacy ? undefined : occ.ruleId,
+        recurringPeriod: occ.period,
+        notes: occ.notes,
+        isVirtualProjection: true,
+      });
+    });
+  }
 
   // Also include credit card due dates for current month
   creditCards.forEach(card => {
     const cardDueDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(card.dueDay).padStart(2, '0')}`;
-    // Handled visually or through transactions
+    void cardDueDateStr;
   });
 
   // Selected day items
@@ -353,6 +386,7 @@ export const FinancialCalendarView: React.FC = () => {
                     ? t.status !== 'paid' && t.date < todayStr
                     : t.status !== 'paid' && Boolean(t.dueDate && t.dueDate < todayStr);
                   const isRecurringItem = Boolean(t.recurringIncomeId || (isInc && t.isRecurring));
+                  const isProjected = isVirtualTransaction(t);
 
                   return (
                     <div
@@ -365,6 +399,11 @@ export const FinancialCalendarView: React.FC = () => {
                           {isRecurringItem && (
                             <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[9px] font-semibold shrink-0">
                               Fixa mensal
+                            </span>
+                          )}
+                          {isProjected && !isRecurringItem && (
+                            <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[9px] font-semibold shrink-0">
+                              Previsto
                             </span>
                           )}
                         </div>

@@ -19,10 +19,16 @@ import {
   CreditCard,
   Wallet,
   Plus,
-  Repeat
+  Repeat,
+  Calendar
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency, formatDateBR, getTodayISO } from '../../utils/formatters';
+import {
+  groupTransactionsByMonth,
+  isVirtualTransaction,
+  resolveActivePeriod
+} from '../../utils/periodFilter';
 import { Transaction, TransactionStatus, TransactionType } from '../../types/finance';
 import { ActionFeedback, ActionFeedbackBanner, ConfirmDeleteModal } from '../common/ConfirmDeleteModal';
 import { ResponsiveModal } from '../common/ResponsiveModal';
@@ -38,6 +44,10 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
 }) => {
   const {
     transactions,
+    filteredTransactions,
+    filter,
+    activePeriod: ctxActivePeriod,
+    periodLabel: ctxPeriodLabel,
     accounts,
     creditCards,
     categories,
@@ -46,6 +56,9 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
     updateTransaction,
     openQuickEntry
   } = useFinance();
+
+  const activePeriod = ctxActivePeriod ?? resolveActivePeriod(filter ?? { period: 'current_month' });
+  const periodLabel = ctxPeriodLabel ?? activePeriod.label;
 
   const fieldIdPrefix = useId();
   const [search, setSearch] = useState('');
@@ -103,7 +116,8 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
   const minAmount = minAmountStr ? parseFloat(minAmountStr.replace(/\./g, '').replace(',', '.')) : 0;
   const maxAmount = maxAmountStr ? parseFloat(maxAmountStr.replace(/\./g, '').replace(',', '.')) : Infinity;
 
-  const filtered = transactions.filter(t => {
+  const baseTransactions = filteredTransactions ?? transactions;
+  const filtered = baseTransactions.filter(t => {
     if (search) {
       const q = search.toLowerCase();
       const matchDesc = t.description.toLowerCase().includes(q);
@@ -133,6 +147,7 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
   });
 
   const handleOpenEdit = (tx: Transaction) => {
+    if (isVirtualTransaction(tx)) return;
     setEditingTx(tx);
     setEditDesc(tx.description);
     setEditAmountStr(tx.amount.toFixed(2).replace('.', ','));
@@ -161,18 +176,38 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
   };
 
   const allCategories = categories;
+  const shouldGroupByMonth = activePeriod.isMultiMonth || activePeriod.filterPeriod === 'all';
+  const groupedTransactions = groupTransactionsByMonth(filtered, {
+    ascending: activePeriod.isFutureView || activePeriod.includesFuture,
+    todayISO: todayStr
+  });
+  const totalFilteredIn = filtered
+    .filter(t => t.type === 'income')
+    .reduce((s, t) => s + t.amount, 0);
+  const totalFilteredOut = filtered
+    .filter(t => (t.type === 'expense_fixed' || t.type === 'expense_variable') && !t.isInvoicePayment)
+    .reduce((s, t) => s + t.amount, 0);
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Receipt className="w-5 h-5 text-emerald-500" />
-            Extrato Geral & Pesquisa
-          </h2>
-          <p className="text-xs text-slate-500">
-            Histórico consolidado com busca avançada, edição e filtros detalhados
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-emerald-500" />
+              Extrato Geral & Pesquisa
+            </h2>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+              <Calendar className="w-3 h-3 text-emerald-500" />
+              <span>{periodLabel}</span>
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mt-0.5">
+            {filtered.length} lançamento(s) no período • Entradas:{' '}
+            <strong className="text-emerald-600 dark:text-emerald-400 font-mono">+{formatCurrency(totalFilteredIn)}</strong>{' '}
+            • Saídas:{' '}
+            <strong className="text-rose-600 dark:text-rose-400 font-mono">-{formatCurrency(totalFilteredOut)}</strong>
           </p>
         </div>
         <button
@@ -336,124 +371,185 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-                {filtered.map(tx => {
-                  const isInc = tx.type === 'income';
-                  const isOver = isInc
-                    ? tx.status !== 'paid' && tx.date < todayStr
-                    : tx.status !== 'paid' && Boolean(tx.dueDate && tx.dueDate < todayStr);
-                  const isCard = tx.paymentMethod === 'credit_card';
-                  const account = accounts.find(a => a.id === tx.accountId);
-                  const card = creditCards.find(c => c.id === tx.creditCardId);
-                  const isRecurringBadge = Boolean(tx.recurringIncomeId || (isInc && tx.isRecurring));
+                {(shouldGroupByMonth
+                  ? groupedTransactions
+                  : [
+                      {
+                        period: activePeriod.selectedPeriod,
+                        label: periodLabel,
+                        shortLabel: activePeriod.shortLabel,
+                        isFuture: activePeriod.isFutureView,
+                        isCurrent: activePeriod.isCurrentMonth,
+                        transactions: filtered,
+                        totalIncome: totalFilteredIn,
+                        totalExpense: totalFilteredOut,
+                        net: totalFilteredIn - totalFilteredOut
+                      }
+                    ]
+                ).map(group => (
+                  <React.Fragment key={group.period}>
+                    {shouldGroupByMonth && (
+                      <tr className="bg-slate-50/90 dark:bg-slate-800/40">
+                        <td colSpan={7} className="py-2 px-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold">
+                            <span className="text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                              <Calendar className="w-3 h-3 text-emerald-500" />
+                              <span>{group.label}</span>
+                              {group.isFuture && (
+                                <span className="px-1.5 py-0.2 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px]">
+                                  Projeção
+                                </span>
+                              )}
+                            </span>
+                            <div className="flex items-center gap-3 font-mono tabular-nums">
+                              <span className="text-emerald-600 dark:text-emerald-400">
+                                +{formatCurrency(group.totalIncome)}
+                              </span>
+                              <span className="text-rose-600 dark:text-rose-400">
+                                -{formatCurrency(group.totalExpense)}
+                              </span>
+                              <span className="text-slate-500">({group.transactions.length})</span>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    {group.transactions.map(tx => {
+                      const isInc = tx.type === 'income';
+                      const isVirtual = isVirtualTransaction(tx);
+                      const isOver = !isVirtual && (
+                        isInc
+                          ? tx.status !== 'paid' && tx.date < todayStr
+                          : tx.status !== 'paid' && Boolean(tx.dueDate && tx.dueDate < todayStr)
+                      );
+                      const isCard = tx.paymentMethod === 'credit_card';
+                      const account = accounts.find(a => a.id === tx.accountId);
+                      const card = creditCards.find(c => c.id === tx.creditCardId);
+                      const isRecurringBadge = Boolean(tx.recurringIncomeId || (isInc && tx.isRecurring));
 
-                  return (
-                    <tr key={tx.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3 px-4 font-mono text-slate-500 whitespace-nowrap">
-                        {formatDateBR(tx.date)}
-                        {tx.dueDate && tx.dueDate !== tx.date && (
-                          <div className="text-[10px] text-slate-400">Venc: {formatDateBR(tx.dueDate)}</div>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 font-medium text-slate-900 dark:text-white">
-                        <div className="flex items-center gap-2 truncate max-w-xs">
-                          <span className="truncate">{tx.description}</span>
-                          {isRecurringBadge && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
-                              <Repeat className="w-2.5 h-2.5" />
-                              Fixa mensal
+                      return (
+                        <tr key={tx.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                          <td className="py-3 px-4 font-mono text-slate-500 whitespace-nowrap">
+                            {formatDateBR(tx.date)}
+                            {tx.dueDate && tx.dueDate !== tx.date && (
+                              <div className="text-[10px] text-slate-400">Venc: {formatDateBR(tx.dueDate)}</div>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 font-medium text-slate-900 dark:text-white">
+                            <div className="flex items-center gap-2 truncate max-w-xs">
+                              <span className="truncate">{tx.description}</span>
+                              {isRecurringBadge && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
+                                  <Repeat className="w-2.5 h-2.5" />
+                                  Fixa mensal
+                                </span>
+                              )}
+                              {tx.installmentInfo && (
+                                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
+                                  {tx.installmentInfo.current}/{tx.installmentInfo.total}
+                                </span>
+                              )}
+                              {isVirtual && (
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-700 dark:text-blue-400 shrink-0">
+                                  Projeção
+                                </span>
+                              )}
+                            </div>
+                            {tx.notes && <div className="text-[11px] text-slate-400 truncate">{tx.notes}</div>}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="font-semibold text-slate-800 dark:text-slate-200">{tx.category}</div>
+                            <div className="text-[10px] text-slate-400 capitalize">
+                              {tx.type === 'income' ? 'Entrada' : tx.type === 'expense_fixed' ? 'Fixa' : tx.type === 'expense_variable' ? 'Variável' : tx.type}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap text-slate-500">
+                            {isCard ? (
+                              <div className="flex items-center gap-1.5">
+                                <CreditCard className="w-3.5 h-3.5 text-purple-500" />
+                                <span>{card ? card.name : 'Cartão'}</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5">
+                                <Wallet className="w-3.5 h-3.5 text-blue-500" />
+                                <span>{account ? account.name : 'Conta'}</span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-bold tabular-nums whitespace-nowrap">
+                            <span className={isInc ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white'}>
+                              {isInc ? '+' : '-'} {formatCurrency(tx.amount)}
                             </span>
-                          )}
-                          {tx.installmentInfo && (
-                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
-                              {tx.installmentInfo.current}/{tx.installmentInfo.total}
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium ${
+                                tx.status === 'paid'
+                                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+                                  : isVirtual
+                                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400'
+                                  : isOver
+                                  ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400'
+                                  : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
+                              }`}
+                            >
+                              {tx.status === 'paid' ? <CheckCircle2 className="w-3 h-3" /> : isOver ? <AlertTriangle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                              <span>
+                                {isInc
+                                  ? tx.status === 'paid'
+                                    ? 'Recebido'
+                                    : tx.projectedStatus === 'overdue' || isOver
+                                    ? 'Previsto em atraso'
+                                    : 'Previsto'
+                                  : tx.status === 'paid'
+                                  ? 'Efetivado'
+                                  : isVirtual
+                                  ? 'Previsto'
+                                  : isOver
+                                  ? 'Atrasado'
+                                  : 'Pendente'}
+                              </span>
                             </span>
-                          )}
-                        </div>
-                        {tx.notes && <div className="text-[11px] text-slate-400 truncate">{tx.notes}</div>}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-slate-800 dark:text-slate-200">{tx.category}</div>
-                        <div className="text-[10px] text-slate-400 capitalize">
-                          {tx.type === 'income' ? 'Entrada' : tx.type === 'expense_fixed' ? 'Fixa' : tx.type === 'expense_variable' ? 'Variável' : tx.type}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 whitespace-nowrap text-slate-500">
-                        {isCard ? (
-                          <div className="flex items-center gap-1.5">
-                            <CreditCard className="w-3.5 h-3.5 text-purple-500" />
-                            <span>{card ? card.name : 'Cartão'}</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5">
-                            <Wallet className="w-3.5 h-3.5 text-blue-500" />
-                            <span>{account ? account.name : 'Conta'}</span>
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono font-bold tabular-nums whitespace-nowrap">
-                        <span className={isInc ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white'}>
-                          {isInc ? '+' : '-'} {formatCurrency(tx.amount)}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium ${
-                            tx.status === 'paid'
-                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
-                              : isOver
-                              ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400'
-                              : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
-                          }`}
-                        >
-                          {tx.status === 'paid' ? <CheckCircle2 className="w-3 h-3" /> : isOver ? <AlertTriangle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                          <span>
-                            {isInc
-                              ? tx.status === 'paid'
-                                ? 'Recebido'
-                                : isOver
-                                ? 'Previsto em atraso'
-                                : 'Previsto'
-                              : tx.status === 'paid'
-                              ? 'Efetivado'
-                              : isOver
-                              ? 'Atrasado'
-                              : 'Pendente'}
-                          </span>
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-1 text-slate-400">
-                          <button
-                            onClick={() => handleOpenEdit(tx)}
-                            title="Editar lançamento"
-                            className="p-1.5 rounded-lg hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => duplicateTransaction(tx.id)}
-                            title="Duplicar lançamento"
-                            className="p-1.5 rounded-lg hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
-                          >
-                            <Copy className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={e => {
-                              e.stopPropagation();
-                              setPendingDeleteTx(tx);
-                            }}
-                            title="Excluir lançamento"
-                            aria-label={`Excluir lançamento ${tx.description}`}
-                            className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 transition-colors cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                          </td>
+                          <td className="py-3 px-4 text-center whitespace-nowrap">
+                            {isVirtual ? (
+                              <span className="text-[10px] text-slate-400 font-medium">Projeção</span>
+                            ) : (
+                              <div className="flex items-center justify-center gap-1 text-slate-400">
+                                <button
+                                  onClick={() => handleOpenEdit(tx)}
+                                  title="Editar lançamento"
+                                  className="p-1.5 rounded-lg hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => duplicateTransaction(tx.id)}
+                                  title="Duplicar lançamento"
+                                  className="p-1.5 rounded-lg hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setPendingDeleteTx(tx);
+                                  }}
+                                  title="Excluir lançamento"
+                                  aria-label={`Excluir lançamento ${tx.description}`}
+                                  className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </React.Fragment>
+                ))}
               </tbody>
             </table>
           </div>

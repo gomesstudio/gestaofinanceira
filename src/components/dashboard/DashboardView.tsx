@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency, formatDateBR, formatPercent, MONTH_NAMES_PT } from '../../utils/formatters';
+import { getTransactionEffectiveDate, isVirtualTransaction, resolveActivePeriod } from '../../utils/periodFilter';
 
 import { FutureProjectionCard } from './FutureProjectionCard';
 import { TwelveMonthProjectionSection } from './TwelveMonthProjectionSection';
@@ -53,12 +54,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setCurrentTab }) =
     smartAlerts,
     openQuickEntry,
     debts,
+    filter,
+    activePeriod: ctxActivePeriod,
+    periodLabel: ctxPeriodLabel,
     selectedMonth,
     selectedYear,
     isFutureView
   } = useFinance();
 
-  const recentTransactions = filteredTransactions.slice(0, 5);
+  const activePeriod = ctxActivePeriod ?? resolveActivePeriod(filter);
+  const periodLabel = ctxPeriodLabel ?? activePeriod.label;
+  const isProjectedView = isFutureView || activePeriod.includesFuture;
+  const recentTransactions = [...filteredTransactions]
+    .sort((a, b) => getTransactionEffectiveDate(b).localeCompare(getTransactionEffectiveDate(a)))
+    .slice(0, 5);
   const monthName = MONTH_NAMES_PT[selectedMonth] || 'Mês Atual';
 
   return (
@@ -74,11 +83,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setCurrentTab }) =
           <div className="absolute -bottom-10 left-1/3 w-40 h-40 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
 
           <div className="relative z-10 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                 <Calendar className="w-3 h-3 text-emerald-400" />
-                <span>{monthName} {selectedYear}</span>
-                {isFutureView && <span className="opacity-80">(Visão Futura)</span>}
+                <span>{activePeriod.mode === 'single_month' ? `${monthName} ${selectedYear}` : periodLabel}</span>
+                {isProjectedView && (
+                  <span className="opacity-80">
+                    {isFutureView ? '(Visão Futura)' : '(Inclui Projeções)'}
+                  </span>
+                )}
               </span>
               <span className="text-slate-400 text-xs hidden md:inline">
                 · Atualizado em tempo real
@@ -179,7 +192,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setCurrentTab }) =
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">
               <span className="flex items-center gap-1.5">
                 <TrendingUp className="w-4 h-4 text-blue-500" />
-                <span>Resultado Líquido do Mês</span>
+                <span>
+                  {activePeriod.mode === 'single_month'
+                    ? 'Resultado Líquido do Mês'
+                    : `Resultado (${activePeriod.shortLabel})`}
+                </span>
               </span>
               <span className={`text-[11px] font-bold font-mono ${totalSavedPeriod >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                 {totalIncomePeriod > 0 ? formatPercent(((totalIncomePeriod - totalExpensePeriod) / totalIncomePeriod) * 100) : '0%'} margem
@@ -582,10 +599,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setCurrentTab }) =
                     <Receipt className="w-4 h-4 text-slate-500 shrink-0" />
                     <div className="min-w-0">
                       <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                        Últimos Lançamentos
+                        Lançamentos do Período
                       </h3>
                       <p className="text-xs text-slate-500">
-                        Movimentações financeiras mais recentes
+                        Movimentações correspondentes a {periodLabel}
                       </p>
                     </div>
                   </div>
@@ -606,6 +623,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setCurrentTab }) =
                   <div className="divide-y divide-slate-100 dark:divide-slate-800">
                     {recentTransactions.map(tx => {
                       const isIncome = tx.type === 'income';
+                      const isVirtual = isVirtualTransaction(tx);
                       return (
                         <div key={tx.id} className="py-2.5 flex items-center justify-between gap-3 text-xs">
                           <div className="flex items-center gap-2.5 min-w-0">
@@ -623,7 +641,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setCurrentTab }) =
                                 {tx.description}
                               </div>
                               <div className="text-[11px] text-slate-400 truncate">
-                                {tx.category} · {formatDateBR(tx.date)}
+                                {tx.category} · {formatDateBR(getTransactionEffectiveDate(tx))}
                               </div>
                             </div>
                           </div>
@@ -638,10 +656,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setCurrentTab }) =
                             </div>
                             <span
                               className={`text-[10px] font-semibold ${
-                                tx.status === 'paid' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
+                                tx.status === 'paid'
+                                  ? 'text-emerald-600 dark:text-emerald-400'
+                                  : isVirtual
+                                  ? 'text-blue-600 dark:text-blue-400'
+                                  : 'text-amber-600 dark:text-amber-400'
                               }`}
                             >
-                              {tx.status === 'paid' ? 'Pago' : 'Pendente'}
+                              {tx.status === 'paid' ? 'Pago' : isVirtual ? 'Previsto' : 'Pendente'}
                             </span>
                           </div>
                         </div>

@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { exportToExcel, exportToPDF } from '../../utils/exportUtils';
-import { getMonthNamePT } from '../../utils/formatters';
+import { resolveActivePeriod } from '../../utils/periodFilter';
 
 export const ReportsView: React.FC = () => {
   const {
@@ -35,7 +35,8 @@ export const ReportsView: React.FC = () => {
     incomeCommittedPercent,
     totalSavedPeriod,
     filteredTransactions,
-    filter
+    filter,
+    periodLabel: ctxPeriodLabel
   } = useFinance();
 
   const scopeLabelId = useId();
@@ -44,14 +45,7 @@ export const ReportsView: React.FC = () => {
 
   const getScopeLabel = () => {
     if (exportScope === 'all_history') return 'Todo o Histórico';
-    switch (filter.period) {
-      case 'current_month': return 'Mês Atual';
-      case 'previous_month': return 'Mês Anterior';
-      case 'last_3_months': return 'Últimos 3 Meses';
-      case 'last_6_months': return 'Últimos 6 Meses';
-      case 'last_12_months': return 'Últimos 12 Meses';
-      default: return 'Período Filtrado';
-    }
+    return ctxPeriodLabel ?? resolveActivePeriod(filter).label;
   };
 
   const handleExportExcel = () => {

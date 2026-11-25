@@ -19,6 +19,7 @@ import {
   Transaction
 } from '../types/finance';
 import {
+  addMonthsToPeriod,
   addRecurringIncomeRuleToState,
   confirmRecurringIncomeReceiptInState,
   ConfirmRecurringIncomeReceiptInput,
@@ -26,11 +27,24 @@ import {
   deleteRecurringIncomeRuleInState,
   endRecurringIncomeInState,
   getRecurringIncomesForMonth,
+  parseISODateParts,
+  resolveClampedDateForPeriod,
   skipRecurringIncomeOccurrenceInState,
   unskipRecurringIncomeOccurrenceInState,
   updateRecurringIncomeInState,
   UpdateRecurringIncomeInput
 } from '../utils/recurringIncome';
+import {
+  ActivePeriodMeta,
+  buildPeriodString,
+  computeFilteredTransactions,
+  getExplicitRecurringFixedExpenseTemplates,
+  getRecurringIncomesForActivePeriod,
+  getTransactionEffectiveDate,
+  getTransactionEffectivePeriod,
+  isVirtualTransaction,
+  resolveActivePeriod
+} from '../utils/periodFilter';
 import {
   AppState,
   LegacyStorageSummary,
@@ -144,8 +158,11 @@ export interface FinanceContextType {
   goals: FinancialGoal[];
   recurringIncomes: RecurringIncomeRule[];
   selectedMonthRecurringIncomes: RecurringIncomeOccurrence[];
+  periodRecurringIncomes?: RecurringIncomeOccurrence[];
   safetyReserveDesired: number;
   filter: DateFilter;
+  activePeriod?: ActivePeriodMeta;
+  periodLabel?: string;
   theme: 'light' | 'dark';
   isSampleLoaded: boolean;
   
@@ -219,6 +236,8 @@ export interface FinanceContextType {
   totalVariableExpenses: number;
   totalPendingFixed: number;
   totalPendingVariable: number;
+  pendingFixedCurrentMonth?: number;
+  pendingVariableCurrentMonth?: number;
   totalActiveDebts: number;
   freeMoneyAvailable: number;
   incomeCommittedPercent: number;
@@ -232,6 +251,7 @@ export interface FinanceContextType {
   isFutureView: boolean;
   isSpecificMonthView: boolean;
   currentSelectedMonthProjection: MonthProjection;
+  periodProjectionSummary?: MonthProjection;
   nextMonthsProjections: MonthProjection[];
   next12MonthsProjections: MonthProjection[];
   goToNextMonth: () => void;
@@ -1402,36 +1422,19 @@ export const FinanceProvider: React.FC<{
   }, [state, supabaseUserId, isSupabaseAuthenticated, hydratedUserId]);
 
   // Helpers to get current / previous month ISO bounds aligned with real calendar
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth(); // 0-indexed
+  const todayISO = getTodayISO();
+  const todayParts = parseISODateParts(todayISO);
+  const currentYear = todayParts ? todayParts.year : new Date().getFullYear();
+  const currentMonth = todayParts ? todayParts.month1 - 1 : new Date().getMonth(); // 0-indexed
+  const currentPeriod = buildPeriodString(currentYear, currentMonth);
 
-  // Active viewed year and month based on filter
-  const { selectedYear, selectedMonth, isFutureView, isSpecificMonthView } = useMemo(() => {
-    let y = currentYear;
-    let m = currentMonth;
+  // Centralized Active Period Metadata
+  const activePeriod = useMemo(() => {
+    return resolveActivePeriod(filter, todayISO);
+  }, [filter, todayISO]);
 
-    if (filter.period === 'next_month') {
-      m = currentMonth === 11 ? 0 : currentMonth + 1;
-      y = currentMonth === 11 ? currentYear + 1 : currentYear;
-    } else if (filter.period === 'previous_month') {
-      m = currentMonth === 0 ? 11 : currentMonth - 1;
-      y = currentMonth === 0 ? currentYear - 1 : currentYear;
-    } else if (filter.period === 'specific_month') {
-      y = filter.year ?? currentYear;
-      m = filter.month ?? currentMonth;
-    }
-
-    const isFuture = y > currentYear || (y === currentYear && m > currentMonth);
-    const isSpecific = filter.period === 'specific_month' || filter.period === 'next_month' || filter.period === 'current_month';
-
-    return {
-      selectedYear: y,
-      selectedMonth: m,
-      isFutureView: isFuture,
-      isSpecificMonthView: isSpecific
-    };
-  }, [filter, currentYear, currentMonth]);
+  const { selectedYear, selectedMonth, isFutureView, isSpecificMonthView } = activePeriod;
+  const periodLabel = activePeriod.label;
 
   // 1. Saldo atual total (Soma dos saldos reais nas contas)
   const totalBankBalance = useMemo(() => {
@@ -1445,49 +1448,50 @@ export const FinanceProvider: React.FC<{
     customDebtBalances?: Map<string, number>,
     startingCumulativeBalance?: number
   ): MonthProjection => {
-    const targetMY = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;
-    const isFuture = targetYear > currentYear || (targetYear === currentYear && targetMonth > currentMonth);
-    const isCurrent = targetYear === currentYear && targetMonth === currentMonth;
+    const targetMY = buildPeriodString(targetYear, targetMonth);
+    const isFuture = targetMY > currentPeriod;
+    const isCurrent = targetMY === currentPeriod;
 
     const commitments: FutureCommitmentItem[] = [];
 
     // 1. Transactions already scheduled for this month
-    const monthTransactions = state.transactions.filter(t => t.date.slice(0, 7) === targetMY);
+    const monthTransactions = state.transactions.filter(
+      t => getTransactionEffectivePeriod(t) === targetMY
+    );
 
     monthTransactions.forEach(t => {
-      if (t.type === 'expense_fixed' || t.type === 'expense_variable') {
+      if ((t.type === 'expense_fixed' || t.type === 'expense_variable') && !t.isInvoicePayment) {
         commitments.push({
           id: t.id,
           description: t.description,
           amount: t.amount,
           type: t.installmentInfo ? 'card_installment' : t.type === 'expense_fixed' ? 'fixed_recurring' : 'scheduled_expense',
           category: t.category,
-          dueDate: t.dueDate || t.date,
+          dueDate: getTransactionEffectiveDate(t),
           installmentLabel: t.installmentInfo ? `${t.installmentInfo.current}/${t.installmentInfo.total}` : undefined
         });
       }
     });
 
-    // 2. Projected fixed recurring bills (Aluguel, Luz, Internet, etc.) if not yet generated
+    // 2. Projected explicit fixed recurring bills (somente isRecurring === true, sem parcelamento) if not yet generated
     if (isFuture || isCurrent) {
-      const recurringFixedMap = new Map<string, Transaction>();
-      state.transactions
-        .filter(t => t.isRecurring && t.type === 'expense_fixed')
-        .forEach(t => {
-          if (!recurringFixedMap.has(t.description)) {
-            recurringFixedMap.set(t.description, t);
-          }
-        });
+      const recurringTemplates = getExplicitRecurringFixedExpenseTemplates(state.transactions, targetMY);
 
-      recurringFixedMap.forEach((sampleTx, desc) => {
-        const alreadyExists = commitments.some(c => c.description.toLowerCase().includes(desc.toLowerCase()));
+      recurringTemplates.forEach(sampleTx => {
+        const samplePeriod = getTransactionEffectivePeriod(sampleTx);
+        if (targetMY <= samplePeriod) return;
+
+        const normalizedDesc = sampleTx.description.trim().toLowerCase();
+        const alreadyExists = commitments.some(
+          c => c.description.trim().toLowerCase() === normalizedDesc
+        );
         if (!alreadyExists) {
-          const day = sampleTx.dueDate ? parseInt(sampleTx.dueDate.slice(8, 10), 10) : 10;
-          const safeDay = Math.min(28, isNaN(day) ? 10 : day);
-          const projectedDueDate = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`;
+          const dayParts = parseISODateParts(sampleTx.dueDate || sampleTx.date);
+          const configuredDay = dayParts ? dayParts.day : 10;
+          const projectedDueDate = resolveClampedDateForPeriod(targetMY, configuredDay);
 
           commitments.push({
-            id: `proj-rec-${desc}-${targetMY}`,
+            id: `proj-rec-${sampleTx.id}-${targetMY}`,
             description: sampleTx.description,
             amount: sampleTx.amount,
             type: 'fixed_recurring',
@@ -1513,9 +1517,9 @@ export const FinanceProvider: React.FC<{
           customDebtBalances.set(d.id, Math.max(0, remaining - parcelAmount));
         }
 
-        const dueDay = d.dueDate ? parseInt(d.dueDate.slice(8, 10), 10) : 20;
-        const safeDay = Math.min(28, isNaN(dueDay) ? 20 : dueDay);
-        const projectedDueDate = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`;
+        const dueParts = d.dueDate ? parseISODateParts(d.dueDate) : null;
+        const configuredDay = dueParts ? dueParts.day : 20;
+        const projectedDueDate = resolveClampedDateForPeriod(targetMY, configuredDay);
 
         commitments.push({
           id: `proj-debt-${d.id}-${targetMY}`,
@@ -1553,7 +1557,7 @@ export const FinanceProvider: React.FC<{
         targetYear,
         targetMonth,
         state.transactions,
-        getTodayISO()
+        todayISO
       );
       recurringOccurrences.forEach(occ => {
         if (occ.isVirtual) {
@@ -1592,11 +1596,12 @@ export const FinanceProvider: React.FC<{
   const nextMonthsProjections = useMemo(() => {
     const list: MonthProjection[] = [];
     for (let i = 1; i <= 6; i++) {
-      const d = new Date(currentYear, currentMonth + i, 1);
-      list.push(calculateMonthProjection(d.getFullYear(), d.getMonth()));
+      const nextPeriod = addMonthsToPeriod(currentPeriod, i);
+      const [yStr, mStr] = nextPeriod.split('-');
+      list.push(calculateMonthProjection(Number(yStr), Number(mStr) - 1));
     }
     return list;
-  }, [state.transactions, state.debts, state.recurringIncomes, totalBankBalance, currentYear, currentMonth]);
+  }, [state.transactions, state.debts, state.recurringIncomes, totalBankBalance, currentPeriod]);
 
   // Next 12 months projections with progressive debt amortization and cumulative balance
   const next12MonthsProjections = useMemo(() => {
@@ -1609,10 +1614,11 @@ export const FinanceProvider: React.FC<{
     let runningBalance = totalBankBalance;
 
     for (let i = 1; i <= 12; i++) {
-      const d = new Date(currentYear, currentMonth + i, 1);
+      const nextPeriod = addMonthsToPeriod(currentPeriod, i);
+      const [yStr, mStr] = nextPeriod.split('-');
       const proj = calculateMonthProjection(
-        d.getFullYear(),
-        d.getMonth(),
+        Number(yStr),
+        Number(mStr) - 1,
         virtualDebtBalances,
         runningBalance
       );
@@ -1620,12 +1626,60 @@ export const FinanceProvider: React.FC<{
       list.push(proj);
     }
     return list;
-  }, [state.transactions, state.debts, state.recurringIncomes, totalBankBalance, currentYear, currentMonth]);
+  }, [state.transactions, state.debts, state.recurringIncomes, totalBankBalance, currentPeriod]);
 
   // Current selected month projection
   const currentSelectedMonthProjection = useMemo(() => {
     return calculateMonthProjection(selectedYear, selectedMonth);
-  }, [selectedYear, selectedMonth, state.transactions, state.debts, state.recurringIncomes]);
+  }, [selectedYear, selectedMonth, state.transactions, state.debts, state.recurringIncomes, totalBankBalance, currentPeriod]);
+
+  // Aggregated projection across the entire active period (single or multi-month)
+  const periodProjectionSummary = useMemo((): MonthProjection => {
+    if (activePeriod.mode === 'single_month' || activePeriod.months.length <= 1) {
+      return currentSelectedMonthProjection;
+    }
+
+    const virtualDebtBalances = new Map<string, number>();
+    state.debts.forEach(d => {
+      virtualDebtBalances.set(d.id, d.currentBalance);
+    });
+
+    let runningBalance = totalBankBalance;
+    let totalIncomeProjected = 0;
+    let totalOwedTotal = 0;
+    let fixedExpensesProjected = 0;
+    let cardInstallmentsProjected = 0;
+    let debtsProjected = 0;
+    const allCommitments: FutureCommitmentItem[] = [];
+
+    for (const m of activePeriod.months) {
+      const proj = calculateMonthProjection(m.year, m.month, virtualDebtBalances, runningBalance);
+      runningBalance = proj.projectedCumulativeBalance;
+      totalIncomeProjected += proj.totalIncomeProjected;
+      totalOwedTotal += proj.totalOwedTotal;
+      fixedExpensesProjected += proj.fixedExpensesProjected;
+      cardInstallmentsProjected += proj.cardInstallmentsProjected;
+      debtsProjected += proj.debtsProjected;
+      allCommitments.push(...proj.commitments);
+    }
+
+    return {
+      year: activePeriod.selectedYear,
+      month: activePeriod.selectedMonth,
+      label: activePeriod.label,
+      shortLabel: activePeriod.shortLabel,
+      totalIncomeProjected,
+      totalOwedTotal,
+      fixedExpensesProjected,
+      cardInstallmentsProjected,
+      debtsProjected,
+      projectedFreeBalance: Math.max(0, totalIncomeProjected - totalOwedTotal),
+      projectedCumulativeBalance: runningBalance,
+      isFuture: activePeriod.isFutureView || activePeriod.includesFuture,
+      isCurrent: activePeriod.isCurrentMonth,
+      commitments: allCommitments
+    };
+  }, [activePeriod, currentSelectedMonthProjection, state.transactions, state.debts, state.recurringIncomes, totalBankBalance, currentPeriod]);
 
   const selectedMonthRecurringIncomes = useMemo(() => {
     return getRecurringIncomesForMonth(
@@ -1633,30 +1687,32 @@ export const FinanceProvider: React.FC<{
       selectedYear,
       selectedMonth,
       state.transactions,
-      getTodayISO(),
+      todayISO,
       { includeSkipped: true }
     );
-  }, [state.recurringIncomes, selectedYear, selectedMonth, state.transactions]);
+  }, [state.recurringIncomes, selectedYear, selectedMonth, state.transactions, todayISO]);
+
+  const periodRecurringIncomes = useMemo(() => {
+    return getRecurringIncomesForActivePeriod({
+      recurringIncomes: state.recurringIncomes,
+      transactions: state.transactions,
+      activePeriod,
+      todayISO,
+      includeSkipped: true
+    });
+  }, [state.recurringIncomes, state.transactions, activePeriod, todayISO]);
 
   // Month navigation helpers
   const goToNextMonth = () => {
-    let nextM = selectedMonth + 1;
-    let nextY = selectedYear;
-    if (nextM > 11) {
-      nextM = 0;
-      nextY += 1;
-    }
-    setFilter({ period: 'specific_month', year: nextY, month: nextM });
+    const nextPeriod = addMonthsToPeriod(activePeriod.selectedPeriod, 1);
+    const [yStr, mStr] = nextPeriod.split('-');
+    setFilter({ period: 'specific_month', year: Number(yStr), month: Number(mStr) - 1 });
   };
 
   const goToPrevMonth = () => {
-    let prevM = selectedMonth - 1;
-    let prevY = selectedYear;
-    if (prevM < 0) {
-      prevM = 11;
-      prevY -= 1;
-    }
-    setFilter({ period: 'specific_month', year: prevY, month: prevM });
+    const prevPeriod = addMonthsToPeriod(activePeriod.selectedPeriod, -1);
+    const [yStr, mStr] = prevPeriod.split('-');
+    setFilter({ period: 'specific_month', year: Number(yStr), month: Number(mStr) - 1 });
   };
 
   const goToCurrentMonth = () => {
@@ -1667,123 +1723,15 @@ export const FinanceProvider: React.FC<{
     setFilter({ period: 'specific_month', year, month });
   };
 
-  // Filter transactions according to selected period (including future periods)
+  // Filter transactions according to selected period (including future & multi-month periods)
   const filteredTransactions = useMemo(() => {
-    // If viewing a single specific month or next month or current month:
-    if (filter.period === 'current_month' || filter.period === 'next_month' || filter.period === 'previous_month' || filter.period === 'specific_month') {
-      const targetMY = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
-      const existing = state.transactions.filter(tx => tx.date.slice(0, 7) === targetMY);
-
-      // If it's a future month, also synthesize projected recurring transactions so they appear on tables and graphs!
-      if (isFutureView) {
-        const synthetic: Transaction[] = [];
-
-        // Add projected recurring fixed bills
-        const recurringFixedMap = new Map<string, Transaction>();
-        state.transactions
-          .filter(t => t.isRecurring && t.type === 'expense_fixed')
-          .forEach(t => {
-            if (!recurringFixedMap.has(t.description)) recurringFixedMap.set(t.description, t);
-          });
-
-        recurringFixedMap.forEach((sampleTx, desc) => {
-          const already = existing.some(t => t.description.toLowerCase().includes(desc.toLowerCase()));
-          if (!already) {
-            const day = sampleTx.dueDate ? parseInt(sampleTx.dueDate.slice(8, 10), 10) : 10;
-            const safeDay = Math.min(28, isNaN(day) ? 10 : day);
-            const pDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`;
-
-            synthetic.push({
-              ...sampleTx,
-              id: `proj-tx-${desc}-${targetMY}`,
-              date: pDate,
-              dueDate: pDate,
-              status: 'pending',
-              notes: 'Previsão automática de conta fixa recorrente'
-            });
-          }
-        });
-
-        // Add recurring incomes dynamically (rules + legacy fallback) without duplicating
-        const recurringOccurrences = getRecurringIncomesForMonth(
-          state.recurringIncomes,
-          selectedYear,
-          selectedMonth,
-          state.transactions,
-          getTodayISO()
-        );
-        recurringOccurrences.forEach(occ => {
-          if (!occ.isVirtual) return;
-          const already = existing.some(
-            t =>
-              t.type === 'income' &&
-              ((t.recurringIncomeId && t.recurringIncomeId === occ.ruleId && t.recurringPeriod === occ.period) ||
-                t.description.trim().toLowerCase() === occ.description.trim().toLowerCase())
-          );
-          if (!already) {
-            synthetic.push({
-              id: occ.id,
-              description: occ.description,
-              amount: occ.amount,
-              type: 'income',
-              category: occ.category,
-              date: occ.date,
-              accountId: occ.accountId,
-              paymentMethod: occ.paymentMethod,
-              status: 'pending',
-              isRecurring: true,
-              recurringIncomeId: occ.isLegacy ? undefined : occ.ruleId,
-              recurringPeriod: occ.period,
-              notes: occ.notes || 'Previsão automática de receita fixa recorrente'
-            });
-          }
-        });
-
-        return [...existing, ...synthetic];
-      }
-
-      return existing;
-    }
-
-    return state.transactions.filter(tx => {
-      const txDate = new Date(tx.date + 'T00:00:00');
-      const txYear = txDate.getFullYear();
-      const txMonth = txDate.getMonth();
-
-      switch (filter.period) {
-        case 'next_3_months': {
-          const start = new Date(currentYear, currentMonth, 1);
-          const end = new Date(currentYear, currentMonth + 3, 0);
-          return txDate >= start && txDate <= end;
-        }
-        case 'next_6_months': {
-          const start = new Date(currentYear, currentMonth, 1);
-          const end = new Date(currentYear, currentMonth + 6, 0);
-          return txDate >= start && txDate <= end;
-        }
-        case 'last_3_months': {
-          const threeMonthsAgo = new Date(currentYear, currentMonth - 2, 1);
-          return txDate >= threeMonthsAgo && txDate <= now;
-        }
-        case 'last_6_months': {
-          const sixMonthsAgo = new Date(currentYear, currentMonth - 5, 1);
-          return txDate >= sixMonthsAgo && txDate <= now;
-        }
-        case 'last_12_months': {
-          const twelveMonthsAgo = new Date(currentYear, currentMonth - 11, 1);
-          return txDate >= twelveMonthsAgo && txDate <= now;
-        }
-        case 'custom':
-          if (filter.startDate && filter.endDate) {
-            return tx.date >= filter.startDate && tx.date <= filter.endDate;
-          }
-          return true;
-        case 'all':
-        default:
-          return true;
-      }
+    return computeFilteredTransactions({
+      transactions: state.transactions,
+      recurringIncomes: state.recurringIncomes,
+      activePeriod,
+      todayISO
     });
-  }, [state.transactions, state.recurringIncomes, filter, currentYear, currentMonth, selectedYear, selectedMonth, isFutureView]);
+  }, [state.transactions, state.recurringIncomes, activePeriod, todayISO]);
 
   // Total de entradas no período filtrado
   const totalIncomePeriod = useMemo(() => {
@@ -1824,45 +1772,33 @@ export const FinanceProvider: React.FC<{
       .reduce((sum, tx) => sum + tx.amount, 0);
   }, [filteredTransactions]);
 
-  // Entradas ainda previstas/pendentes no mês
+  // Entradas ainda previstas/pendentes no mês atual (real)
   const pendingIncomeCurrentMonth = useMemo(() => {
     return state.transactions
-      .filter(tx => {
-        const d = new Date(tx.date + 'T00:00:00');
-        return d.getFullYear() === currentYear && d.getMonth() === currentMonth && tx.type === 'income' && tx.status !== 'paid';
-      })
+      .filter(tx => getTransactionEffectivePeriod(tx) === currentPeriod && tx.type === 'income' && tx.status !== 'paid')
       .reduce((sum, tx) => sum + tx.amount, 0);
-  }, [state.transactions, currentYear, currentMonth]);
+  }, [state.transactions, currentPeriod]);
 
-  // Despesas fixas e variáveis pendentes do mês atual
+  // Despesas fixas e variáveis pendentes do mês atual (real)
   const pendingFixedCurrentMonth = useMemo(() => {
     return state.transactions
-      .filter(tx => {
-        const d = new Date(tx.date + 'T00:00:00');
-        return d.getFullYear() === currentYear && d.getMonth() === currentMonth && tx.type === 'expense_fixed' && tx.status !== 'paid';
-      })
+      .filter(tx => getTransactionEffectivePeriod(tx) === currentPeriod && tx.type === 'expense_fixed' && tx.status !== 'paid')
       .reduce((sum, tx) => sum + tx.amount, 0);
-  }, [state.transactions, currentYear, currentMonth]);
+  }, [state.transactions, currentPeriod]);
 
   const pendingVariableCurrentMonth = useMemo(() => {
     return state.transactions
-      .filter(tx => {
-        const d = new Date(tx.date + 'T00:00:00');
-        return d.getFullYear() === currentYear && d.getMonth() === currentMonth && tx.type === 'expense_variable' && tx.status !== 'paid';
-      })
+      .filter(tx => getTransactionEffectivePeriod(tx) === currentPeriod && tx.type === 'expense_variable' && tx.status !== 'paid')
       .reduce((sum, tx) => sum + tx.amount, 0);
-  }, [state.transactions, currentYear, currentMonth]);
+  }, [state.transactions, currentPeriod]);
 
-  // Faturas de cartão de crédito pendentes do mês atual
+  // Faturas de cartão de crédito pendentes do mês atual (real)
   const pendingCreditCardInvoicesMonth = useMemo(() => {
     // Gastos no cartão no mês atual que ainda não foram liquidados por fatura
     return state.transactions
-      .filter(tx => {
-        const d = new Date(tx.date + 'T00:00:00');
-        return d.getFullYear() === currentYear && d.getMonth() === currentMonth && tx.paymentMethod === 'credit_card' && !tx.isInvoicePayment;
-      })
+      .filter(tx => getTransactionEffectivePeriod(tx) === currentPeriod && tx.paymentMethod === 'credit_card' && !tx.isInvoicePayment)
       .reduce((sum, tx) => sum + tx.amount, 0);
-  }, [state.transactions, currentYear, currentMonth]);
+  }, [state.transactions, currentPeriod]);
 
   // Dívidas ativas em aberto
   const totalActiveDebts = useMemo(() => {
@@ -1903,10 +1839,11 @@ export const FinanceProvider: React.FC<{
   // 8. Percentual da renda comprometida
   const incomeCommittedPercent = useMemo(() => {
     const totalIncome = totalIncomePeriod > 0 ? totalIncomePeriod : 1;
-    const totalOutflow = totalExpensePeriod + monthlyDebtCommitments;
+    const debtLoad = activePeriod.isMultiMonth ? periodProjectionSummary.debtsProjected : monthlyDebtCommitments;
+    const totalOutflow = totalExpensePeriod + debtLoad;
     const pct = (totalOutflow / totalIncome) * 100;
     return Math.min(100, Math.max(0, pct));
-  }, [totalExpensePeriod, totalIncomePeriod, monthlyDebtCommitments]);
+  }, [totalExpensePeriod, totalIncomePeriod, activePeriod.isMultiMonth, periodProjectionSummary.debtsProjected, monthlyDebtCommitments]);
 
   // 9. Quanto conseguiu economizar no período
   const totalSavedPeriod = useMemo(() => {
@@ -1920,12 +1857,11 @@ export const FinanceProvider: React.FC<{
 
   // Fatura de cartão específica
   const getCardInvoiceAmount = (cardId: string, monthYear?: string): number => {
-    const targetMY = monthYear || `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+    const targetMY = monthYear || currentPeriod;
     return state.transactions
       .filter(tx => {
         if (tx.creditCardId !== cardId || tx.paymentMethod !== 'credit_card' || tx.isInvoicePayment) return false;
-        const txMY = tx.date.slice(0, 7);
-        return txMY === targetMY;
+        return getTransactionEffectivePeriod(tx) === targetMY;
       })
       .reduce((sum, tx) => sum + tx.amount, 0);
   };
@@ -2198,14 +2134,20 @@ export const FinanceProvider: React.FC<{
         let txDueDate = txData.dueDate;
 
         if (i > 1) {
-          const d = new Date(txData.date + 'T00:00:00');
-          d.setMonth(d.getMonth() + (i - 1));
-          txDate = d.toISOString().split('T')[0];
+          const dateParts = parseISODateParts(txData.date);
+          if (dateParts) {
+            const basePeriod = buildPeriodString(dateParts.year, dateParts.month1 - 1);
+            const targetPeriod = addMonthsToPeriod(basePeriod, i - 1);
+            txDate = resolveClampedDateForPeriod(targetPeriod, dateParts.day);
+          }
 
           if (txData.dueDate) {
-            const due = new Date(txData.dueDate + 'T00:00:00');
-            due.setMonth(due.getMonth() + (i - 1));
-            txDueDate = due.toISOString().split('T')[0];
+            const dueParts = parseISODateParts(txData.dueDate);
+            if (dueParts) {
+              const baseDuePeriod = buildPeriodString(dueParts.year, dueParts.month1 - 1);
+              const targetDuePeriod = addMonthsToPeriod(baseDuePeriod, i - 1);
+              txDueDate = resolveClampedDateForPeriod(targetDuePeriod, dueParts.day);
+            }
           }
         }
 
@@ -2241,6 +2183,7 @@ export const FinanceProvider: React.FC<{
   };
 
   const updateTransaction = (id: string, updated: Partial<Transaction>) => {
+    if (isVirtualTransaction({ id })) return;
     mutateState(prev => {
       const oldTx = prev.transactions.find(t => t.id === id);
       if (!oldTx) return prev;
@@ -2278,6 +2221,13 @@ export const FinanceProvider: React.FC<{
   };
 
   const deleteTransaction = (id: string): Promise<DeleteResult> => {
+    if (isVirtualTransaction({ id })) {
+      return Promise.resolve({
+        success: false,
+        synced: false,
+        message: 'Previsões virtuais automáticas não podem ser excluídas diretamente nesta tabela.'
+      });
+    }
     return executeAuthenticatedDeletion('Lançamento', prev => removeTransactionFromState(prev, id));
   };
 
@@ -3342,8 +3292,11 @@ export const FinanceProvider: React.FC<{
         goals: state.goals,
         recurringIncomes: state.recurringIncomes || [],
         selectedMonthRecurringIncomes,
+        periodRecurringIncomes,
         safetyReserveDesired: state.safetyReserveDesired,
         filter,
+        activePeriod,
+        periodLabel,
         theme,
         isSampleLoaded: state.isSampleLoaded,
 
@@ -3407,6 +3360,8 @@ export const FinanceProvider: React.FC<{
         totalVariableExpenses,
         totalPendingFixed,
         totalPendingVariable,
+        pendingFixedCurrentMonth,
+        pendingVariableCurrentMonth,
         totalActiveDebts,
         freeMoneyAvailable,
         incomeCommittedPercent,
@@ -3420,6 +3375,7 @@ export const FinanceProvider: React.FC<{
         isFutureView,
         isSpecificMonthView,
         currentSelectedMonthProjection,
+        periodProjectionSummary,
         nextMonthsProjections,
         next12MonthsProjections,
         goToNextMonth,
