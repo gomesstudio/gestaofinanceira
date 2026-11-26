@@ -20,6 +20,7 @@ import {
 import { useFinance } from '../../context/FinanceContext';
 import { formatCurrency, formatDateBR, getMonthNamePT, getTodayISO } from '../../utils/formatters';
 import { getRecurringIncomesForMonth } from '../../utils/recurringIncome';
+import { getRecurringExpensesForMonth } from '../../utils/recurringExpense';
 import {
   buildPeriodString,
   buildProjectedTransactionsForMonth,
@@ -32,6 +33,7 @@ export const FinancialCalendarView: React.FC = () => {
   const {
     transactions,
     recurringIncomes = [],
+    recurringExpenses = [],
     creditCards,
     openQuickEntry,
     selectedYear,
@@ -92,6 +94,7 @@ export const FinancialCalendarView: React.FC = () => {
       targetMonth: month,
       transactions,
       recurringIncomes,
+      recurringExpenses,
       todayISO: todayStr
     });
     projectedItems.forEach(pt => {
@@ -102,7 +105,7 @@ export const FinancialCalendarView: React.FC = () => {
       eventsByDay[effectiveDate].push(pt);
     });
   } else {
-    // Mês atual ou passado: inclui ocorrências virtuais de receitas fixas recorrentes no calendário visual
+    // Mês atual ou passado: inclui ocorrências virtuais de receitas e despesas fixas recorrentes no calendário visual
     const monthRecurringOccurrences = getRecurringIncomesForMonth(
       recurringIncomes,
       year,
@@ -133,8 +136,52 @@ export const FinancialCalendarView: React.FC = () => {
         accountId: occ.accountId,
         paymentMethod: occ.paymentMethod,
         status: occ.status === 'overdue' ? 'overdue' : 'pending',
+        projectedStatus: occ.status,
         isRecurring: true,
         recurringIncomeId: occ.isLegacy ? undefined : occ.ruleId,
+        recurringPeriod: occ.period,
+        notes: occ.notes,
+        isVirtualProjection: true,
+      });
+    });
+
+    const monthRecurringExpenseOccurrences = getRecurringExpensesForMonth(
+      recurringExpenses,
+      year,
+      month,
+      transactions,
+      todayStr
+    );
+    monthRecurringExpenseOccurrences.forEach(occ => {
+      if (!occ.isVirtual || occ.status === 'skipped') return;
+      if (occ.isLegacy && viewedPeriod < currentPeriod) return;
+      const alreadyExists = transactions.some(
+        t =>
+          (t.type === 'expense_fixed' || t.type === 'expense_variable') &&
+          !t.isInvoicePayment &&
+          ((t.recurringExpenseId && t.recurringExpenseId === occ.ruleId && t.recurringPeriod === occ.period) ||
+            (getTransactionEffectiveDate(t).slice(0, 7) === occ.period &&
+              t.description.trim().toLowerCase() === occ.description.trim().toLowerCase()))
+      );
+      if (alreadyExists) return;
+      if (!eventsByDay[occ.date]) {
+        eventsByDay[occ.date] = [];
+      }
+      eventsByDay[occ.date].push({
+        id: occ.id,
+        description: occ.description,
+        amount: occ.amount,
+        type: 'expense_fixed',
+        category: occ.category,
+        date: occ.date,
+        dueDate: occ.scheduledDate,
+        accountId: occ.accountId,
+        creditCardId: occ.creditCardId,
+        paymentMethod: occ.paymentMethod,
+        status: occ.status === 'overdue' ? 'overdue' : 'pending',
+        projectedStatus: occ.status,
+        isRecurring: true,
+        recurringExpenseId: occ.isLegacy ? undefined : occ.ruleId,
         recurringPeriod: occ.period,
         notes: occ.notes,
         isVirtualProjection: true,
@@ -385,7 +432,9 @@ export const FinancialCalendarView: React.FC = () => {
                   const isOver = isInc
                     ? t.status !== 'paid' && t.date < todayStr
                     : t.status !== 'paid' && Boolean(t.dueDate && t.dueDate < todayStr);
-                  const isRecurringItem = Boolean(t.recurringIncomeId || (isInc && t.isRecurring));
+                  const isRecurringItem = Boolean(
+                    t.recurringIncomeId || t.recurringExpenseId || t.isRecurring
+                  );
                   const isProjected = isVirtualTransaction(t);
 
                   return (

@@ -5,6 +5,8 @@
 
 import {
   DateFilter,
+  RecurringExpenseOccurrence,
+  RecurringExpenseRule,
   RecurringIncomeOccurrence,
   RecurringIncomeRule,
   TimeFilterPeriod,
@@ -17,6 +19,7 @@ import {
   parseISODateParts,
   resolveClampedDateForPeriod,
 } from './recurringIncome';
+import { getRecurringExpensesForMonth } from './recurringExpense';
 
 export function comparePeriods(a: string, b: string): number {
   return a.localeCompare(b);
@@ -321,6 +324,9 @@ export function isVirtualTransaction(tx: Pick<Transaction, 'id' | 'isVirtualProj
   return Boolean(
     tx.isVirtualProjection ||
       tx.id.startsWith('rec-inc-occ:') ||
+      tx.id.startsWith('rec-inc-legacy:') ||
+      tx.id.startsWith('rec-exp-occ:') ||
+      tx.id.startsWith('rec-exp-legacy:') ||
       tx.id.startsWith('proj-tx-')
   );
 }
@@ -398,48 +404,69 @@ export function buildProjectedTransactionsForMonth(params: {
   targetMonth: number;
   transactions: Transaction[];
   recurringIncomes?: RecurringIncomeRule[];
+  recurringExpenses?: RecurringExpenseRule[];
   todayISO: string;
 }): Transaction[] {
-  const { targetYear, targetMonth, transactions, recurringIncomes, todayISO } = params;
+  const {
+    targetYear,
+    targetMonth,
+    transactions,
+    recurringIncomes,
+    recurringExpenses,
+    todayISO,
+  } = params;
   const targetPeriod = buildPeriodString(targetYear, targetMonth);
 
   const monthExisting = transactions.filter(
     (tx) => getTransactionEffectivePeriod(tx) === targetPeriod
   );
-  const existingExpenseKeys = new Set(
-    monthExisting
-      .filter((t) => t.type === 'expense_fixed' || t.type === 'expense_variable')
-      .map((t) => normalizeDescriptionKey(t.description))
-  );
 
   const synthetic: Transaction[] = [];
 
-  // 1. Despesas fixas explicitamente recorrentes (sem parcelamento) ainda não lançadas no mês
-  const templates = getExplicitRecurringFixedExpenseTemplates(transactions, targetPeriod);
-  for (const sampleTx of templates) {
-    const samplePeriod = getTransactionEffectivePeriod(sampleTx);
-    if (comparePeriods(targetPeriod, samplePeriod) <= 0) {
-      continue;
-    }
+  // 1. Despesas fixas recorrentes (motor estruturado RecurringExpenseRule + fallback legado estrito)
+  const recurringExpenseOccurrences = getRecurringExpensesForMonth(
+    recurringExpenses,
+    targetYear,
+    targetMonth,
+    transactions,
+    todayISO
+  );
 
-    const key = normalizeDescriptionKey(sampleTx.description);
-    if (existingExpenseKeys.has(key)) {
-      continue;
-    }
+  for (const occ of recurringExpenseOccurrences) {
+    if (!occ.isVirtual || occ.status === 'skipped') continue;
 
-    const dayParts = parseISODateParts(sampleTx.dueDate || sampleTx.date);
-    const configuredDay = dayParts ? dayParts.day : 10;
-    const projectedDate = resolveClampedDateForPeriod(targetPeriod, configuredDay);
+    const alreadyInMonth = monthExisting.some(
+      (t) =>
+        (t.type === 'expense_fixed' || t.type === 'expense_variable') &&
+        !t.isInvoicePayment &&
+        ((t.recurringExpenseId &&
+          t.recurringExpenseId === occ.ruleId &&
+          t.recurringPeriod === occ.period) ||
+          normalizeDescriptionKey(t.description) === normalizeDescriptionKey(occ.description))
+    );
 
+    if (alreadyInMonth) continue;
+
+    const isCard = occ.paymentMethod === 'credit_card';
     synthetic.push({
-      ...sampleTx,
-      id: `proj-tx-${sampleTx.id}-${targetPeriod}`,
-      date: projectedDate,
-      dueDate: projectedDate,
-      cardInvoiceMonth: sampleTx.cardInvoiceMonth ? targetPeriod : undefined,
+      id: occ.id,
+      description: occ.description,
+      amount: occ.amount,
+      type: 'expense_fixed',
+      category: occ.category,
+      date: occ.date,
+      dueDate: occ.date,
+      accountId: isCard ? undefined : occ.accountId,
+      creditCardId: isCard ? occ.creditCardId : undefined,
+      cardInvoiceMonth: isCard ? occ.period : undefined,
+      paymentMethod: occ.paymentMethod,
       status: 'pending',
-      notes: sampleTx.notes || 'Previsão automática de conta fixa recorrente',
+      isRecurring: true,
+      recurringExpenseId: occ.isLegacy ? undefined : occ.ruleId,
+      recurringPeriod: occ.period,
+      notes: occ.notes || 'Previsão automática de despesa fixa recorrente',
       isVirtualProjection: true,
+      projectedStatus: occ.status,
     });
   }
 
@@ -495,10 +522,17 @@ export function buildProjectedTransactionsForMonth(params: {
 export function computeFilteredTransactions(params: {
   transactions: Transaction[];
   recurringIncomes?: RecurringIncomeRule[];
+  recurringExpenses?: RecurringExpenseRule[];
   activePeriod: ActivePeriodMeta;
   todayISO?: string;
 }): Transaction[] {
-  const { transactions, recurringIncomes, activePeriod, todayISO = getTodayISO() } = params;
+  const {
+    transactions,
+    recurringIncomes,
+    recurringExpenses,
+    activePeriod,
+    todayISO = getTodayISO(),
+  } = params;
 
   // 1. Mês único (atual, próximo, anterior ou específico)
   if (activePeriod.mode === 'single_month') {
@@ -512,6 +546,7 @@ export function computeFilteredTransactions(params: {
         targetMonth: activePeriod.selectedMonth,
         transactions,
         recurringIncomes,
+        recurringExpenses,
         todayISO,
       });
       return [...existing, ...projected];
@@ -537,6 +572,7 @@ export function computeFilteredTransactions(params: {
         targetMonth: m.month,
         transactions,
         recurringIncomes,
+        recurringExpenses,
         todayISO,
       });
       syntheticAll.push(...projected);
@@ -579,6 +615,7 @@ export function computeFilteredTransactions(params: {
           targetMonth: m.month,
           transactions,
           recurringIncomes,
+          recurringExpenses,
           todayISO,
         });
         for (const p of monthProj) {
@@ -636,6 +673,53 @@ export function getRecurringIncomesForActivePeriod(params: {
   for (const m of monthsToInspect) {
     const occs = getRecurringIncomesForMonth(
       recurringIncomes,
+      m.year,
+      m.month,
+      transactions,
+      todayISO,
+      { includeSkipped }
+    );
+    allOccurrences.push(...occs);
+  }
+  return allOccurrences;
+}
+
+/**
+ * Obtém todas as ocorrências de despesas fixas recorrentes dentro do período ativo.
+ */
+export function getRecurringExpensesForActivePeriod(params: {
+  recurringExpenses?: RecurringExpenseRule[];
+  transactions: Transaction[];
+  activePeriod: ActivePeriodMeta;
+  todayISO?: string;
+  includeSkipped?: boolean;
+}): RecurringExpenseOccurrence[] {
+  const {
+    recurringExpenses,
+    transactions,
+    activePeriod,
+    todayISO = getTodayISO(),
+    includeSkipped = true,
+  } = params;
+
+  const parsedTodayForRecurring = parseISODateParts(todayISO);
+  const monthsToInspect =
+    activePeriod.months.length > 0
+      ? activePeriod.months
+      : [
+          makeResolvedMonth(
+            activePeriod.selectedPeriod,
+            buildPeriodString(
+              parsedTodayForRecurring ? parsedTodayForRecurring.year : activePeriod.selectedYear,
+              parsedTodayForRecurring ? parsedTodayForRecurring.month1 - 1 : activePeriod.selectedMonth
+            )
+          ),
+        ];
+
+  const allOccurrences: RecurringExpenseOccurrence[] = [];
+  for (const m of monthsToInspect) {
+    const occs = getRecurringExpensesForMonth(
+      recurringExpenses,
       m.year,
       m.month,
       transactions,

@@ -6,9 +6,10 @@
 import React, { useState, useEffect, useId, useMemo } from 'react';
 import { Plus, Sparkles, ArrowDownRight, ArrowUpRight, Check, CreditCard, Wallet, Repeat, Calendar } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
-import { PaymentMethod, RecurringIncomeRule, TransactionType } from '../../types/finance';
+import { PaymentMethod, RecurringExpenseRule, RecurringIncomeRule, TransactionType } from '../../types/finance';
 import { formatCurrency, getTodayISO } from '../../utils/formatters';
 import { calculateRecurringIncomeAnnualTotal, clampDayOfMonth, parseISODateParts, resolveClampedDateForPeriod } from '../../utils/recurringIncome';
+import { calculateRecurringExpenseAnnualTotal } from '../../utils/recurringExpense';
 import { resolveActivePeriod } from '../../utils/periodFilter';
 import { ResponsiveModal } from '../common/ResponsiveModal';
 
@@ -28,6 +29,7 @@ export const QuickEntryModal: React.FC = () => {
     closeQuickEntry,
     addTransaction,
     addRecurringIncome,
+    addRecurringExpense,
     categories,
     accounts,
     creditCards,
@@ -62,6 +64,16 @@ export const QuickEntryModal: React.FC = () => {
   const recurringFirstStatusId = `${fieldIdPrefix}-recurring-first-status`;
   const recurringNotesId = `${fieldIdPrefix}-recurring-notes`;
 
+  // Recurring expense field IDs
+  const recurringExpenseToggleId = `${fieldIdPrefix}-recurring-expense-toggle`;
+  const recurringExpFreqId = `${fieldIdPrefix}-recurring-exp-frequency`;
+  const recurringExpDayId = `${fieldIdPrefix}-recurring-exp-day`;
+  const recurringExpStartDateId = `${fieldIdPrefix}-recurring-exp-start-date`;
+  const recurringExpIndefiniteId = `${fieldIdPrefix}-recurring-exp-indefinite`;
+  const recurringExpEndDateId = `${fieldIdPrefix}-recurring-exp-end-date`;
+  const recurringExpFirstStatusId = `${fieldIdPrefix}-recurring-exp-first-status`;
+  const recurringExpNotesId = `${fieldIdPrefix}-recurring-exp-notes`;
+
   const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
   const [description, setDescription] = useState('');
   const [amountStr, setAmountStr] = useState('');
@@ -77,8 +89,9 @@ export const QuickEntryModal: React.FC = () => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // Recurring Income state (default OFF)
+  // Recurring Income & Recurring Expense state (both default OFF)
   const [isRecurringIncome, setIsRecurringIncome] = useState(false);
+  const [isRecurringExpense, setIsRecurringExpense] = useState(false);
   const [recurringDayOfMonth, setRecurringDayOfMonth] = useState<number>(() => new Date().getDate());
   const [recurringStartDate, setRecurringStartDate] = useState(getTodayISO());
   const [recurringIsIndefinite, setRecurringIsIndefinite] = useState(true);
@@ -107,6 +120,7 @@ export const QuickEntryModal: React.FC = () => {
     const parts = parseISODateParts(contextualDate);
     setRecurringDayOfMonth(parts ? parts.day : new Date().getDate());
     setIsRecurringIncome(false);
+    setIsRecurringExpense(false);
     setRecurringIsIndefinite(true);
     setRecurringEndDate('');
     setRecurringFirstStatus('pending');
@@ -168,6 +182,42 @@ export const QuickEntryModal: React.FC = () => {
     description,
     categoryId,
     accountId,
+    paymentMethod,
+    recurringDayOfMonth,
+    recurringStartDate,
+    recurringIsIndefinite,
+    recurringEndDate,
+  ]);
+
+  const estimatedExpenseAnnualProjection = useMemo(() => {
+    if (!isRecurringExpense || cleanAmount <= 0 || !recurringStartDate) return 0;
+    const previewRule: RecurringExpenseRule = {
+      id: 'preview-exp',
+      description: description.trim() || 'Preview',
+      amount: cleanAmount,
+      category: categoryId || 'Moradia',
+      accountId: paymentMethod === 'credit_card' ? undefined : accountId || undefined,
+      creditCardId: paymentMethod === 'credit_card' ? creditCardId || undefined : undefined,
+      paymentMethod,
+      frequency: 'monthly',
+      dayOfMonth: clampDayOfMonth(recurringDayOfMonth),
+      startDate: recurringStartDate,
+      startPeriod: recurringStartDate.slice(0, 7),
+      isIndefinite: recurringIsIndefinite,
+      endDate: recurringIsIndefinite ? undefined : recurringEndDate || undefined,
+      endPeriod: !recurringIsIndefinite && recurringEndDate ? recurringEndDate.slice(0, 7) : undefined,
+      isActive: true,
+      createdAt: '',
+      updatedAt: '',
+    };
+    return calculateRecurringExpenseAnnualTotal(previewRule, previewRule.startPeriod);
+  }, [
+    isRecurringExpense,
+    cleanAmount,
+    description,
+    categoryId,
+    accountId,
+    creditCardId,
     paymentMethod,
     recurringDayOfMonth,
     recurringStartDate,
@@ -238,6 +288,50 @@ export const QuickEntryModal: React.FC = () => {
       return;
     }
 
+    if (activeTab === 'expense' && isRecurringExpense) {
+      if (!recurringStartDate || !parseISODateParts(recurringStartDate)) {
+        setFormError('Informe uma data de início válida para a recorrência.');
+        return;
+      }
+      if (!recurringIsIndefinite) {
+        if (!recurringEndDate || !parseISODateParts(recurringEndDate)) {
+          setFormError('Informe a data de término da despesa recorrente ou marque como indeterminada.');
+          return;
+        }
+        if (recurringEndDate < recurringStartDate) {
+          setFormError('A data de término não pode ser anterior à data de início.');
+          return;
+        }
+      }
+
+      addRecurringExpense?.({
+        description: description.trim(),
+        amount: parsedAmount,
+        category: categoryId || 'Moradia',
+        accountId: paymentMethod === 'credit_card' ? undefined : accountId || undefined,
+        creditCardId: paymentMethod === 'credit_card' ? creditCardId || undefined : undefined,
+        paymentMethod,
+        dayOfMonth: clampDayOfMonth(recurringDayOfMonth),
+        startDate: recurringStartDate,
+        isIndefinite: recurringIsIndefinite,
+        endDate: recurringIsIndefinite ? undefined : recurringEndDate,
+        firstOccurrenceStatus: isFutureRecurringStart ? 'pending' : recurringFirstStatus,
+        notes: recurringNotes.trim() || undefined,
+      });
+
+      setSavedSuccess(true);
+      setTimeout(() => {
+        setDescription('');
+        setAmountStr('');
+        setIsRecurringExpense(false);
+        setRecurringNotes('');
+        setShowAdvanced(false);
+        setInstallments(1);
+        closeQuickEntry();
+      }, 450);
+      return;
+    }
+
     let txType: TransactionType;
     if (activeTab === 'income') {
       txType = 'income';
@@ -257,7 +351,7 @@ export const QuickEntryModal: React.FC = () => {
         creditCardId: paymentMethod === 'credit_card' ? creditCardId : undefined,
         paymentMethod,
         status,
-        isRecurring: txType !== 'income' && expenseType === 'fixed',
+        isRecurring: false,
       },
       paymentMethod === 'credit_card' && installments > 1 ? installments : 1
     );
@@ -298,6 +392,8 @@ export const QuickEntryModal: React.FC = () => {
               <span>
                 {activeTab === 'income' && isRecurringIncome
                   ? 'Receita Fixa Mensal Cadastrada!'
+                  : activeTab === 'expense' && isRecurringExpense
+                  ? 'Despesa Fixa Mensal Cadastrada!'
                   : 'Lançamento Registrado com Sucesso!'}
               </span>
             </>
@@ -306,7 +402,9 @@ export const QuickEntryModal: React.FC = () => {
               <Plus className="w-4 h-4" />
               <span>
                 {activeTab === 'expense'
-                  ? 'Salvar Despesa'
+                  ? isRecurringExpense
+                    ? 'Salvar Despesa Fixa Mensal'
+                    : 'Salvar Despesa'
                   : isRecurringIncome
                   ? 'Salvar Receita Fixa Mensal'
                   : 'Salvar Entrada'}
@@ -785,8 +883,201 @@ export const QuickEntryModal: React.FC = () => {
         </div>
       )}
 
+      {/* Opção de Despesa Fixa Mensal Recorrente (somente em Despesa) */}
+      {activeTab === 'expense' && (
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 p-3 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <label
+                htmlFor={recurringExpenseToggleId}
+                className="text-xs font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-1.5 cursor-pointer"
+              >
+                <Repeat className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                <span>Despesa fixa mensal recorrente</span>
+              </label>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                Programe automaticamente esta despesa nos próximos meses.
+              </p>
+            </div>
+            <input
+              id={recurringExpenseToggleId}
+              name="is_recurring_expense"
+              type="checkbox"
+              checked={isRecurringExpense}
+              onChange={e => {
+                const checked = e.target.checked;
+                setIsRecurringExpense(checked);
+                if (checked) {
+                  setExpenseType('fixed');
+                  setInstallments(1);
+                  const parts = parseISODateParts(recurringStartDate || dueDate || date);
+                  if (parts) setRecurringDayOfMonth(parts.day);
+                }
+              }}
+              className="mt-0.5 h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-rose-600 focus:ring-rose-500 cursor-pointer shrink-0"
+            />
+          </div>
+
+          {isRecurringExpense && (
+            <div className="pt-2 border-t border-slate-200/80 dark:border-slate-700/70 space-y-3 text-xs animate-in fade-in">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label htmlFor={recurringExpFreqId} className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
+                    Frequência
+                  </label>
+                  <select
+                    id={recurringExpFreqId}
+                    name="recurring_exp_frequency"
+                    value="monthly"
+                    onChange={() => {}}
+                    className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
+                  >
+                    <option value="monthly">Mensal</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor={recurringExpDayId} className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
+                    Dia do vencimento (1–31)
+                  </label>
+                  <input
+                    id={recurringExpDayId}
+                    name="recurring_exp_day_of_month"
+                    type="number"
+                    min={1}
+                    max={31}
+                    required
+                    value={recurringDayOfMonth}
+                    onChange={e => setRecurringDayOfMonth(clampDayOfMonth(parseInt(e.target.value, 10) || 1))}
+                    className="w-full px-2.5 py-1.5 font-mono bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor={recurringExpStartDateId} className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
+                    Data de início *
+                  </label>
+                  <input
+                    id={recurringExpStartDateId}
+                    name="recurring_exp_start_date"
+                    type="date"
+                    required
+                    value={recurringStartDate}
+                    onChange={e => setRecurringStartDate(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              {recurringDayOfMonth >= 29 && (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                  Em meses com menos de {recurringDayOfMonth} dias (como fevereiro ou abril), o vencimento será ajustado automaticamente para o último dia do mês, preservando o dia {recurringDayOfMonth} configurado.
+                </p>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      id={recurringExpIndefiniteId}
+                      name="recurring_exp_is_indefinite"
+                      type="checkbox"
+                      checked={recurringIsIndefinite}
+                      onChange={e => {
+                        setRecurringIsIndefinite(e.target.checked);
+                        if (e.target.checked) setRecurringEndDate('');
+                      }}
+                      className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                    />
+                    <label htmlFor={recurringExpIndefiniteId} className="text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+                      Sem data de término (indeterminada)
+                    </label>
+                  </div>
+
+                  {!recurringIsIndefinite && (
+                    <div>
+                      <label htmlFor={recurringExpEndDateId} className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
+                        Data de término *
+                      </label>
+                      <input
+                        id={recurringExpEndDateId}
+                        name="recurring_exp_end_date"
+                        type="date"
+                        min={recurringStartDate}
+                        required={!recurringIsIndefinite}
+                        value={recurringEndDate}
+                        onChange={e => setRecurringEndDate(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor={recurringExpFirstStatusId} className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
+                    Situação da 1ª Ocorrência
+                  </label>
+                  <select
+                    id={recurringExpFirstStatusId}
+                    name="recurring_exp_first_status"
+                    disabled={isFutureRecurringStart}
+                    value={isFutureRecurringStart ? 'pending' : recurringFirstStatus}
+                    onChange={e => setRecurringFirstStatus(e.target.value as 'pending' | 'paid')}
+                    className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white disabled:opacity-60"
+                  >
+                    <option value="pending">Prevista (a pagar)</option>
+                    {!isFutureRecurringStart && (
+                      <option value="paid">Já paga</option>
+                    )}
+                  </select>
+                  {isFutureRecurringStart && (
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Inícios futuros são registrados sempre como previsão, sem debitar o saldo atual.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor={recurringExpNotesId} className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
+                  Observações (opcional)
+                </label>
+                <input
+                  id={recurringExpNotesId}
+                  name="recurring_exp_notes"
+                  type="text"
+                  autoComplete="off"
+                  placeholder="Ex: Reajuste anual no IGPM, débito automático..."
+                  value={recurringNotes}
+                  onChange={e => setRecurringNotes(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
+                />
+              </div>
+
+              {/* Projeção Anual Estimada */}
+              <div className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Calendar className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                  <div className="min-w-0">
+                    <span className="text-[11px] font-semibold text-rose-800 dark:text-rose-300 block">
+                      Comprometimento anual estimado (12 meses)
+                    </span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      Projetado automaticamente no orçamento futuro sem alterar o saldo atual
+                    </span>
+                  </div>
+                </div>
+                <span className="font-mono font-bold text-sm text-rose-700 dark:text-rose-300 tabular-nums shrink-0">
+                  {formatCurrency(estimatedExpenseAnnualProjection)}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Toggle Advanced details (para lançamentos avulsos) */}
-      {!(activeTab === 'income' && isRecurringIncome) && (
+      {!(activeTab === 'income' && isRecurringIncome) && !(activeTab === 'expense' && isRecurringExpense) && (
         <>
           <div className="pt-1">
             <button

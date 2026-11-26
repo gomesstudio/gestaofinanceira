@@ -14,6 +14,8 @@ import {
   FutureCommitmentItem,
   MonthProjection,
   PurchaseSimulationResult,
+  RecurringExpenseOccurrence,
+  RecurringExpenseRule,
   RecurringIncomeOccurrence,
   RecurringIncomeRule,
   Transaction
@@ -35,10 +37,25 @@ import {
   UpdateRecurringIncomeInput
 } from '../utils/recurringIncome';
 import {
+  addRecurringExpenseRuleToState,
+  confirmRecurringExpensePaymentInState,
+  ConfirmRecurringExpensePaymentInput,
+  convertTransactionToRecurringExpenseInState,
+  ConvertTransactionToRecurringExpenseInput,
+  CreateRecurringExpenseInput,
+  deleteRecurringExpenseRuleInState,
+  endRecurringExpenseInState,
+  getRecurringExpensesForMonth,
+  skipRecurringExpenseOccurrenceInState,
+  unskipRecurringExpenseOccurrenceInState,
+  updateRecurringExpenseInState,
+  UpdateRecurringExpenseInput
+} from '../utils/recurringExpense';
+import {
   ActivePeriodMeta,
   buildPeriodString,
   computeFilteredTransactions,
-  getExplicitRecurringFixedExpenseTemplates,
+  getRecurringExpensesForActivePeriod,
   getRecurringIncomesForActivePeriod,
   getTransactionEffectiveDate,
   getTransactionEffectivePeriod,
@@ -159,6 +176,9 @@ export interface FinanceContextType {
   recurringIncomes: RecurringIncomeRule[];
   selectedMonthRecurringIncomes: RecurringIncomeOccurrence[];
   periodRecurringIncomes?: RecurringIncomeOccurrence[];
+  recurringExpenses: RecurringExpenseRule[];
+  selectedMonthRecurringExpenses: RecurringExpenseOccurrence[];
+  periodRecurringExpenses?: RecurringExpenseOccurrence[];
   safetyReserveDesired: number;
   filter: DateFilter;
   activePeriod?: ActivePeriodMeta;
@@ -196,6 +216,16 @@ export interface FinanceContextType {
   unskipRecurringIncomeOccurrence: (ruleId: string, period: string) => void;
   endRecurringIncome: (ruleId: string, deactivatedFromPeriod?: string) => void;
   deleteRecurringIncomeRule: (ruleId: string) => void;
+
+  // Recurring Expenses
+  addRecurringExpense: (input: CreateRecurringExpenseInput) => void;
+  confirmRecurringExpensePayment: (input: ConfirmRecurringExpensePaymentInput) => void;
+  updateRecurringExpense: (input: UpdateRecurringExpenseInput) => void;
+  skipRecurringExpenseOccurrence: (ruleId: string, period: string) => void;
+  unskipRecurringExpenseOccurrence: (ruleId: string, period: string) => void;
+  endRecurringExpense: (ruleId: string, deactivatedFromPeriod?: string) => void;
+  deleteRecurringExpenseRule: (ruleId: string) => void;
+  convertTransactionToRecurringExpense: (input: ConvertTransactionToRecurringExpenseInput) => void;
 
   // Debts
   addDebt: (debt: Omit<Debt, 'id' | 'totalPaid' | 'paymentsHistory'>) => void;
@@ -238,6 +268,8 @@ export interface FinanceContextType {
   totalPendingVariable: number;
   pendingFixedCurrentMonth?: number;
   pendingVariableCurrentMonth?: number;
+  predictedIncomeCurrentMonth?: number;
+  predictedExpenseCurrentMonth?: number;
   totalActiveDebts: number;
   freeMoneyAvailable: number;
   incomeCommittedPercent: number;
@@ -1473,30 +1505,30 @@ export const FinanceProvider: React.FC<{
       }
     });
 
-    // 2. Projected explicit fixed recurring bills (somente isRecurring === true, sem parcelamento) if not yet generated
+    // 2. Despesas fixas recorrentes (regras explícitas RecurringExpenseRule + legado isRecurring === true sem duplicação)
     if (isFuture || isCurrent) {
-      const recurringTemplates = getExplicitRecurringFixedExpenseTemplates(state.transactions, targetMY);
+      const recurringExpOccurrences = getRecurringExpensesForMonth(
+        state.recurringExpenses,
+        targetYear,
+        targetMonth,
+        state.transactions,
+        todayISO
+      );
 
-      recurringTemplates.forEach(sampleTx => {
-        const samplePeriod = getTransactionEffectivePeriod(sampleTx);
-        if (targetMY <= samplePeriod) return;
-
-        const normalizedDesc = sampleTx.description.trim().toLowerCase();
+      recurringExpOccurrences.forEach(occ => {
+        if (!occ.isVirtual || occ.status === 'skipped') return;
+        const normalizedDesc = occ.description.trim().toLowerCase();
         const alreadyExists = commitments.some(
           c => c.description.trim().toLowerCase() === normalizedDesc
         );
         if (!alreadyExists) {
-          const dayParts = parseISODateParts(sampleTx.dueDate || sampleTx.date);
-          const configuredDay = dayParts ? dayParts.day : 10;
-          const projectedDueDate = resolveClampedDateForPeriod(targetMY, configuredDay);
-
           commitments.push({
-            id: `proj-rec-${sampleTx.id}-${targetMY}`,
-            description: sampleTx.description,
-            amount: sampleTx.amount,
+            id: occ.id,
+            description: occ.description,
+            amount: occ.amount,
             type: 'fixed_recurring',
-            category: sampleTx.category,
-            dueDate: projectedDueDate,
+            category: occ.category,
+            dueDate: occ.date,
           });
         }
       });
@@ -1592,16 +1624,30 @@ export const FinanceProvider: React.FC<{
     };
   };
 
-  // Next 6 months projections (used for quick navigation)
+  // Next 6 months projections (with progressive debt amortization and cumulative balance)
   const nextMonthsProjections = useMemo(() => {
     const list: MonthProjection[] = [];
+    const virtualDebtBalances = new Map<string, number>();
+    state.debts.forEach(d => {
+      virtualDebtBalances.set(d.id, d.currentBalance);
+    });
+
+    let runningBalance = totalBankBalance;
+
     for (let i = 1; i <= 6; i++) {
       const nextPeriod = addMonthsToPeriod(currentPeriod, i);
       const [yStr, mStr] = nextPeriod.split('-');
-      list.push(calculateMonthProjection(Number(yStr), Number(mStr) - 1));
+      const proj = calculateMonthProjection(
+        Number(yStr),
+        Number(mStr) - 1,
+        virtualDebtBalances,
+        runningBalance
+      );
+      runningBalance = proj.projectedCumulativeBalance;
+      list.push(proj);
     }
     return list;
-  }, [state.transactions, state.debts, state.recurringIncomes, totalBankBalance, currentPeriod]);
+  }, [state.transactions, state.debts, state.recurringIncomes, state.recurringExpenses, totalBankBalance, currentPeriod]);
 
   // Next 12 months projections with progressive debt amortization and cumulative balance
   const next12MonthsProjections = useMemo(() => {
@@ -1626,12 +1672,12 @@ export const FinanceProvider: React.FC<{
       list.push(proj);
     }
     return list;
-  }, [state.transactions, state.debts, state.recurringIncomes, totalBankBalance, currentPeriod]);
+  }, [state.transactions, state.debts, state.recurringIncomes, state.recurringExpenses, totalBankBalance, currentPeriod]);
 
   // Current selected month projection
   const currentSelectedMonthProjection = useMemo(() => {
     return calculateMonthProjection(selectedYear, selectedMonth);
-  }, [selectedYear, selectedMonth, state.transactions, state.debts, state.recurringIncomes, totalBankBalance, currentPeriod]);
+  }, [selectedYear, selectedMonth, state.transactions, state.debts, state.recurringIncomes, state.recurringExpenses, totalBankBalance, currentPeriod]);
 
   // Aggregated projection across the entire active period (single or multi-month)
   const periodProjectionSummary = useMemo((): MonthProjection => {
@@ -1679,7 +1725,7 @@ export const FinanceProvider: React.FC<{
       isCurrent: activePeriod.isCurrentMonth,
       commitments: allCommitments
     };
-  }, [activePeriod, currentSelectedMonthProjection, state.transactions, state.debts, state.recurringIncomes, totalBankBalance, currentPeriod]);
+  }, [activePeriod, currentSelectedMonthProjection, state.transactions, state.debts, state.recurringIncomes, state.recurringExpenses, totalBankBalance, currentPeriod]);
 
   const selectedMonthRecurringIncomes = useMemo(() => {
     return getRecurringIncomesForMonth(
@@ -1701,6 +1747,27 @@ export const FinanceProvider: React.FC<{
       includeSkipped: true
     });
   }, [state.recurringIncomes, state.transactions, activePeriod, todayISO]);
+
+  const selectedMonthRecurringExpenses = useMemo(() => {
+    return getRecurringExpensesForMonth(
+      state.recurringExpenses,
+      selectedYear,
+      selectedMonth,
+      state.transactions,
+      todayISO,
+      { includeSkipped: true }
+    );
+  }, [state.recurringExpenses, selectedYear, selectedMonth, state.transactions, todayISO]);
+
+  const periodRecurringExpenses = useMemo(() => {
+    return getRecurringExpensesForActivePeriod({
+      recurringExpenses: state.recurringExpenses,
+      transactions: state.transactions,
+      activePeriod,
+      todayISO,
+      includeSkipped: true
+    });
+  }, [state.recurringExpenses, state.transactions, activePeriod, todayISO]);
 
   // Month navigation helpers
   const goToNextMonth = () => {
@@ -1728,10 +1795,11 @@ export const FinanceProvider: React.FC<{
     return computeFilteredTransactions({
       transactions: state.transactions,
       recurringIncomes: state.recurringIncomes,
+      recurringExpenses: state.recurringExpenses,
       activePeriod,
       todayISO
     });
-  }, [state.transactions, state.recurringIncomes, activePeriod, todayISO]);
+  }, [state.transactions, state.recurringIncomes, state.recurringExpenses, activePeriod, todayISO]);
 
   // Total de entradas no período filtrado
   const totalIncomePeriod = useMemo(() => {
@@ -1772,6 +1840,39 @@ export const FinanceProvider: React.FC<{
       .reduce((sum, tx) => sum + tx.amount, 0);
   }, [filteredTransactions]);
 
+  // Previsões virtuais do mês atual (não efetivadas; nunca infla saldo bancário)
+  const currentMonthRecurringIncomes = useMemo(() => {
+    return getRecurringIncomesForMonth(
+      state.recurringIncomes,
+      currentYear,
+      currentMonth,
+      state.transactions,
+      todayISO
+    );
+  }, [state.recurringIncomes, currentYear, currentMonth, state.transactions, todayISO]);
+
+  const currentMonthRecurringExpenses = useMemo(() => {
+    return getRecurringExpensesForMonth(
+      state.recurringExpenses,
+      currentYear,
+      currentMonth,
+      state.transactions,
+      todayISO
+    );
+  }, [state.recurringExpenses, currentYear, currentMonth, state.transactions, todayISO]);
+
+  const predictedIncomeCurrentMonth = useMemo(() => {
+    return currentMonthRecurringIncomes
+      .filter(o => o.isVirtual && (o.status === 'predicted' || o.status === 'overdue'))
+      .reduce((sum, o) => sum + o.amount, 0);
+  }, [currentMonthRecurringIncomes]);
+
+  const predictedExpenseCurrentMonth = useMemo(() => {
+    return currentMonthRecurringExpenses
+      .filter(o => o.isVirtual && (o.status === 'predicted' || o.status === 'overdue'))
+      .reduce((sum, o) => sum + o.amount, 0);
+  }, [currentMonthRecurringExpenses]);
+
   // Entradas ainda previstas/pendentes no mês atual (real)
   const pendingIncomeCurrentMonth = useMemo(() => {
     return state.transactions
@@ -1779,12 +1880,16 @@ export const FinanceProvider: React.FC<{
       .reduce((sum, tx) => sum + tx.amount, 0);
   }, [state.transactions, currentPeriod]);
 
-  // Despesas fixas e variáveis pendentes do mês atual (real)
+  // Despesas fixas e variáveis pendentes do mês atual (real + virtual recorrente fora do cartão de crédito)
   const pendingFixedCurrentMonth = useMemo(() => {
-    return state.transactions
+    const savedPending = state.transactions
       .filter(tx => getTransactionEffectivePeriod(tx) === currentPeriod && tx.type === 'expense_fixed' && tx.status !== 'paid')
       .reduce((sum, tx) => sum + tx.amount, 0);
-  }, [state.transactions, currentPeriod]);
+    const virtualRecurringNonCard = currentMonthRecurringExpenses
+      .filter(occ => occ.isVirtual && !occ.isLegacy && occ.status !== 'skipped' && occ.paymentMethod !== 'credit_card')
+      .reduce((sum, occ) => sum + occ.amount, 0);
+    return savedPending + virtualRecurringNonCard;
+  }, [state.transactions, currentPeriod, currentMonthRecurringExpenses]);
 
   const pendingVariableCurrentMonth = useMemo(() => {
     return state.transactions
@@ -1792,13 +1897,16 @@ export const FinanceProvider: React.FC<{
       .reduce((sum, tx) => sum + tx.amount, 0);
   }, [state.transactions, currentPeriod]);
 
-  // Faturas de cartão de crédito pendentes do mês atual (real)
+  // Faturas de cartão de crédito pendentes do mês atual (real + virtual recorrente no cartão)
   const pendingCreditCardInvoicesMonth = useMemo(() => {
-    // Gastos no cartão no mês atual que ainda não foram liquidados por fatura
-    return state.transactions
+    const savedCardTx = state.transactions
       .filter(tx => getTransactionEffectivePeriod(tx) === currentPeriod && tx.paymentMethod === 'credit_card' && !tx.isInvoicePayment)
       .reduce((sum, tx) => sum + tx.amount, 0);
-  }, [state.transactions, currentPeriod]);
+    const virtualRecurringCard = currentMonthRecurringExpenses
+      .filter(occ => occ.isVirtual && !occ.isLegacy && occ.status !== 'skipped' && occ.paymentMethod === 'credit_card')
+      .reduce((sum, occ) => sum + occ.amount, 0);
+    return savedCardTx + virtualRecurringCard;
+  }, [state.transactions, currentPeriod, currentMonthRecurringExpenses]);
 
   // Dívidas ativas em aberto
   const totalActiveDebts = useMemo(() => {
@@ -2273,6 +2381,39 @@ export const FinanceProvider: React.FC<{
     mutateState(prev => deleteRecurringIncomeRuleInState(prev, ruleId));
   };
 
+  // Recurring Expenses CRUD & Workflow
+  const addRecurringExpense = (input: CreateRecurringExpenseInput) => {
+    mutateState(prev => addRecurringExpenseRuleToState(prev, input, getTodayISO()).state);
+  };
+
+  const confirmRecurringExpensePayment = (input: ConfirmRecurringExpensePaymentInput) => {
+    mutateState(prev => confirmRecurringExpensePaymentInState(prev, input).state);
+  };
+
+  const updateRecurringExpense = (input: UpdateRecurringExpenseInput) => {
+    mutateState(prev => updateRecurringExpenseInState(prev, input));
+  };
+
+  const skipRecurringExpenseOccurrence = (ruleId: string, period: string) => {
+    mutateState(prev => skipRecurringExpenseOccurrenceInState(prev, ruleId, period));
+  };
+
+  const unskipRecurringExpenseOccurrence = (ruleId: string, period: string) => {
+    mutateState(prev => unskipRecurringExpenseOccurrenceInState(prev, ruleId, period));
+  };
+
+  const endRecurringExpense = (ruleId: string, deactivatedFromPeriod?: string) => {
+    mutateState(prev => endRecurringExpenseInState(prev, ruleId, deactivatedFromPeriod));
+  };
+
+  const deleteRecurringExpenseRule = (ruleId: string) => {
+    mutateState(prev => deleteRecurringExpenseRuleInState(prev, ruleId));
+  };
+
+  const convertTransactionToRecurringExpense = (input: ConvertTransactionToRecurringExpenseInput) => {
+    mutateState(prev => convertTransactionToRecurringExpenseInState(prev, input).state);
+  };
+
   // Transfer between accounts (does NOT count as income or expense)
   const transferBetweenAccounts = (
     sourceAccountId: string,
@@ -2644,7 +2785,8 @@ export const FinanceProvider: React.FC<{
         (currentState.transactions?.length || 0) > 0 ||
         (currentState.debts?.length || 0) > 0 ||
         (currentState.goals?.length || 0) > 0 ||
-        (currentState.recurringIncomes?.length || 0) > 0;
+        (currentState.recurringIncomes?.length || 0) > 0 ||
+        (currentState.recurringExpenses?.length || 0) > 0;
       const sampleSnap = await saveRecoverySnapshotWithExperimentalHistory(
         reqUserId,
         currentState,
@@ -2726,7 +2868,8 @@ export const FinanceProvider: React.FC<{
         (currentState.transactions?.length || 0) > 0 ||
         (currentState.debts?.length || 0) > 0 ||
         (currentState.goals?.length || 0) > 0 ||
-        (currentState.recurringIncomes?.length || 0) > 0;
+        (currentState.recurringIncomes?.length || 0) > 0 ||
+        (currentState.recurringExpenses?.length || 0) > 0;
       const resetSnap = await saveRecoverySnapshotWithExperimentalHistory(
         reqUserId,
         currentState,
@@ -3204,7 +3347,8 @@ export const FinanceProvider: React.FC<{
         (previousState.transactions?.length || 0) > 0 ||
         (previousState.debts?.length || 0) > 0 ||
         (previousState.goals?.length || 0) > 0 ||
-        (previousState.recurringIncomes?.length || 0) > 0;
+        (previousState.recurringIncomes?.length || 0) > 0 ||
+        (previousState.recurringExpenses?.length || 0) > 0;
       const restoreSnap = await saveRecoverySnapshotWithExperimentalHistory(
         reqUserId,
         previousState,
@@ -3293,6 +3437,9 @@ export const FinanceProvider: React.FC<{
         recurringIncomes: state.recurringIncomes || [],
         selectedMonthRecurringIncomes,
         periodRecurringIncomes,
+        recurringExpenses: state.recurringExpenses || [],
+        selectedMonthRecurringExpenses,
+        periodRecurringExpenses,
         safetyReserveDesired: state.safetyReserveDesired,
         filter,
         activePeriod,
@@ -3326,6 +3473,15 @@ export const FinanceProvider: React.FC<{
         unskipRecurringIncomeOccurrence,
         endRecurringIncome,
         deleteRecurringIncomeRule,
+
+        addRecurringExpense,
+        confirmRecurringExpensePayment,
+        updateRecurringExpense,
+        skipRecurringExpenseOccurrence,
+        unskipRecurringExpenseOccurrence,
+        endRecurringExpense,
+        deleteRecurringExpenseRule,
+        convertTransactionToRecurringExpense,
 
         addDebt,
         updateDebt,
@@ -3362,6 +3518,8 @@ export const FinanceProvider: React.FC<{
         totalPendingVariable,
         pendingFixedCurrentMonth,
         pendingVariableCurrentMonth,
+        predictedIncomeCurrentMonth,
+        predictedExpenseCurrentMonth,
         totalActiveDebts,
         freeMoneyAvailable,
         incomeCommittedPercent,

@@ -30,6 +30,10 @@ export const GoalsView: React.FC = () => {
     accounts,
     freeMoneyAvailable,
     totalSavedPeriod,
+    activePeriod,
+    periodLabel,
+    periodProjectionSummary,
+    isFutureView,
     addGoal,
     updateGoal,
     deleteGoal,
@@ -203,10 +207,23 @@ export const GoalsView: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Target className="w-5 h-5 text-emerald-500" />
-            Planejamento & Objetivos Financeiros
-          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Target className="w-5 h-5 text-emerald-500" />
+              Planejamento & Objetivos Financeiros
+            </h2>
+            {periodLabel && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                <Calendar className="w-3 h-3 text-emerald-500" />
+                <span>{periodLabel}</span>
+                {(activePeriod?.isFutureView || activePeriod?.includesFuture || isFutureView) && (
+                  <span className="px-1.5 py-0.2 rounded bg-blue-500/15 text-blue-600 dark:text-blue-400 text-[10px] font-bold">
+                    Projeção
+                  </span>
+                )}
+              </span>
+            )}
+          </div>
           <p className="text-xs text-slate-500">
             Acompanhe suas metas de curto, médio e longo prazo e simule o poder dos juros compostos
           </p>
@@ -228,12 +245,22 @@ export const GoalsView: React.FC = () => {
       {/* Capacity & Savings Callout Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
         <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-          <span className="text-xs text-slate-500 font-medium">Sobra Média Estimada</span>
+          <span className="text-xs text-slate-500 font-medium">
+            {(activePeriod?.includesFuture || isFutureView) && periodProjectionSummary
+              ? `Sobra Projetada (${activePeriod?.shortLabel || periodLabel})`
+              : 'Sobra Média Estimada'}
+          </span>
           <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 tabular-nums mt-1">
-            {formatCurrency(totalSavedPeriod)}
+            {formatCurrency(
+              (activePeriod?.includesFuture || isFutureView) && periodProjectionSummary
+                ? periodProjectionSummary.projectedFreeBalance
+                : totalSavedPeriod
+            )}
           </div>
           <span className="text-[11px] text-slate-400 mt-1 block">
-            Diferença positiva entre receitas e despesas
+            {(activePeriod?.includesFuture || isFutureView) && periodProjectionSummary
+              ? `Receitas prev.: ${formatCurrency(periodProjectionSummary.totalIncomeProjected)} · Compromissos: ${formatCurrency(periodProjectionSummary.totalOwedTotal)}`
+              : 'Diferença positiva entre receitas e despesas'}
           </span>
         </div>
 
@@ -243,7 +270,9 @@ export const GoalsView: React.FC = () => {
             {formatCurrency(freeMoneyAvailable)}
           </div>
           <span className="text-[11px] text-slate-400 mt-1 block">
-            Pode ser investido sem comprometer suas contas
+            {(activePeriod?.includesFuture || isFutureView) && periodProjectionSummary
+              ? `Saldo acumulado projetado: ${formatCurrency(periodProjectionSummary.projectedCumulativeBalance)}`
+              : 'Pode ser investido sem comprometer suas contas'}
           </span>
         </div>
 

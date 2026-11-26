@@ -3,7 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BankAccount, Category, CreditCard, Debt, FinancialGoal, RecurringIncomeRule, Transaction } from '../types/finance';
+import {
+  BankAccount,
+  Category,
+  CreditCard,
+  Debt,
+  FinancialGoal,
+  RecurringExpenseRule,
+  RecurringIncomeRule,
+  Transaction
+} from '../types/finance';
 
 export const DEFAULT_CATEGORIES: Category[] = [
   // Renda Principal
@@ -429,9 +438,12 @@ export const DEFAULT_TRANSACTIONS: Transaction[] = [
   }
 ];
 
+export const CURRENT_APP_SCHEMA_VERSION = 2;
+
 export interface AppState {
   ownerUserId?: string;
   version: number;
+  schemaVersion?: number;
   lastModified?: number; // Timestamp epoch em ms para ordenação e prevenção de conflitos
   transactions: Transaction[];
   categories: Category[];
@@ -440,6 +452,7 @@ export interface AppState {
   debts: Debt[];
   goals: FinancialGoal[];
   recurringIncomes?: RecurringIncomeRule[];
+  recurringExpenses?: RecurringExpenseRule[];
   safetyReserveDesired: number; // Reserva que deseja preservar
   isSampleLoaded: boolean;
 }
@@ -491,6 +504,7 @@ export function createNeutralLoadingState(userId?: string): AppState {
   return {
     ownerUserId: isValidStorageUserId(userId) ? userId : undefined,
     version: 0,
+    schemaVersion: CURRENT_APP_SCHEMA_VERSION,
     lastModified: 0,
     transactions: [],
     categories: DEFAULT_CATEGORIES,
@@ -499,6 +513,7 @@ export function createNeutralLoadingState(userId?: string): AppState {
     debts: [],
     goals: [],
     recurringIncomes: [],
+    recurringExpenses: [],
     safetyReserveDesired: 0,
     isSampleLoaded: false,
   };
@@ -515,6 +530,7 @@ export function createCleanUserState(userId: string): AppState {
   return {
     ownerUserId: userId,
     version: 1,
+    schemaVersion: CURRENT_APP_SCHEMA_VERSION,
     lastModified: 0,
     transactions: [],
     categories: DEFAULT_CATEGORIES,
@@ -528,6 +544,7 @@ export function createCleanUserState(userId: string): AppState {
     debts: [],
     goals: [],
     recurringIncomes: [],
+    recurringExpenses: [],
     safetyReserveDesired: 1000.00,
     isSampleLoaded: false,
   };
@@ -609,7 +626,8 @@ export function saveRecoverySnapshotForUser(userId: string, state: AppState, rea
     state.transactions.length === 0 &&
     state.debts.length === 0 &&
     state.goals.length === 0 &&
-    (state.recurringIncomes?.length || 0) === 0
+    (state.recurringIncomes?.length || 0) === 0 &&
+    (state.recurringExpenses?.length || 0) === 0
   ) {
     return false;
   }
@@ -738,6 +756,7 @@ export function resetToSampleStateForUser(userId: string, currentVersion = 0): A
   const sampleState: AppState = {
     ownerUserId: userId,
     version: Math.max(1, currentVersion + 1),
+    schemaVersion: CURRENT_APP_SCHEMA_VERSION,
     lastModified: 0,
     transactions: DEFAULT_TRANSACTIONS,
     categories: DEFAULT_CATEGORIES,
@@ -746,6 +765,7 @@ export function resetToSampleStateForUser(userId: string, currentVersion = 0): A
     debts: DEFAULT_DEBTS,
     goals: DEFAULT_GOALS,
     recurringIncomes: [],
+    recurringExpenses: [],
     safetyReserveDesired: 2000.00,
     isSampleLoaded: true,
   };

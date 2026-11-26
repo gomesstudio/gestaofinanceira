@@ -19,7 +19,8 @@ import {
   Wallet
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
-import { formatCurrency, formatPercent } from '../../utils/formatters';
+import { formatCurrency, formatPercent, getTodayISO } from '../../utils/formatters';
+import { getRecurringExpensesForMonth } from '../../utils/recurringExpense';
 import { FutureProjectionCard } from '../dashboard/FutureProjectionCard';
 
 export const PowerOfPurchaseView: React.FC = () => {
@@ -34,6 +35,8 @@ export const PowerOfPurchaseView: React.FC = () => {
     pendingVariableCurrentMonth,
     simulatePurchase,
     accounts,
+    transactions,
+    recurringExpenses = [],
     debts,
     creditCards,
     getCardInvoiceAmount
@@ -64,10 +67,23 @@ export const PowerOfPurchaseView: React.FC = () => {
     setIsEditingReserve(false);
   };
 
-  // Card invoices total
-  const now = new Date();
-  const currentMY = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const totalCardsInvoices = creditCards.reduce((sum, c) => sum + getCardInvoiceAmount(c.id, currentMY), 0);
+  // Card invoices total (real + recurring fixed expenses scheduled on credit cards for current month)
+  const todayISO = getTodayISO();
+  const currentMY = todayISO.slice(0, 7);
+  const currentYearNum = Number(currentMY.slice(0, 4));
+  const currentMonth0 = Number(currentMY.slice(5, 7)) - 1;
+  const virtualRecurringCardTotal = getRecurringExpensesForMonth(
+    recurringExpenses,
+    currentYearNum,
+    currentMonth0,
+    transactions,
+    todayISO
+  )
+    .filter(occ => occ.isVirtual && !occ.isLegacy && occ.status !== 'skipped' && occ.paymentMethod === 'credit_card')
+    .reduce((sum, occ) => sum + occ.amount, 0);
+  const totalCardsInvoices =
+    creditCards.reduce((sum, c) => sum + getCardInvoiceAmount(c.id, currentMY), 0) +
+    virtualRecurringCardTotal;
   const totalDebtCommitments = debts.filter(d => d.status !== 'settled').reduce((sum, d) => sum + (d.minimumPayment || 0), 0);
 
   return (

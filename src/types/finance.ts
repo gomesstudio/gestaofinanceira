@@ -158,6 +158,79 @@ export interface RecurringIncomeOccurrence {
   isLegacy?: boolean;
 }
 
+export type RecurringExpenseOccurrenceStatus = 'paid' | 'predicted' | 'overdue' | 'skipped';
+
+export interface RecurringExpenseScheduleEntry {
+  effectiveFromPeriod: string; // YYYY-MM
+  amount: number;
+  dayOfMonth?: number;
+  description?: string;
+  category?: string;
+  accountId?: string;
+  creditCardId?: string;
+  paymentMethod?: PaymentMethod;
+  notes?: string;
+}
+
+export interface RecurringExpenseMonthOverride {
+  amount?: number;
+  dayOfMonth?: number;
+  customDate?: string; // YYYY-MM-DD
+  description?: string;
+  category?: string;
+  accountId?: string;
+  creditCardId?: string;
+  paymentMethod?: PaymentMethod;
+  notes?: string;
+  skipped?: boolean;
+}
+
+export interface RecurringExpenseRule {
+  id: string;
+  description: string;
+  amount: number;
+  category: string;
+  accountId?: string;
+  creditCardId?: string;
+  paymentMethod: PaymentMethod;
+  frequency: RecurringFrequency;
+  dayOfMonth: number; // 1-31 (ajustado dinamicamente em meses curtos sem perder a configuração original)
+  startDate: string; // YYYY-MM-DD
+  startPeriod: string; // YYYY-MM
+  isIndefinite: boolean;
+  endDate?: string; // YYYY-MM-DD
+  endPeriod?: string; // YYYY-MM
+  isActive: boolean;
+  deactivatedFromPeriod?: string; // YYYY-MM
+  notes?: string;
+  schedules?: RecurringExpenseScheduleEntry[];
+  overrides?: Record<string, RecurringExpenseMonthOverride>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RecurringExpenseOccurrence {
+  id: string;
+  ruleId: string;
+  period: string; // YYYY-MM
+  description: string;
+  amount: number;
+  category: string;
+  accountId?: string;
+  creditCardId?: string;
+  paymentMethod: PaymentMethod;
+  scheduledDate: string; // YYYY-MM-DD
+  date: string; // YYYY-MM-DD (data prevista ou data real se já paga)
+  configuredDayOfMonth: number;
+  status: RecurringExpenseOccurrenceStatus;
+  isIndefinite: boolean;
+  endDate?: string;
+  transactionId?: string;
+  notes?: string;
+  isVirtual: boolean;
+  isLegacy?: boolean;
+}
+
 export interface Transaction {
   id: string;
   description: string;
@@ -173,6 +246,7 @@ export interface Transaction {
   status: TransactionStatus;
   isRecurring?: boolean;
   recurringIncomeId?: string;
+  recurringExpenseId?: string;
   recurringPeriod?: string; // YYYY-MM
   notes?: string;
   
@@ -190,7 +264,7 @@ export interface Transaction {
 
   // Propriedades transitórias em tempo de execução para itens virtuais projetados (nunca persistidas)
   isVirtualProjection?: boolean;
-  projectedStatus?: RecurringIncomeOccurrenceStatus;
+  projectedStatus?: RecurringIncomeOccurrenceStatus | RecurringExpenseOccurrenceStatus;
 }
 
 export type TimeFilterPeriod = 

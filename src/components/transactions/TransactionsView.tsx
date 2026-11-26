@@ -29,7 +29,13 @@ import {
   isVirtualTransaction,
   resolveActivePeriod
 } from '../../utils/periodFilter';
-import { Transaction, TransactionStatus, TransactionType } from '../../types/finance';
+import {
+  PaymentMethod,
+  RecurringExpenseOccurrence,
+  RecurringIncomeOccurrence,
+  Transaction,
+  TransactionStatus
+} from '../../types/finance';
 import { ActionFeedback, ActionFeedbackBanner, ConfirmDeleteModal } from '../common/ConfirmDeleteModal';
 import { ResponsiveModal } from '../common/ResponsiveModal';
 
@@ -51,6 +57,10 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
     accounts,
     creditCards,
     categories,
+    selectedMonthRecurringIncomes = [],
+    selectedMonthRecurringExpenses = [],
+    confirmRecurringIncomeReceipt,
+    confirmRecurringExpensePayment,
     deleteTransaction,
     duplicateTransaction,
     updateTransaction,
@@ -90,6 +100,18 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
   const [pendingDeleteTx, setPendingDeleteTx] = useState<Transaction | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteFeedback, setDeleteFeedback] = useState<ActionFeedback | null>(null);
+
+  // Confirm virtual recurring occurrence Modal State (Income or Expense)
+  const [confirmingOccurrence, setConfirmingOccurrence] = useState<
+    | { kind: 'income'; occ: RecurringIncomeOccurrence }
+    | { kind: 'expense'; occ: RecurringExpenseOccurrence }
+    | null
+  >(null);
+  const [confirmAmountStr, setConfirmAmountStr] = useState('');
+  const [confirmDate, setConfirmDate] = useState('');
+  const [confirmPaymentMethod, setConfirmPaymentMethod] = useState<PaymentMethod>('pix');
+  const [confirmAccountId, setConfirmAccountId] = useState('');
+  const [confirmCreditCardId, setConfirmCreditCardId] = useState('');
 
   const handleConfirmDelete = async () => {
     if (!pendingDeleteTx || isDeleting) return;
@@ -174,6 +196,74 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
 
     setEditingTx(null);
   };
+
+  const handleOpenConfirmVirtual = (
+    kind: 'income' | 'expense',
+    occ: RecurringIncomeOccurrence | RecurringExpenseOccurrence
+  ) => {
+    setConfirmAmountStr(occ.amount.toFixed(2).replace('.', ','));
+    setConfirmDate(todayStr <= occ.date ? occ.date : todayStr);
+    setConfirmPaymentMethod(occ.paymentMethod || 'pix');
+    setConfirmAccountId(occ.accountId || accounts[0]?.id || '');
+    setConfirmCreditCardId(
+      kind === 'expense'
+        ? (occ as RecurringExpenseOccurrence).creditCardId || creditCards[0]?.id || ''
+        : ''
+    );
+    if (kind === 'income') {
+      setConfirmingOccurrence({ kind: 'income', occ: occ as RecurringIncomeOccurrence });
+    } else {
+      setConfirmingOccurrence({ kind: 'expense', occ: occ as RecurringExpenseOccurrence });
+    }
+  };
+
+  const handleConfirmVirtualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!confirmingOccurrence) return;
+    const amount = parseFloat(confirmAmountStr.replace(/\./g, '').replace(',', '.'));
+    if (isNaN(amount) || amount <= 0) return;
+
+    if (confirmingOccurrence.kind === 'income') {
+      confirmRecurringIncomeReceipt({
+        ruleId: confirmingOccurrence.occ.ruleId,
+        period: confirmingOccurrence.occ.period,
+        actualAmount: amount,
+        actualDate: confirmDate || todayStr,
+        accountId: confirmAccountId || undefined,
+        paymentMethod: confirmPaymentMethod
+      });
+      setDeleteFeedback({
+        type: 'success',
+        text: `Recebimento de "${confirmingOccurrence.occ.description}" confirmado com sucesso.`
+      });
+    } else {
+      confirmRecurringExpensePayment({
+        ruleId: confirmingOccurrence.occ.ruleId,
+        period: confirmingOccurrence.occ.period,
+        actualAmount: amount,
+        actualDate: confirmDate || todayStr,
+        paymentMethod: confirmPaymentMethod,
+        accountId: confirmPaymentMethod === 'credit_card' ? undefined : confirmAccountId || undefined,
+        creditCardId: confirmPaymentMethod === 'credit_card' ? confirmCreditCardId || undefined : undefined
+      });
+      setDeleteFeedback({
+        type: 'success',
+        text: `Pagamento de "${confirmingOccurrence.occ.description}" confirmado com sucesso.`
+      });
+    }
+    setConfirmingOccurrence(null);
+  };
+
+  const currentMonthPendingRecurring = activePeriod.isCurrentMonth
+    ? [
+        ...selectedMonthRecurringIncomes
+          .filter(occ => occ.isVirtual && !occ.isLegacy && (occ.status === 'predicted' || occ.status === 'overdue'))
+          .map(occ => ({ kind: 'income' as const, occ })),
+        ...selectedMonthRecurringExpenses
+          .filter(occ => occ.isVirtual && !occ.isLegacy && (occ.status === 'predicted' || occ.status === 'overdue'))
+          .map(occ => ({ kind: 'expense' as const, occ }))
+      ].sort((a, b) => a.occ.date.localeCompare(b.occ.date))
+    : [];
 
   const allCategories = categories;
   const shouldGroupByMonth = activePeriod.isMultiMonth || activePeriod.filterPeriod === 'all';
@@ -350,6 +440,67 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
         </div>
       </div>
 
+      {/* Current-Month Pending Recurring Previews (Realized vs Predicted separation) */}
+      {currentMonthPendingRecurring.length > 0 && (
+        <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-blue-200/80 dark:border-blue-900/50 shadow-xs space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
+              <Repeat className="w-4 h-4 text-blue-500" />
+              <span>Previsões Recorrentes do Mês (Ainda não efetivadas)</span>
+            </div>
+            <span className="text-[11px] text-slate-500">
+              Não alteram o saldo bancário até confirmação
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            {currentMonthPendingRecurring.map(({ kind, occ }) => (
+              <div
+                key={`${kind}-${occ.id}`}
+                className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-xs"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-slate-900 dark:text-white truncate">
+                      {occ.description}
+                    </span>
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-semibold shrink-0 ${
+                        occ.status === 'overdue'
+                          ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                          : 'bg-blue-500/15 text-blue-600 dark:text-blue-400'
+                      }`}
+                    >
+                      {occ.status === 'overdue' ? 'Em atraso' : 'Previsto'}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    {kind === 'income' ? 'Receita fixa' : 'Despesa fixa'} · {formatDateBR(occ.date)} · {occ.category}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span
+                    className={`font-mono font-bold tabular-nums ${
+                      kind === 'income'
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-slate-900 dark:text-white'
+                    }`}
+                  >
+                    {kind === 'income' ? '+' : '-'} {formatCurrency(occ.amount)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenConfirmVirtual(kind, occ)}
+                    className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold transition-colors cursor-pointer"
+                  >
+                    Confirmar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Transactions Table */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-xs">
         {filtered.length === 0 ? (
@@ -425,7 +576,9 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                       const isCard = tx.paymentMethod === 'credit_card';
                       const account = accounts.find(a => a.id === tx.accountId);
                       const card = creditCards.find(c => c.id === tx.creditCardId);
-                      const isRecurringBadge = Boolean(tx.recurringIncomeId || (isInc && tx.isRecurring));
+                      const isRecurringBadge = Boolean(
+                        tx.recurringIncomeId || tx.recurringExpenseId || tx.isRecurring
+                      );
 
                       return (
                         <tr key={tx.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
@@ -513,7 +666,71 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
                           </td>
                           <td className="py-3 px-4 text-center whitespace-nowrap">
                             {isVirtual ? (
-                              <span className="text-[10px] text-slate-400 font-medium">Projeção</span>
+                              tx.recurringIncomeId || tx.recurringExpenseId ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const occPeriod = tx.recurringPeriod || tx.date.slice(0, 7);
+                                    if (tx.recurringIncomeId) {
+                                      const match = selectedMonthRecurringIncomes.find(
+                                        o => o.ruleId === tx.recurringIncomeId && o.period === occPeriod
+                                      );
+                                      if (match) {
+                                        handleOpenConfirmVirtual('income', match);
+                                        return;
+                                      }
+                                      handleOpenConfirmVirtual('income', {
+                                        id: tx.id,
+                                        ruleId: tx.recurringIncomeId,
+                                        period: occPeriod,
+                                        description: tx.description,
+                                        amount: tx.amount,
+                                        category: tx.category,
+                                        accountId: tx.accountId,
+                                        paymentMethod: tx.paymentMethod,
+                                        scheduledDate: tx.date,
+                                        date: tx.date,
+                                        configuredDayOfMonth: Number(tx.date.slice(8, 10)) || 10,
+                                        status: tx.projectedStatus || 'predicted',
+                                        isIndefinite: true,
+                                        notes: tx.notes,
+                                        isVirtual: true
+                                      });
+                                    } else if (tx.recurringExpenseId) {
+                                      const match = selectedMonthRecurringExpenses.find(
+                                        o => o.ruleId === tx.recurringExpenseId && o.period === occPeriod
+                                      );
+                                      if (match) {
+                                        handleOpenConfirmVirtual('expense', match);
+                                        return;
+                                      }
+                                      handleOpenConfirmVirtual('expense', {
+                                        id: tx.id,
+                                        ruleId: tx.recurringExpenseId,
+                                        period: occPeriod,
+                                        description: tx.description,
+                                        amount: tx.amount,
+                                        category: tx.category,
+                                        accountId: tx.accountId,
+                                        creditCardId: tx.creditCardId,
+                                        paymentMethod: tx.paymentMethod,
+                                        scheduledDate: tx.date,
+                                        date: tx.date,
+                                        configuredDayOfMonth: Number(tx.date.slice(8, 10)) || 10,
+                                        status: tx.projectedStatus || 'predicted',
+                                        isIndefinite: true,
+                                        notes: tx.notes,
+                                        isVirtual: true
+                                      });
+                                    }
+                                  }}
+                                  className="px-2 py-1 rounded-lg bg-emerald-600/10 hover:bg-emerald-600 text-emerald-700 hover:text-white dark:text-emerald-400 text-[10px] font-semibold transition-colors cursor-pointer"
+                                >
+                                  Confirmar
+                                </button>
+                              ) : (
+                                <span className="text-[10px] text-slate-400 font-medium">Projeção</span>
+                              )
                             ) : (
                               <div className="flex items-center justify-center gap-1 text-slate-400">
                                 <button
@@ -655,6 +872,121 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
             />
           </div>
+        </div>
+      </ResponsiveModal>
+
+      {/* Confirm Virtual Recurring Occurrence Modal */}
+      <ResponsiveModal
+        isOpen={!!confirmingOccurrence}
+        onClose={() => setConfirmingOccurrence(null)}
+        title={
+          confirmingOccurrence?.kind === 'income'
+            ? 'Confirmar Recebimento Recorrente'
+            : 'Confirmar Pagamento Recorrente'
+        }
+        subtitle={confirmingOccurrence?.occ.description}
+        size="md"
+        onSubmit={handleConfirmVirtualSubmit}
+        bodyClassName="text-xs"
+        footer={
+          <button
+            type="submit"
+            className="w-full min-h-[42px] py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition-all shadow-xs cursor-pointer"
+          >
+            Confirmar Efetivação
+          </button>
+        }
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label htmlFor={`${fieldIdPrefix}-confirm-amount`} className="block font-medium text-slate-500 mb-1">
+              Valor Efetivo (R$)
+            </label>
+            <input
+              id={`${fieldIdPrefix}-confirm-amount`}
+              name="confirm_recurring_amount"
+              type="text"
+              autoComplete="off"
+              required
+              value={confirmAmountStr}
+              onChange={e => setConfirmAmountStr(e.target.value.replace(/[^0-9,]/g, ''))}
+              className="w-full px-3 py-2 font-mono font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label htmlFor={`${fieldIdPrefix}-confirm-date`} className="block font-medium text-slate-500 mb-1">
+              Data Efetiva
+            </label>
+            <input
+              id={`${fieldIdPrefix}-confirm-date`}
+              name="confirm_recurring_date"
+              type="date"
+              required
+              value={confirmDate}
+              onChange={e => setConfirmDate(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label htmlFor={`${fieldIdPrefix}-confirm-method`} className="block font-medium text-slate-500 mb-1">
+              Forma de Pagamento
+            </label>
+            <select
+              id={`${fieldIdPrefix}-confirm-method`}
+              name="confirm_recurring_payment_method"
+              value={confirmPaymentMethod}
+              onChange={e => setConfirmPaymentMethod(e.target.value as PaymentMethod)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+            >
+              <option value="pix">PIX</option>
+              <option value="bank_transfer">Transferência / Débito Automático</option>
+              <option value="debit_card">Cartão de Débito</option>
+              <option value="bank_slip">Boleto</option>
+              <option value="cash">Dinheiro</option>
+              {confirmingOccurrence?.kind === 'expense' && (
+                <option value="credit_card">Cartão de Crédito</option>
+              )}
+            </select>
+          </div>
+
+          {confirmPaymentMethod === 'credit_card' && confirmingOccurrence?.kind === 'expense' ? (
+            <div>
+              <label htmlFor={`${fieldIdPrefix}-confirm-card`} className="block font-medium text-slate-500 mb-1">
+                Cartão de Crédito
+              </label>
+              <select
+                id={`${fieldIdPrefix}-confirm-card`}
+                name="confirm_recurring_card"
+                value={confirmCreditCardId}
+                onChange={e => setConfirmCreditCardId(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+              >
+                {creditCards.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div>
+              <label htmlFor={`${fieldIdPrefix}-confirm-account`} className="block font-medium text-slate-500 mb-1">
+                Conta Bancária / Carteira
+              </label>
+              <select
+                id={`${fieldIdPrefix}-confirm-account`}
+                name="confirm_recurring_account"
+                value={confirmAccountId}
+                onChange={e => setConfirmAccountId(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+              >
+                {accounts.map(acc => (
+                  <option key={acc.id} value={acc.id}>{acc.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </ResponsiveModal>
 

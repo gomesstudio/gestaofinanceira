@@ -85,7 +85,8 @@ function hasEligibleSnapshotContent(state: AppState): boolean {
     (state.transactions.length > 0 ||
       state.debts.length > 0 ||
       state.goals.length > 0 ||
-      (state.recurringIncomes?.length || 0) > 0)
+      (state.recurringIncomes?.length || 0) > 0 ||
+      (state.recurringExpenses?.length || 0) > 0)
   );
 }
 

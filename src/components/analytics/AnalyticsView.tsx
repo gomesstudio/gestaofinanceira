@@ -42,6 +42,7 @@ export const AnalyticsView: React.FC = () => {
     activePeriod: ctxActivePeriod,
     periodLabel: ctxPeriodLabel,
     recurringIncomes = [],
+    recurringExpenses = [],
     categories,
     debts,
     creditCards,
@@ -141,6 +142,7 @@ export const AnalyticsView: React.FC = () => {
             targetMonth: parsed.month,
             transactions,
             recurringIncomes,
+            recurringExpenses,
             todayISO
           });
           projected.forEach(pt => accumulateTx(key, pt));
@@ -153,7 +155,7 @@ export const AnalyticsView: React.FC = () => {
     });
 
     return orderedKeys.map(k => monthsData[k]);
-  }, [transactions, recurringIncomes, activePeriod, todayISO]);
+  }, [transactions, recurringIncomes, recurringExpenses, activePeriod, todayISO]);
 
   // Income distribution by group (Principal vs Benefícios vs Extras)
   const incomeDistribution = useMemo(() => {

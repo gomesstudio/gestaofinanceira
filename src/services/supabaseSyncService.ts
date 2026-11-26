@@ -4,7 +4,7 @@
  */
 
 import { supabase, SUPABASE_PROJECT_URL } from '../utils/supabase';
-import { AppState } from '../utils/storage';
+import { AppState, CURRENT_APP_SCHEMA_VERSION } from '../utils/storage';
 
 export const SUPABASE_TABLE_NAME = 'user_finance_data';
 
@@ -130,6 +130,7 @@ export function areStatesContentEqual(a: AppState, b: AppState): boolean {
   if ((a.debts?.length || 0) !== (b.debts?.length || 0)) return false;
   if ((a.goals?.length || 0) !== (b.goals?.length || 0)) return false;
   if ((a.recurringIncomes?.length || 0) !== (b.recurringIncomes?.length || 0)) return false;
+  if ((a.recurringExpenses?.length || 0) !== (b.recurringExpenses?.length || 0)) return false;
 
   return (
     stableStringify(a.transactions || []) === stableStringify(b.transactions || []) &&
@@ -138,8 +139,28 @@ export function areStatesContentEqual(a: AppState, b: AppState): boolean {
     stableStringify(a.creditCards || []) === stableStringify(b.creditCards || []) &&
     stableStringify(a.debts || []) === stableStringify(b.debts || []) &&
     stableStringify(a.goals || []) === stableStringify(b.goals || []) &&
-    stableStringify(a.recurringIncomes || []) === stableStringify(b.recurringIncomes || [])
+    stableStringify(a.recurringIncomes || []) === stableStringify(b.recurringIncomes || []) &&
+    stableStringify(a.recurringExpenses || []) === stableStringify(b.recurringExpenses || [])
   );
+}
+
+/**
+ * Detecta se um cliente local desatualizado (sem suporte a `recurringExpenses` ou com
+ * `schemaVersion` inferior ao registro remoto) poderia descartar silenciosamente regras
+ * de despesas recorrentes já existentes na nuvem.
+ */
+export function detectStaleClientSchemaRisk(localState: AppState, remoteState: AppState): boolean {
+  const remoteHasRecurringExpenses =
+    Array.isArray(remoteState.recurringExpenses) && remoteState.recurringExpenses.length > 0;
+  if (!remoteHasRecurringExpenses) {
+    return false;
+  }
+
+  const localMissingRecurringExpensesField = localState.recurringExpenses === undefined;
+  const localSchemaVersion = typeof localState.schemaVersion === 'number' ? localState.schemaVersion : 1;
+  const remoteSchemaVersion = typeof remoteState.schemaVersion === 'number' ? remoteState.schemaVersion : 2;
+
+  return localMissingRecurringExpensesField || localSchemaVersion < remoteSchemaVersion;
 }
 
 /**
@@ -187,7 +208,8 @@ export async function verifyCloudPreservationForUser(
     ((localState.transactions?.length || 0) > 0 ||
       (localState.debts?.length || 0) > 0 ||
       (localState.goals?.length || 0) > 0 ||
-      (localState.recurringIncomes?.length || 0) > 0);
+      (localState.recurringIncomes?.length || 0) > 0 ||
+      (localState.recurringExpenses?.length || 0) > 0);
 
   const isUnmodifiedSample =
     Boolean(localState.isSampleLoaded) && (!localState.lastModified || localState.lastModified <= 0);
@@ -490,6 +512,7 @@ export async function saveFinanceDataToSupabase(
       ...state,
       ownerUserId: userId,
       version: currentVersion,
+      schemaVersion: state.schemaVersion ?? CURRENT_APP_SCHEMA_VERSION,
       lastModified: currentTimestamp
     };
 
@@ -634,6 +657,16 @@ export function resolveMultiDeviceConflict(
       strategy: 'equal',
       resolvedState: remoteState,
       reason: 'Dispositivo e nuvem já estão em perfeita sincronia de conteúdo.'
+    };
+  }
+
+  // 4. Proteção contra cliente desatualizado: impede descarte silencioso de `recurringExpenses` da nuvem
+  if (detectStaleClientSchemaRisk(localState, remoteState)) {
+    return {
+      strategy: 'conflict',
+      resolvedState: remoteState,
+      reason:
+        'Cliente desatualizado detectado: as despesas fixas recorrentes salvas na nuvem foram preservadas para evitar descarte silencioso. Atualize o aplicativo antes de enviar alterações locais.'
     };
   }
 

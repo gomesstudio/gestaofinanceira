@@ -12,13 +12,18 @@ import {
   DebtStatus,
   FinancialGoal,
   PaymentMethod,
+  RecurringExpenseRule,
   RecurringIncomeRule,
   Transaction,
   TransactionStatus,
   TransactionType
 } from '../types/finance';
 import { AppState, isValidStorageUserId } from './storage';
-import { areStatesContentEqual, SyncResult } from '../services/supabaseSyncService';
+import {
+  areStatesContentEqual,
+  detectStaleClientSchemaRisk,
+  SyncResult
+} from '../services/supabaseSyncService';
 
 const VALID_TRANSACTION_TYPES: ReadonlySet<TransactionType> = new Set([
   'income',
@@ -74,6 +79,8 @@ export interface BackupPreviewCounts {
   creditCards: number;
   debts: number;
   goals: number;
+  recurringIncomes?: number;
+  recurringExpenses?: number;
 }
 
 export type BackupSourceFormat = 'full_backup' | 'recovery_snapshot';
@@ -189,6 +196,7 @@ function isValidTransaction(item: unknown): item is Transaction {
   if (!isOptionalString(item.creditCardId)) return false;
   if (item.isRecurring !== undefined && typeof item.isRecurring !== 'boolean') return false;
   if (!isOptionalString(item.recurringIncomeId)) return false;
+  if (!isOptionalString(item.recurringExpenseId)) return false;
   if (!isOptionalString(item.recurringPeriod)) return false;
   if (!isOptionalString(item.notes)) return false;
   if (!isOptionalString(item.debtId)) return false;
@@ -346,15 +354,69 @@ function isValidRecurringIncomeRule(item: unknown): item is RecurringIncomeRule 
   return true;
 }
 
+function isValidRecurringExpenseRule(item: unknown): item is RecurringExpenseRule {
+  if (!isPlainObject(item)) return false;
+  if (!isNonEmptyString(item.id)) return false;
+  if (!isNonEmptyString(item.description)) return false;
+  if (!isFiniteNonNegativeNumber(item.amount)) return false;
+  if (typeof item.category !== 'string') return false;
+  if (!isOptionalString(item.accountId)) return false;
+  if (!isOptionalString(item.creditCardId)) return false;
+  if (!VALID_PAYMENT_METHODS.has(item.paymentMethod as PaymentMethod)) return false;
+  if (item.frequency !== 'monthly') return false;
+  if (!Number.isInteger(item.dayOfMonth) || (item.dayOfMonth as number) < 1 || (item.dayOfMonth as number) > 31) {
+    return false;
+  }
+  if (!isNonEmptyString(item.startDate)) return false;
+  if (!isNonEmptyString(item.startPeriod)) return false;
+  if (typeof item.isIndefinite !== 'boolean') return false;
+  if (!isOptionalString(item.endDate)) return false;
+  if (!isOptionalString(item.endPeriod)) return false;
+  if (typeof item.isActive !== 'boolean') return false;
+  if (!isOptionalString(item.deactivatedFromPeriod)) return false;
+  if (!isOptionalString(item.notes)) return false;
+  if (item.schedules !== undefined) {
+    if (!Array.isArray(item.schedules)) return false;
+    for (const sched of item.schedules) {
+      if (!isPlainObject(sched)) return false;
+      if (!isNonEmptyString(sched.effectiveFromPeriod)) return false;
+      if (!isFiniteNonNegativeNumber(sched.amount)) return false;
+      if (!isOptionalString(sched.accountId)) return false;
+      if (!isOptionalString(sched.creditCardId)) return false;
+      if (
+        sched.dayOfMonth !== undefined &&
+        (!Number.isInteger(sched.dayOfMonth) || (sched.dayOfMonth as number) < 1 || (sched.dayOfMonth as number) > 31)
+      ) {
+        return false;
+      }
+    }
+  }
+  if (item.overrides !== undefined) {
+    if (!isPlainObject(item.overrides)) return false;
+    for (const ov of Object.values(item.overrides)) {
+      if (!isPlainObject(ov)) return false;
+      if (ov.amount !== undefined && !isFiniteNonNegativeNumber(ov.amount)) return false;
+      if (ov.skipped !== undefined && typeof ov.skipped !== 'boolean') return false;
+      if (!isOptionalString(ov.accountId)) return false;
+      if (!isOptionalString(ov.creditCardId)) return false;
+    }
+  }
+  return true;
+}
+
 export function hasRealFinancialData(
-  state: Pick<AppState, 'isSampleLoaded' | 'transactions' | 'debts' | 'goals' | 'recurringIncomes'>
+  state: Pick<
+    AppState,
+    'isSampleLoaded' | 'transactions' | 'debts' | 'goals' | 'recurringIncomes' | 'recurringExpenses'
+  >
 ): boolean {
   if (state.isSampleLoaded) return false;
   return (
     (state.transactions?.length || 0) > 0 ||
     (state.debts?.length || 0) > 0 ||
     (state.goals?.length || 0) > 0 ||
-    (state.recurringIncomes?.length || 0) > 0
+    (state.recurringIncomes?.length || 0) > 0 ||
+    (state.recurringExpenses?.length || 0) > 0
   );
 }
 
@@ -649,9 +711,32 @@ export function validateBackupJsonStructure(
     }
   }
 
+  if (stateCandidate.recurringExpenses !== undefined) {
+    if (!Array.isArray(stateCandidate.recurringExpenses)) {
+      return {
+        valid: false,
+        code: 'invalid_structure',
+        error: 'Backup inválido: o campo "recurringExpenses" deve ser uma lista válida.'
+      };
+    }
+    const invalidRecurringExpIndex = stateCandidate.recurringExpenses.findIndex(
+      item => !isValidRecurringExpenseRule(item)
+    );
+    if (invalidRecurringExpIndex !== -1) {
+      return {
+        valid: false,
+        code: 'incompatible_item',
+        error: `Backup incompatível: despesa fixa recorrente #${invalidRecurringExpIndex + 1} possui campos ausentes ou tipos inválidos.`
+      };
+    }
+  }
+
   const validatedState: AppState = {
     ownerUserId: expectedUserId,
     version: stateCandidate.version as number,
+    ...(typeof stateCandidate.schemaVersion === 'number'
+      ? { schemaVersion: stateCandidate.schemaVersion }
+      : {}),
     lastModified: stateCandidate.lastModified as number,
     transactions: stateCandidate.transactions as Transaction[],
     categories: stateCandidate.categories as Category[],
@@ -662,17 +747,24 @@ export function validateBackupJsonStructure(
     ...(Array.isArray(stateCandidate.recurringIncomes)
       ? { recurringIncomes: stateCandidate.recurringIncomes as RecurringIncomeRule[] }
       : {}),
+    ...(Array.isArray(stateCandidate.recurringExpenses)
+      ? { recurringExpenses: stateCandidate.recurringExpenses as RecurringExpenseRule[] }
+      : {}),
     safetyReserveDesired: stateCandidate.safetyReserveDesired as number,
     isSampleLoaded: stateCandidate.isSampleLoaded as boolean
   };
 
+  const recurringIncomesCount = validatedState.recurringIncomes?.length || 0;
+  const recurringExpensesCount = validatedState.recurringExpenses?.length || 0;
   const counts: BackupPreviewCounts = {
     transactions: validatedState.transactions.length,
     categories: validatedState.categories.length,
     accounts: validatedState.accounts.length,
     creditCards: validatedState.creditCards.length,
     debts: validatedState.debts.length,
-    goals: validatedState.goals.length
+    goals: validatedState.goals.length,
+    ...(recurringIncomesCount > 0 ? { recurringIncomes: recurringIncomesCount } : {}),
+    ...(recurringExpensesCount > 0 ? { recurringExpenses: recurringExpensesCount } : {})
   };
 
   return {
@@ -913,6 +1005,21 @@ export function evaluateManualCloudUploadSafety(params: {
       alreadySynced: true,
       reasonCode: 'already_synced',
       message: 'Os dados locais e da nuvem já estão idênticos e sincronizados.',
+      localVersion,
+      localTimestamp,
+      remoteVersion,
+      remoteTimestamp
+    };
+  }
+
+  if (detectStaleClientSchemaRisk(localState, remoteState)) {
+    return {
+      allowed: false,
+      conflict: true,
+      alreadySynced: false,
+      reasonCode: 'remote_conflict',
+      message:
+        'Envio bloqueado: a nuvem contém despesas fixas recorrentes criadas em uma versão mais recente do aplicativo. Atualize/baixe os dados da nuvem para não descartar essas regras.',
       localVersion,
       localTimestamp,
       remoteVersion,

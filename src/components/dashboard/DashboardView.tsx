@@ -59,7 +59,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setCurrentTab }) =
     periodLabel: ctxPeriodLabel,
     selectedMonth,
     selectedYear,
-    isFutureView
+    isFutureView,
+    predictedIncomeCurrentMonth = 0,
+    predictedExpenseCurrentMonth = 0
   } = useFinance();
 
   const activePeriod = ctxActivePeriod ?? resolveActivePeriod(filter);
@@ -272,7 +274,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setCurrentTab }) =
               {formatCurrency(totalIncomePeriod)}
             </div>
             <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 truncate">
-              Receitas do período
+              {activePeriod.isCurrentMonth && predictedIncomeCurrentMonth > 0
+                ? `Realizado · +${formatCurrency(predictedIncomeCurrentMonth)} previsto`
+                : isProjectedView
+                ? 'Projeção do período'
+                : 'Receitas do período'}
             </div>
           </div>
 
@@ -289,7 +295,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setCurrentTab }) =
               {formatCurrency(totalExpensePeriod)}
             </div>
             <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 truncate">
-              Fixas + Variáveis
+              {activePeriod.isCurrentMonth && predictedExpenseCurrentMonth > 0
+                ? `Efetivado · +${formatCurrency(predictedExpenseCurrentMonth)} previsto`
+                : 'Fixas + Variáveis'}
             </div>
           </div>
 

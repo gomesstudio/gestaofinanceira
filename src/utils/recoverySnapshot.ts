@@ -22,6 +22,8 @@ export interface RecoverySnapshotCounts {
   debts: number;
   goals: number;
   categories: number;
+  recurringIncomes?: number;
+  recurringExpenses?: number;
 }
 
 export interface LocalRecoverySnapshotSummary {
@@ -213,13 +215,21 @@ export function inspectLocalRecoverySnapshot(
   }
 
   const parsedDate = new Date(snapshot.savedAt);
+  const recurringIncomesCount = Array.isArray(snapshot.state.recurringIncomes)
+    ? snapshot.state.recurringIncomes.length
+    : 0;
+  const recurringExpensesCount = Array.isArray(snapshot.state.recurringExpenses)
+    ? snapshot.state.recurringExpenses.length
+    : 0;
   const counts: RecoverySnapshotCounts = {
     transactions: snapshot.state.transactions.length,
     accounts: snapshot.state.accounts.length,
     creditCards: snapshot.state.creditCards.length,
     debts: snapshot.state.debts.length,
     goals: snapshot.state.goals.length,
-    categories: snapshot.state.categories.length
+    categories: snapshot.state.categories.length,
+    ...(recurringIncomesCount > 0 ? { recurringIncomes: recurringIncomesCount } : {}),
+    ...(recurringExpensesCount > 0 ? { recurringExpenses: recurringExpensesCount } : {})
   };
 
   return {
